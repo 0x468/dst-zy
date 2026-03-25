@@ -3,10 +3,12 @@ set -euo pipefail
 
 DST_UPDATE_MODE=${DST_UPDATE_MODE:-install-only}
 DST_CLUSTER_NAME=${DST_CLUSTER_NAME:-Cluster_1}
+export DST_CLUSTER_NAME
 DST_STEAMCMD_DIR=${DST_STEAMCMD_DIR:-/opt/steamcmd}
 DST_INSTALL_DIR=${DST_INSTALL_DIR:-/opt/dst}
 DST_UGC_DIR=${DST_UGC_DIR:-/ugc}
 DST_DATA_DIR=${DST_DATA_DIR:-/data}
+export DST_UGC_DIR DST_DATA_DIR
 DST_SERVER_BINARY=""
 
 readonly DATA_CLUSTER_DIR="$DST_DATA_DIR/$DST_CLUSTER_NAME"
@@ -153,6 +155,7 @@ main() {
     log_info "DST dedicated server binary not found under $DST_INSTALL_DIR"
   fi
   handle_update_mode
+  export DST_SERVER_BINARY
   sync_mod_setup
 
   log_info 'starting supervisord'
