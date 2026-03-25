@@ -35,6 +35,7 @@
 - `runtime`：默认值。由 Master/Caves 在各自启动时自行检查和下载 mod。优点是逻辑最贴近 DST 原生行为；缺点是首次冷缓存时两个 shard 可能并发访问 Workshop，日志也会更嘈杂。
 - `prewarm`：entrypoint 先用 DST 二进制的 `-only_update_server_mods` 预热一次 mod 缓存，随后再让 Master/Caves 以 `-skip_update_server_mods` 启动。优点是首次冷缓存更稳定，两个 shard 会直接复用 `/ugc` 已经下载好的内容；缺点是正式开服前会多一个预热阶段。
 - `skip`：完全跳过 shard 启动阶段的 mod 更新，要求你已经有可用的 `/ugc` 缓存。适合已知缓存完整、想压低启动噪音或避免访问 Workshop 的场景。
+- 无论使用哪种模式，只要存在 `dedicated_server_mods_setup.lua`，entrypoint 都会先打印一份缓存摘要，例如 `cached workshop-...` / `missing workshop-...`，方便你快速判断当前 `/ugc` 里到底有哪些 mod 已经准备好。
 
 ## mod 配置职责
 - `dedicated_server_mods_setup.lua`（位于 `./data/<DST_CLUSTER_NAME>/mods/`）负责回答 “要下载哪些 Workshop/server mods”，它会被同步到 `/opt/dst/mods`，让 DST 本体在启动前得以触发下载/更新。

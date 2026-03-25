@@ -145,6 +145,44 @@ sync_mod_setup() {
   install -m 0644 "$src" "$dst"
 }
 
+collect_server_mod_ids() {
+  local synced_mod_setup="$DST_INSTALL_DIR/mods/dedicated_server_mods_setup.lua"
+
+  if [ ! -f "$synced_mod_setup" ]; then
+    return 0
+  fi
+
+  grep -oE 'workshop-[0-9]+' "$synced_mod_setup" | sort -u
+}
+
+log_server_mod_cache_state() {
+  local mod_id
+  local -a cached_ids=()
+  local -a missing_ids=()
+
+  while IFS= read -r mod_id; do
+    [ -n "$mod_id" ] || continue
+    if [ -d "$DST_UGC_DIR/content/322330/${mod_id#workshop-}" ]; then
+      cached_ids+=("$mod_id")
+    else
+      missing_ids+=("$mod_id")
+    fi
+  done < <(collect_server_mod_ids)
+
+  if [ "${#cached_ids[@]}" -eq 0 ] && [ "${#missing_ids[@]}" -eq 0 ]; then
+    log_info 'server mods cache: no workshop ids declared'
+    return
+  fi
+
+  if [ "${#cached_ids[@]}" -gt 0 ]; then
+    log_info "server mods cache: cached ${cached_ids[*]}"
+  fi
+
+  if [ "${#missing_ids[@]}" -gt 0 ]; then
+    log_info "server mods cache: missing ${missing_ids[*]}"
+  fi
+}
+
 run_only_update_server_mods() {
   local runtime_dir
 
@@ -175,14 +213,17 @@ configure_server_mod_update_mode() {
   case "$DST_SERVER_MODS_UPDATE_MODE" in
     runtime)
       log_info 'server mods: runtime mode; shard processes will update mods themselves'
+      log_server_mod_cache_state
       ;;
     prewarm)
       run_only_update_server_mods
       DST_SERVER_EXTRA_ARGS='-skip_update_server_mods'
+      log_server_mod_cache_state
       log_info 'server mods: prewarm finished; shard processes will reuse cache via -skip_update_server_mods'
       ;;
     skip)
       DST_SERVER_EXTRA_ARGS='-skip_update_server_mods'
+      log_server_mod_cache_state
       log_info 'server mods: skip mode; shard processes will trust existing UGC cache'
       ;;
     *)
