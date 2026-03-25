@@ -152,7 +152,7 @@ collect_server_mod_ids() {
     return 0
   fi
 
-  grep -oE 'workshop-[0-9]+' "$synced_mod_setup" | sort -u
+  grep -oE 'workshop-[0-9]+' "$synced_mod_setup" | sort -u || true
 }
 
 log_server_mod_cache_state() {
