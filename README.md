@@ -33,13 +33,9 @@
 - 该分工的好处是：`dedicated_server_mods_setup.lua` 统筹下载行为，`modoverrides.lua` 遵循 shard 级别的启用/配置策略。
 
 ## 验证状态
-- 已验证：
-  - `docker compose config` 能够解析当前 `docker-compose.yml` 且展现了 `.env` 中的 `DST` 环境变量。
-- 待验证：
-  - `update`/`validate` 模式在真实 Workshop mod 场景中的实际效果；
-  - `UGC`（`/ugc`）目录是否完全覆盖 SteamCMD 的下载落盘位置；
-  - `./data` 下的 mod 配置在多 shard 启动过程中的稳定性；
-  - 其他 DST 更新参数与 mod 下载的完整性。
+- 已验证：`docker build --pull=false -t dst-docker:v1 .`、`bash -n entrypoint.sh`、`bash tests/smoke/test-preflight-missing-token.sh` 等关键命令均正常返回；`docker run --rm dst-docker:v1` 则在 `entrypoint` 的 preflight 阶段因 `/data/Cluster_1/cluster.ini` 缺失而退出，证明缺乏配置时不会误报成功；临时补充 `.env` 后 `docker compose config` 能完整展现 ports/volumes/environment 设定，`docker run --rm --entrypoint cat dst-docker:v1 /etc/supervisor/conf.d/supervisord.conf` 也确认了 Master/Caves 启动命令消费 entrypoint 导出的环境变量；详见 `docs/verification.md` 获取完整验证流程与观察细节。
+- 限制：`cluster.ini`、`cluster_token.txt` 与两个 shard 的 `server.ini` 仍缺失，`entrypoint` 会在 `require_file` 阶段直接退出，因此 `docker compose up` 或 `supervisord` 的真正 Master/Caves 启动依赖这些文件才能完成。
+- 待验证：`update`/`validate` 模式在真实的 Workshop mod 场景中是否按预期更新；`/ugc` 目录是否真正覆盖 SteamCMD 的下载缓存；`./data` 下的 mod/shard 配置在多 shard 并行运行中的稳定性；其他 DST 更新参数与 mod 下载行为的完整性。
 
 ## 其他说明
 - 目录挂载后的第一级路径（`steamcmd`、`dst`、`ugc`、`data`）必须由用户提前创建并赋予合适权限。
