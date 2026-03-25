@@ -38,6 +38,14 @@ require_file() {
   fi
 }
 
+ensure_optional_file() {
+  local path="$1"
+
+  if [ ! -e "$path" ]; then
+    : > "$path"
+  fi
+}
+
 create_directories() {
   log_info "ensuring required directories"
   for dir in "$DST_STEAM_STATE_DIR" "$DST_INSTALL_DIR" "$DST_UGC_DIR" \
@@ -145,6 +153,12 @@ sync_mod_setup() {
   install -m 0644 "$src" "$dst"
 }
 
+ensure_optional_cluster_files() {
+  ensure_optional_file "$DATA_CLUSTER_DIR/adminlist.txt"
+  ensure_optional_file "$DATA_CLUSTER_DIR/blocklist.txt"
+  ensure_optional_file "$DATA_CLUSTER_DIR/whitelist.txt"
+}
+
 collect_server_mod_ids() {
   local synced_mod_setup="$DST_INSTALL_DIR/mods/dedicated_server_mods_setup.lua"
 
@@ -242,6 +256,7 @@ main() {
   require_file cluster_token.txt "$DATA_CLUSTER_DIR/cluster_token.txt"
   require_file Master/server.ini "$DATA_MASTER_DIR/server.ini"
   require_file Caves/server.ini "$DATA_CAVES_DIR/server.ini"
+  ensure_optional_cluster_files
 
   if find_dst_binary; then
     log_info "DST dedicated server binary located at $DST_SERVER_BINARY"

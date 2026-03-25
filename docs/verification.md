@@ -13,6 +13,7 @@
 - supervisor 配置(`supervisord.conf`)中用 `%(ENV_DST_SERVER_BINARY)s`、`%(ENV_DST_CLUSTER_NAME)s`、`%(ENV_DST_DATA_DIR)s`、`%(ENV_DST_UGC_DIR)s` 定义 Master 与 Caves 的启动命令，entrypoint 会在前期导出这些变量供 supervisord 读取；同时两个 shard 现在都显式以 `/opt/dst/bin64` 作为工作目录启动，避免从 `/` 启动时出现 `databundles/scripts.zip skipped` 与 `scripts/main.lua` 无法加载的问题。
 - 当前最小可用双分片配置至少需要：`cluster.ini` 中启用 `[SHARD] shard_enabled = true` 并提供 `bind_ip`/`master_ip`/`master_port`/`cluster_key`，两个 shard 各自的 `server.ini` 中提供独立 `server_port` 与 `STEAM` 端口；`Caves` 额外需要 `leveldataoverride.lua` 或 `worldgenoverride.lua` 指向洞穴 preset 才能稳定生成洞穴世界。
 - entrypoint 现在会在真正启动 shard 之前，基于 `dedicated_server_mods_setup.lua` 与 `/ugc/content/322330/<id>` 的目录是否存在，打印 `cached workshop-...` / `missing workshop-...` 摘要，方便直接判断缓存状态。
+- entrypoint 还会在 preflight 阶段自动创建空的 `adminlist.txt`、`blocklist.txt`、`whitelist.txt`；这样 DST 日志会把它们记为 `(Success)`，不再反复报缺失失败。
 
 ## 已实验验证
 - `docker build --pull=false -t dst-docker:v1 .`：镜像成功构建，所有步骤均命中缓存，Dockerfile 能顺利生成 `dst-docker:v1`。

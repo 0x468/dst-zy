@@ -17,7 +17,7 @@
 ## 首次启动行为
 `entrypoint.sh` 会按顺序执行：
 1. 确认 `./steam-state`、`./dst`、`./ugc`、`./data/<DST_CLUSTER_NAME>` 等目录存在，并创建缺失项。
-2. 检查必须的配置文件（`./data/<DST_CLUSTER_NAME>/cluster.ini`、`./data/<DST_CLUSTER_NAME>/cluster_token.txt`、两个 shard 的 `server.ini`）。
+2. 检查必须的配置文件（`./data/<DST_CLUSTER_NAME>/cluster.ini`、`./data/<DST_CLUSTER_NAME>/cluster_token.txt`、两个 shard 的 `server.ini`），并自动补齐空的 `adminlist.txt`、`blocklist.txt`、`whitelist.txt`。
 3. 根据 `DST_UPDATE_MODE` 决定是否通过 SteamCMD 安装/更新（默认 `install-only` 只在首次无 binary 时安装）。
 4. 将 `./data/<DST_CLUSTER_NAME>/mods/dedicated_server_mods_setup.lua` 同步到 `/opt/dst/mods`。
 5. 根据 `DST_SERVER_MODS_UPDATE_MODE` 决定 server mods 的更新策略。
