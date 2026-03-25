@@ -8,14 +8,17 @@ DST_STEAM_STATE_DIR=${DST_STEAM_STATE_DIR:-/steam-state}
 DST_INSTALL_DIR=${DST_INSTALL_DIR:-/opt/dst}
 DST_UGC_DIR=${DST_UGC_DIR:-/ugc}
 DST_DATA_DIR=${DST_DATA_DIR:-/data}
-export DST_UGC_DIR DST_DATA_DIR DST_STEAM_STATE_DIR
+DST_SERVER_MODS_UPDATE_MODE=${DST_SERVER_MODS_UPDATE_MODE:-runtime}
+export DST_UGC_DIR DST_DATA_DIR DST_STEAM_STATE_DIR DST_SERVER_MODS_UPDATE_MODE
 DST_SERVER_BINARY=""
+DST_SERVER_EXTRA_ARGS=""
 readonly STEAMCMD_BIN=/usr/local/steamcmd/steamcmd.sh
 
 readonly DATA_CLUSTER_DIR="$DST_DATA_DIR/$DST_CLUSTER_NAME"
 readonly DATA_MASTER_DIR="$DATA_CLUSTER_DIR/Master"
 readonly DATA_CAVES_DIR="$DATA_CLUSTER_DIR/Caves"
 readonly DATA_MODS_DIR="$DATA_CLUSTER_DIR/mods"
+readonly SUPERVISORD_CONFIG=/etc/supervisor/conf.d/supervisord.conf
 
 log_info() {
   printf 'entrypoint: %s\n' "$*"
@@ -142,6 +145,55 @@ sync_mod_setup() {
   install -m 0644 "$src" "$dst"
 }
 
+run_only_update_server_mods() {
+  local runtime_dir
+
+  runtime_dir="$(dirname "$DST_SERVER_BINARY")"
+  log_info 'server mods: prewarming via -only_update_server_mods'
+  (
+    cd "$runtime_dir"
+    "$DST_SERVER_BINARY" \
+      -cluster "$DST_CLUSTER_NAME" \
+      -shard Master \
+      -conf_dir . \
+      -persistent_storage_root "$DST_DATA_DIR" \
+      -ugc_directory "$DST_UGC_DIR" \
+      -only_update_server_mods
+  )
+}
+
+configure_server_mod_update_mode() {
+  local synced_mod_setup="$DST_INSTALL_DIR/mods/dedicated_server_mods_setup.lua"
+
+  DST_SERVER_EXTRA_ARGS=""
+  if [ ! -f "$synced_mod_setup" ]; then
+    log_info 'server mods: no synced dedicated_server_mods_setup.lua, using runtime mode'
+    export DST_SERVER_EXTRA_ARGS
+    return
+  fi
+
+  case "$DST_SERVER_MODS_UPDATE_MODE" in
+    runtime)
+      log_info 'server mods: runtime mode; shard processes will update mods themselves'
+      ;;
+    prewarm)
+      run_only_update_server_mods
+      DST_SERVER_EXTRA_ARGS='-skip_update_server_mods'
+      log_info 'server mods: prewarm finished; shard processes will reuse cache via -skip_update_server_mods'
+      ;;
+    skip)
+      DST_SERVER_EXTRA_ARGS='-skip_update_server_mods'
+      log_info 'server mods: skip mode; shard processes will trust existing UGC cache'
+      ;;
+    *)
+      log_error "unknown DST_SERVER_MODS_UPDATE_MODE '$DST_SERVER_MODS_UPDATE_MODE'"
+      exit 1
+      ;;
+  esac
+
+  export DST_SERVER_EXTRA_ARGS
+}
+
 main() {
   create_directories
 
@@ -158,9 +210,10 @@ main() {
   handle_update_mode
   export DST_SERVER_BINARY
   sync_mod_setup
+  configure_server_mod_update_mode
 
   log_info 'starting supervisord'
-  exec /usr/bin/supervisord -n
+  exec /usr/bin/supervisord -n -c "$SUPERVISORD_CONFIG"
 }
 
 main "$@"
