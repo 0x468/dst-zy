@@ -4,7 +4,8 @@
 本仓库在现有的 `Dockerfile`、`entrypoint.sh` 和 `supervisord.conf` 基础上，提供一个可直接运行的 `docker-compose.yml`，搭配 `.env` 模板和中文文档，帮助用户在本地快速启动一个完整的 DST dedicated server（Master + Caves）。
 
 ## 目录职责
-- `./steamcmd`：容器内 SteamCMD 所在目录，也是 `entrypoint.sh` 启动时需要的 Steam 状态持久化位置。
+- `/usr/local/steamcmd`：SteamCMD 程序文件被固定安装在镜像内的此路径，`entrypoint.sh` 直接调用 `/usr/local/steamcmd/steamcmd.sh`，因此用户无法通过挂载覆盖程序。
+- `./steam-state`：挂载到容器的 `/steam-state` 目录，为 SteamCMD 的 `HOME` 提供持久化状态（缓存、安装临时文件等），也就是唯一对外暴露的 Steam 状态目录。
 - `./dst`：DST dedicated server 的安装目录（`/opt/dst`），包含二进制、`mods` 目录以及由 `dedicated_server_mods_setup.lua` 同步进来的内容。
 - `./ugc`：`-ugc_directory` 指向的工作组/用户自定义内容目录，务必挂载以避免 Workshop 下载重复。
 - `./data`：专门用于存放对应 `DST_CLUSTER_NAME` 的配置、存档与 mod 资料，默认例子仍是 `Cluster_1`：
@@ -15,7 +16,7 @@
 
 ## 首次启动行为
 `entrypoint.sh` 会按顺序执行：
-1. 确认 `./steamcmd`、`./dst`、`./ugc`、`./data/<DST_CLUSTER_NAME>` 等目录存在，并创建缺失项。
+1. 确认 `./steam-state`、`./dst`、`./ugc`、`./data/<DST_CLUSTER_NAME>` 等目录存在，并创建缺失项。
 2. 检查必须的配置文件（`./data/<DST_CLUSTER_NAME>/cluster.ini`、`./data/<DST_CLUSTER_NAME>/cluster_token.txt`、两个 shard 的 `server.ini`）。
 3. 根据 `DST_UPDATE_MODE` 决定是否通过 SteamCMD 安装/更新（默认 `install-only` 只在首次无 binary 时安装）。
 4. 将 `./data/<DST_CLUSTER_NAME>/mods/dedicated_server_mods_setup.lua` 同步到 `/opt/dst/mods`。
@@ -32,11 +33,13 @@
 - `modoverrides.lua`（`./data/<DST_CLUSTER_NAME>/Master/modoverrides.lua` 与 `./data/<DST_CLUSTER_NAME>/Caves/modoverrides.lua`）负责回答 “每个 shard 是否启用某个 mod 以及具体配置是什么”，Klei 的 shard 配置只会读取这个文件。
 - 该分工的好处是：`dedicated_server_mods_setup.lua` 统筹下载行为，`modoverrides.lua` 遵循 shard 级别的启用/配置策略。
 
+
 ## 验证状态
+`SteamCMD` 程序固定在 `/usr/local/steamcmd`，而运行时状态写入 `/steam-state`。详见 `docs/verification.md` 中对这两个路径的验证。
 - 已验证：`docker build --pull=false -t dst-docker:v1 .`、`bash -n entrypoint.sh`、`bash tests/smoke/test-preflight-missing-token.sh` 等关键命令均正常返回；`docker run --rm dst-docker:v1` 则在 `entrypoint` 的 preflight 阶段因 `/data/Cluster_1/cluster.ini` 缺失而退出，证明缺乏配置时不会误报成功；临时补充 `.env` 后 `docker compose config` 能完整展现 ports/volumes/environment 设定，`docker run --rm --entrypoint cat dst-docker:v1 /etc/supervisor/conf.d/supervisord.conf` 也确认了 Master/Caves 启动命令消费 entrypoint 导出的环境变量；详见 `docs/verification.md` 获取完整验证流程与观察细节。
 - 限制：`cluster.ini`、`cluster_token.txt` 与两个 shard 的 `server.ini` 仍缺失，`entrypoint` 会在 `require_file` 阶段直接退出，因此 `docker compose up` 或 `supervisord` 的真正 Master/Caves 启动依赖这些文件才能完成。
 - 待验证：`update`/`validate` 模式在真实的 Workshop mod 场景中是否按预期更新；`/ugc` 目录是否真正覆盖 SteamCMD 的下载缓存；`./data` 下的 mod/shard 配置在多 shard 并行运行中的稳定性；其他 DST 更新参数与 mod 下载行为的完整性。
 
 ## 其他说明
-- 目录挂载后的第一级路径（`steamcmd`、`dst`、`ugc`、`data`）必须由用户提前创建并赋予合适权限。
+- 目录挂载后的第一级路径（`steam-state`、`dst`、`ugc`、`data`）必须由用户提前创建并赋予合适权限。
 - 当前的 compose 版本只依赖本地构建，后续可考虑用远程镜像替代。

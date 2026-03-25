@@ -12,10 +12,10 @@ RUN apt-get update \
         supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /opt/steamcmd /opt/dst /ugc /data /var/log/supervisor /etc/supervisor/conf.d
+RUN mkdir -p /usr/local/steamcmd /opt/dst /ugc /data /steam-state /var/log/supervisor /etc/supervisor/conf.d
 
 RUN curl -fsSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
-    | tar -C /opt/steamcmd -xzf -
+    | tar -C /usr/local/steamcmd -xzf -
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf

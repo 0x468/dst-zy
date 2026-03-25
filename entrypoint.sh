@@ -4,12 +4,13 @@ set -euo pipefail
 DST_UPDATE_MODE=${DST_UPDATE_MODE:-install-only}
 DST_CLUSTER_NAME=${DST_CLUSTER_NAME:-Cluster_1}
 export DST_CLUSTER_NAME
-DST_STEAMCMD_DIR=${DST_STEAMCMD_DIR:-/opt/steamcmd}
+DST_STEAM_STATE_DIR=${DST_STEAM_STATE_DIR:-/steam-state}
 DST_INSTALL_DIR=${DST_INSTALL_DIR:-/opt/dst}
 DST_UGC_DIR=${DST_UGC_DIR:-/ugc}
 DST_DATA_DIR=${DST_DATA_DIR:-/data}
-export DST_UGC_DIR DST_DATA_DIR
+export DST_UGC_DIR DST_DATA_DIR DST_STEAM_STATE_DIR
 DST_SERVER_BINARY=""
+readonly STEAMCMD_BIN=/usr/local/steamcmd/steamcmd.sh
 
 readonly DATA_CLUSTER_DIR="$DST_DATA_DIR/$DST_CLUSTER_NAME"
 readonly DATA_MASTER_DIR="$DATA_CLUSTER_DIR/Master"
@@ -36,7 +37,7 @@ require_file() {
 
 create_directories() {
   log_info "ensuring required directories"
-  for dir in "$DST_STEAMCMD_DIR" "$DST_INSTALL_DIR" "$DST_UGC_DIR" \
+  for dir in "$DST_STEAM_STATE_DIR" "$DST_INSTALL_DIR" "$DST_UGC_DIR" \
              "$DATA_CLUSTER_DIR" "$DATA_MASTER_DIR" "$DATA_CAVES_DIR" "$DATA_MODS_DIR"; do
     mkdir -p "$dir"
   done
@@ -69,7 +70,7 @@ run_steamcmd_app_update() {
   fi
 
   log_info "running SteamCMD $description"
-  "$DST_STEAMCMD_DIR/steamcmd.sh" \
+  HOME="$DST_STEAM_STATE_DIR" "$STEAMCMD_BIN" \
     +force_install_dir "$DST_INSTALL_DIR" \
     +login anonymous \
     +app_update 343050 \

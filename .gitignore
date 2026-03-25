@@ -3,6 +3,7 @@
 .env
 dst/
 steamcmd/
+steam-state/
 ugc/
 data/
 .tmp/
