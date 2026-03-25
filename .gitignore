@@ -1,2 +1,8 @@
 .worktrees/
 .local-notes/
+.env
+dst/
+steamcmd/
+ugc/
+data/
+.tmp/
