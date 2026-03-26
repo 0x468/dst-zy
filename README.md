@@ -6,6 +6,7 @@
 ## 目录职责
 - `/usr/local/steamcmd`：SteamCMD 程序文件被固定安装在镜像内的此路径，`entrypoint.sh` 直接调用 `/usr/local/steamcmd/steamcmd.sh`，因此用户无法通过挂载覆盖程序。
 - `./steam-state`：挂载到容器的 `/steam-state` 目录，为 SteamCMD 的 `HOME` 提供持久化状态（缓存、安装临时文件等），也就是唯一对外暴露的 Steam 状态目录。
+- SteamCMD 首次 36MB 程序自更新现在已经前移到镜像构建阶段，因此运行时不再需要额外完成这一步 bootstrap；`./steam-state` 主要承接运行状态、日志与 app/depot cache，而不是承接 SteamCMD 程序本体升级。
 - `./dst`：DST dedicated server 的安装目录（`/opt/dst`），包含二进制、`mods` 目录以及由 `dedicated_server_mods_setup.lua` 同步进来的内容。
 - `./ugc`：`-ugc_directory` 指向的工作组/用户自定义内容目录，务必挂载以避免 Workshop 下载重复。
 - `./data`：专门用于存放对应 `DST_CLUSTER_NAME` 的配置、存档与 mod 资料，默认例子仍是 `Cluster_1`：

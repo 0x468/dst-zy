@@ -20,6 +20,10 @@ RUN mkdir -p /usr/local/steamcmd /usr/local/lib/dst /opt/dst /ugc /data /steam-s
 RUN curl -fsSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
     | tar -C /usr/local/steamcmd -xzf -
 
+RUN mkdir -p /tmp/steamcmd-bootstrap \
+    && HOME=/tmp/steamcmd-bootstrap /usr/local/steamcmd/steamcmd.sh +quit \
+    && rm -rf /tmp/steamcmd-bootstrap
+
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY lib/legacy_workshop_fallback.sh /usr/local/lib/dst/legacy_workshop_fallback.sh
 COPY lib/steamcmd_retry.sh /usr/local/lib/dst/steamcmd_retry.sh

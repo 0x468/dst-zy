@@ -7,6 +7,7 @@
 ## 工程约定
 - 镜像把宿主目录映射到：`./steam-state` → `/steam-state`（Steam 状态持久化）、`./dst` → `/opt/dst`（服务器主程序）、`./ugc` → `/ugc`（Workshop/UGC 缓存）、`./data` → `/data`（集群配置、存档与 mod）。entrypoint 依赖这些挂载点并默认创建缺失部分。
 - SteamCMD 程序文件固定在 `/usr/local/steamcmd`，entrypoint 直接调用 `/usr/local/steamcmd/steamcmd.sh`，同时以 `/steam-state` 作为 `HOME`，保证用户无法通过挂载覆盖核心程序且所有运行状态都落在独立目录。
+- Dockerfile 现在会在构建阶段主动执行一次 `steamcmd.sh +quit`，把 SteamCMD 首次约 36MB 的程序自更新烘进镜像；因此运行时的第一次 `steamcmd +quit` 已不再重复拉取这部分 bootstrap。
 - `entrypoint.sh` 现在会把 SteamCMD 的 `app_update 343050` 包装成“仅针对 `Missing configuration` 的一次有限重试”。这是因为同一容器、同一 `HOME`、同一命令组下，已验证存在“第一次返回 `ERROR! Failed to install app '343050' (Missing configuration)`，第二次原样重试成功”的瞬时失败模式。
 - `entrypoint.sh` 会在 `/data/<DST_CLUSTER_NAME>` 下查找 `cluster.ini`、`cluster_token.txt` 与两个 shard 的 `server.ini`，没有这些文件启动就会在 preflight 阶段失败（脚本里用 `require_file` 明确退出）。
 - 通过 `find_dst_binary` 和 `run_steamcmd_app_update` 两段逻辑，entrypoint 会优先定位 `/opt/dst/bin64/dontstarve_dedicated_server_nullrenderer_x64`，如缺失再调用 SteamCMD 下载，`DST_UPDATE_MODE` 支持 `install-only`/`update`/`validate`/`never` 四种运行方式。
@@ -22,6 +23,7 @@
 - `bash -n entrypoint.sh`：入口脚本无语法错误，`set -euo pipefail` 也可正常解析。
 - `bash tests/smoke/test-preflight-missing-token.sh`：烟雾测试确认缺少 `cluster_token.txt` 会通过 entrypoint 的 preflight 跳出。
 - `bash tests/smoke/test-steamcmd-retry-lib.sh`：确认 SteamCMD retry helper 会在第一次遇到 `Failed to install app '343050' (Missing configuration)` 时进行一次重试，并且不会把不相关错误当作可重试错误。
+- `bash tests/smoke/test-steamcmd-bootstrap-baked.sh`：确认当前镜像第一次执行 `steamcmd.sh +quit` 时不再出现 `36395 KB` 的 bootstrap 下载，证明 SteamCMD 首次程序更新已在构建阶段完成。
 - `bash tests/smoke/test-legacy-workshop-fallback-lib.sh`：确认 helper 能从 Steam metadata JSON 中正确筛出带 `file_url` 的 legacy Workshop mod，并能把解压后带反斜杠的路径名归一化成 Linux 目录结构。
 - `bash tests/smoke/test-legacy-workshop-extract-warnings.sh`：确认即使 `unzip` 因 legacy zip 的反斜杠路径发出 warning 并返回 `1`，helper 仍会继续完成 extraction 和路径归一化，而不是把 warning 误判成硬失败。
 - `docker run --rm dst-docker:v1`：entrypoint 会在缺少 `/data/Cluster_1/cluster.ini` 时立即报 `preflight error: missing cluster.ini at /data/Cluster_1/cluster.ini`，说明仍然需要配置文件才能完成启动。
@@ -32,6 +34,7 @@
 - `mkdir -p .tmp/steam-state-empty && docker run --rm -v "$PWD/.tmp/steam-state-empty:/steam-state" --entrypoint bash dst-docker:v1 -lc 'test -x /usr/local/steamcmd/steamcmd.sh'`：在没有覆盖程序目录的情况下，以空 `./steam-state` 挂载运行容器仍然能找到可执行的 `/usr/local/steamcmd/steamcmd.sh`，验证程序路径与状态目录已经分离。
 - `rm -rf .tmp/steam-state-probe && mkdir -p .tmp/steam-state-probe && docker run --rm -v "$PWD/.tmp/steam-state-probe:/steam-state" --entrypoint bash dst-docker:v1 -lc 'HOME=/steam-state /usr/local/steamcmd/steamcmd.sh +quit || true; find /steam-state -maxdepth 3 -type f | sort'`：首次运行会在 `/steam-state` 中生成真实的 Steam 配置与日志文件（`Steam/config/config.vdf` 和 `Steam/logs/appinfo_log.txt` 等），SteamCMD 输出“Logging directory: '/steam-state/Steam/logs'”与“Verifying installation”说明状态目录在本次 session 中被写入。
 - `docker run --rm -v "$PWD/.tmp/steam-state-probe:/steam-state" --entrypoint bash dst-docker:v1 -lc 'HOME=/steam-state /usr/local/steamcmd/steamcmd.sh +quit || true; find /steam-state -maxdepth 3 -type f | sort'`：第二次运行再次打印“Checking for available updates...”/“Downloading update...”/“Verifying installation...”等自更新日志，`find` 结果与第一次完全一致，说明 SteamCMD 虽然继续走更新流程但依旧读取了已经存在的 `/steam-state/Steam/config` 与 `Steam/logs` 文件。
+- `docker run --rm --entrypoint bash dst-docker:v1 -lc '/usr/local/steamcmd/steamcmd.sh +quit'`：在完成构建期预热后，第一次运行只剩 `Checking for available updates...` / `Verifying installation...`，不再出现 `Downloading update (0 of 36395 KB)...` 这类 36MB bootstrap 下载日志。
 - `docker run --rm --entrypoint bash dst-docker:v1 -lc 'set -e; mkdir -p /tmp/dst /tmp/home; source /usr/local/lib/dst/steamcmd_retry.sh; run_steamcmd_with_retry /tmp/retry.log env HOME=/tmp/home /usr/local/steamcmd/steamcmd.sh +force_install_dir /tmp/dst +login anonymous +app_update 343050 +quit; test -x /tmp/dst/bin64/dontstarve_dedicated_server_nullrenderer_x64; tail -n 80 /tmp/retry.log'`：真实 helper 验证中，日志先出现 `ERROR! Failed to install app '343050' (Missing configuration)`，随后打印 `steamcmd retry: retrying after transient Missing configuration (attempt 1/2)`，第二次执行成功输出 `Success! App '343050' fully installed.`，并留下可执行的 dedicated server binary。
 - `timeout 360s docker run --rm -e DST_SERVER_MODS_UPDATE_MODE=skip -v "$PWD/.tmp/install-retry-e2e/steam-state:/steam-state" -v "$PWD/.tmp/install-retry-e2e/dst:/opt/dst" -v "$PWD/.tmp/install-retry-e2e/ugc:/ugc" -v "$PWD/.tmp/install-retry-e2e/data:/data" dst-docker:v1`：entrypoint 首装验证中，`steamcmd-app-update.log` 明确记录了第一次 `Failed to install app '343050' (Missing configuration)` 与 retry 提示；尽管这轮验证在后续启动阶段被 `timeout` 截断，但挂载目录里已经产生 `/opt/dst/bin64/dontstarve_dedicated_server_nullrenderer_x64`，证明 entrypoint 级别的 install-only 链路已能跨过该瞬时错误。
 - `timeout 120s docker run --rm -v "$PWD/.tmp/e2e/steam-state:/steam-state" -v "$PWD/.tmp/e2e/dst:/opt/dst" -v "$PWD/.tmp/e2e/ugc:/ugc" -v "$PWD/.tmp/e2e-shards/data:/data" dst-docker:v1`：使用真实 token、改进后的最小双分片配置运行时，Master/Caves 均打印 `Mounting file system databundles/scripts.zip successful.`，随后完成 worldgen、Master/Caves shard 握手，并在约 120 秒超时前正常保存退出；这证明工作目录修复和最小双分片配置已经足以支撑正向启动。
@@ -52,6 +55,6 @@
 ## 待继续验证
 - SteamCMD 的 `app_update 343050` / `validate` 仍可能先返回 `Missing configuration`；当前实现只是在安装路径上通过“一次有限重试”提高成功率，并未证明根因已经消失。后续如果要彻底解释该错误，仍需继续定位 SteamCMD/Steam 侧触发条件。
 - “首次冷缓存 mod 预热” 已经通过 `DST_SERVER_MODS_UPDATE_MODE=prewarm` 固化到镜像逻辑中；后续仍需评估默认值是否保持 `runtime` 最稳妥，以及是否需要进一步记录失败 mod 的状态以避免对永久失效项反复预热。
-- 虽然 `/steam-state` 中的配置和日志文件在第二次 SteamCMD 启动时仍旧存在，但第二次 run 仍会输出 `Checking for available updates…`/`Downloading update…`/`Verifying installation…` 等自更新日志，说明只靠这一持久化状态尚无法跳过每次启动的 bootstrap；是否能利用已有 `/steam-state` 内容让后续运行真正复用且跳过下载仍需进一步调查。
+- 虽然构建期预热已经消除了运行时首次 36MB bootstrap，但 `/steam-state` 中的配置和日志文件是否还能进一步减少后续 `app_update` 的校验/清单流量，仍有继续观察空间。
 - `362175979` 与 `661253977` 现在已经能通过本地 legacy fallback 正常加载，但 DST 自带的 `/ugc` 下载链路仍持续报 `ODPF failed entirely: 16`；也就是说，我们解决的是“可运行性”，不是“DST 官方下载链路已恢复正常”。
 - 社区里有人通过替换 `dst/bin64/steamclient.so` 规避 `Staging library folder not found`；这目前只算社区 workaround，尚未纳入镜像默认行为，后续若要采用应先做独立验证并设计成显式可选开关。
