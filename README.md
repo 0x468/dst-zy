@@ -7,10 +7,12 @@
 如果你想先把目录跑起来，再按需微调，建议直接从 [`examples/Cluster_1`](/mnt/d/DST/docker/examples/Cluster_1) 复制：
 
 1. 复制 `.env.example` 为 `.env`
-2. 复制 `examples/Cluster_1` 到 `data/Cluster_1`
-3. 把 `data/Cluster_1/cluster_token.txt.example` 重命名为 `cluster_token.txt`，并填入你自己的 token
+2. 运行 `bash scripts/init-cluster.sh Cluster_1`
+3. 编辑 `data/Cluster_1/cluster_token.txt`，填入你自己的 token
 4. 按需修改 `cluster.ini`、`Master/server.ini`、`Caves/server.ini`、`modoverrides.lua`
 5. 再执行 `docker compose up --build`
+
+如果你不想用脚本，也可以手动复制 [`examples/Cluster_1`](/mnt/d/DST/docker/examples/Cluster_1) 到 `data/Cluster_1`，再把 `cluster_token.txt.example` 重命名为 `cluster_token.txt`。
 
 ## 目录职责
 - `/usr/local/steamcmd`：SteamCMD 程序文件被固定安装在镜像内的此路径，`entrypoint.sh` 直接调用 `/usr/local/steamcmd/steamcmd.sh`，因此用户无法通过挂载覆盖程序。
