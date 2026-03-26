@@ -35,7 +35,7 @@
 
 - `bash scripts/run-smoke.sh fast`
 
-如果你还想把依赖 Docker 的 smoke 一起跑掉，则使用：
+`fast` 现在会包含 `docker compose config` 这类轻量 Docker 检查。如果你还想把更重的容器级 smoke 一起跑掉，则使用：
 
 - `bash scripts/run-smoke.sh full`
 
