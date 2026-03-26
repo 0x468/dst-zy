@@ -39,6 +39,13 @@
 
 - `bash scripts/check-local-config.sh`
 
+如果你是第一次在本地准备运行目录，建议按这个顺序：
+
+1. `bash scripts/bootstrap-local.sh Cluster_1`
+2. 编辑 `data/Cluster_1/cluster_token.txt`
+3. `bash scripts/check-local-config.sh`
+4. `docker compose up --build`
+
 ## 目录职责
 - `/usr/local/steamcmd`：SteamCMD 程序文件被固定安装在镜像内的此路径，`entrypoint.sh` 直接调用 `/usr/local/steamcmd/steamcmd.sh`，因此用户无法通过挂载覆盖程序。
 - `./steam-state`：挂载到容器的 `/steam-state` 目录，为 SteamCMD 的 `HOME` 提供持久化状态（缓存、安装临时文件等），也就是唯一对外暴露的 Steam 状态目录。
@@ -90,7 +97,7 @@
 
 ## 验证状态
 `SteamCMD` 程序固定在 `/usr/local/steamcmd`，而运行时状态写入 `/steam-state`。详见 `docs/verification.md` 中对这两个路径的验证。
-- 已验证：`docker build --pull=false -t dst-docker:v1 .`、`bash -n entrypoint.sh`、`bash tests/smoke/test-preflight-missing-token.sh`、`bash tests/smoke/test-supervisord-config.sh`、`bash tests/smoke/test-legacy-workshop-fallback-lib.sh`、`bash tests/smoke/test-legacy-workshop-extract-warnings.sh` 等关键命令均正常返回；`docker run --rm dst-docker:v1` 则在 `entrypoint` 的 preflight 阶段因 `/data/Cluster_1/cluster.ini` 缺失而退出，证明缺乏配置时不会误报成功；临时补充 `.env` 后 `docker compose config` 能完整展现 ports/volumes/environment 设定，`docker run --rm --entrypoint cat dst-docker:v1 /etc/supervisor/conf.d/supervisord.conf` 也确认了 Master/Caves 启动命令消费 entrypoint 导出的环境变量；详见 `docs/verification.md` 获取完整验证流程与观察细节。
+- 已验证：`docker build --pull=false -t dst-docker:v1 .`、`bash scripts/run-smoke.sh fast`、`bash scripts/check-local-config.sh` 对已初始化示例目录可正确通过、`bash tests/smoke/test-preflight-missing-token.sh`、`bash tests/smoke/test-supervisord-config.sh`、`bash tests/smoke/test-steamcmd-bootstrap-baked.sh`、`bash tests/smoke/test-steamcmd-retry-lib.sh`、`bash tests/smoke/test-legacy-workshop-fallback-lib.sh`、`bash tests/smoke/test-legacy-workshop-extract-warnings.sh`、`bash tests/smoke/test-example-cluster-template.sh`、`bash tests/smoke/test-init-cluster-script.sh`、`bash tests/smoke/test-bootstrap-local-script.sh`、`bash tests/smoke/test-check-local-config-script.sh`、`bash tests/smoke/test-compose-port-envs.sh` 等关键命令均正常返回；`docker run --rm dst-docker:v1` 则在 `entrypoint` 的 preflight 阶段因 `/data/Cluster_1/cluster.ini` 缺失而退出，证明缺乏配置时不会误报成功；临时补充 `.env` 后 `docker compose config` 能完整展现 ports/volumes/environment 设定，且可以通过环境变量覆盖 published UDP ports；`docker run --rm --entrypoint cat dst-docker:v1 /etc/supervisor/conf.d/supervisord.conf` 也确认了 Master/Caves 启动命令消费 entrypoint 导出的环境变量；详见 `docs/verification.md` 获取完整验证流程与观察细节。
 - 限制：`cluster.ini`、`cluster_token.txt` 与两个 shard 的 `server.ini` 仍缺失，`entrypoint` 会在 `require_file` 阶段直接退出，因此 `docker compose up` 或 `supervisord` 的真正 Master/Caves 启动依赖这些文件才能完成。
 - 待验证：`update`/`validate` 模式在真实的 Workshop mod 场景中是否按预期更新；`./data` 下的 mod/shard 配置在多 shard 并行运行中的长期稳定性；其他 DST 更新参数与 mod 下载行为的完整性；以及是否要把社区里“替换 `steamclient.so`”的 workaround 做成可选实验开关。
 
