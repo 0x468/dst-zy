@@ -56,3 +56,21 @@ if ! grep -q 'invalid host port value' /tmp/test-check-local-config-ports.out; t
   cat /tmp/test-check-local-config-ports.out
   exit 1
 fi
+
+sed -i 's/^DST_MASTER_HOST_PORT=.*/DST_MASTER_HOST_PORT=12000/' "$TMP_DIR/work/.env"
+sed -i 's/^DST_CAVES_HOST_PORT=.*/DST_CAVES_HOST_PORT=12000/' "$TMP_DIR/work/.env"
+
+if (
+  cd "$TMP_DIR/work" &&
+  bash scripts/check-local-config.sh >/tmp/test-check-local-config-host-collision.out 2>&1
+); then
+  echo "check-local-config.sh should fail when host UDP ports collide"
+  cat /tmp/test-check-local-config-host-collision.out
+  exit 1
+fi
+
+if ! grep -q 'host port values must be different' /tmp/test-check-local-config-host-collision.out; then
+  echo "check-local-config.sh should explain host port collisions"
+  cat /tmp/test-check-local-config-host-collision.out
+  exit 1
+fi

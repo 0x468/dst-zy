@@ -24,6 +24,18 @@ if ! grep -q 'test-steamcmd-retry-lib.sh' <<<"$OUTPUT"; then
   exit 1
 fi
 
+if ! grep -q 'test-check-local-config-ports-and-dirs.sh' <<<"$OUTPUT"; then
+  echo "run-smoke.sh fast suite should include test-check-local-config-ports-and-dirs.sh"
+  printf '%s\n' "$OUTPUT"
+  exit 1
+fi
+
+if ! grep -q 'test-check-local-config-shard-settings.sh' <<<"$OUTPUT"; then
+  echo "run-smoke.sh fast suite should include test-check-local-config-shard-settings.sh"
+  printf '%s\n' "$OUTPUT"
+  exit 1
+fi
+
 if grep -q 'test-managed-legacy-fallback-cleanup.sh' <<<"$OUTPUT"; then
   echo "run-smoke.sh fast suite should not include docker-only cleanup smoke"
   printf '%s\n' "$OUTPUT"

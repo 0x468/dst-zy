@@ -55,3 +55,21 @@ if ! grep -q 'Master/Caves server_port values must be different' /tmp/test-check
   cat /tmp/test-check-local-config-shard-ports.out
   exit 1
 fi
+
+sed -i 's/^server_port = .*/server_port = 11001/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
+sed -i 's/^master_server_port = .*/master_server_port = 27018/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
+
+if (
+  cd "$TMP_DIR/work" &&
+  bash scripts/check-local-config.sh >/tmp/test-check-local-config-steam-ports.out 2>&1
+); then
+  echo "check-local-config.sh should fail when Master and Caves master_server_port collide"
+  cat /tmp/test-check-local-config-steam-ports.out
+  exit 1
+fi
+
+if ! grep -q 'Master/Caves master_server_port values must be different' /tmp/test-check-local-config-steam-ports.out; then
+  echo "check-local-config.sh should explain shard STEAM port collisions"
+  cat /tmp/test-check-local-config-steam-ports.out
+  exit 1
+fi

@@ -39,6 +39,13 @@
 
 - `bash scripts/check-local-config.sh`
 
+它会额外检查：
+
+- 运行目录 `steam-state/`、`dst/`、`ugc/`、`data/` 是否齐全
+- `cluster_token.txt`、`cluster.ini`、两个 shard 的 `server.ini` 是否已准备好且不再是示例占位值
+- `.env` 里的宿主机 UDP 端口是否有效、是否彼此冲突
+- Master/Caves 的 `server_port` 与 `master_server_port` 是否发生冲突
+
 如果你是第一次在本地准备运行目录，建议按这个顺序：
 
 1. `bash scripts/bootstrap-local.sh Cluster_1`

@@ -34,6 +34,7 @@ host_port_keys=(
   "DST_CAVES_HOST_PORT"
   "DST_STEAM_HOST_PORT"
 )
+host_port_values=()
 
 for path in "${required_dirs[@]}"; do
   if [ ! -d "$path" ]; then
@@ -68,9 +69,16 @@ fi
 
 master_server_port="$(awk -F= '$1 ~ /^[[:space:]]*server_port[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/Master/server.ini" | tail -n 1)"
 caves_server_port="$(awk -F= '$1 ~ /^[[:space:]]*server_port[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/Caves/server.ini" | tail -n 1)"
+master_master_server_port="$(awk -F= '$1 ~ /^[[:space:]]*master_server_port[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/Master/server.ini" | tail -n 1)"
+caves_master_server_port="$(awk -F= '$1 ~ /^[[:space:]]*master_server_port[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/Caves/server.ini" | tail -n 1)"
 
 if [ -n "$master_server_port" ] && [ "$master_server_port" = "$caves_server_port" ]; then
   echo "Master/Caves server_port values must be different: $master_server_port" >&2
+  exit 1
+fi
+
+if [ -n "$master_master_server_port" ] && [ "$master_master_server_port" = "$caves_master_server_port" ]; then
+  echo "Master/Caves master_server_port values must be different: $master_master_server_port" >&2
   exit 1
 fi
 
@@ -83,6 +91,15 @@ for key in "${host_port_keys[@]}"; do
     echo "invalid host port value for $key: $value" >&2
     exit 1
   fi
+  host_port_values+=("$value")
 done
+
+if [ "${#host_port_values[@]}" -gt 0 ]; then
+  unique_host_port_count="$(printf '%s\n' "${host_port_values[@]}" | sort -u | wc -l | tr -d ' ')"
+  if [ "$unique_host_port_count" -ne "${#host_port_values[@]}" ]; then
+    echo "host port values must be different: ${host_port_values[*]}" >&2
+    exit 1
+  fi
+fi
 
 printf 'local config looks ready for cluster %s\n' "$cluster_name"
