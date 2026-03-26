@@ -9,7 +9,7 @@ services:
       - ./ugc:/ugc
       - ./data:/data
     ports:
-      - 10999:10999/udp
-      - 11000:11000/udp
-      - 27015:27015/udp
+      - ${DST_MASTER_HOST_PORT:-10999}:10999/udp
+      - ${DST_CAVES_HOST_PORT:-11000}:11000/udp
+      - ${DST_STEAM_HOST_PORT:-27015}:27015/udp
     restart: unless-stopped

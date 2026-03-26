@@ -20,6 +20,12 @@
 
 如果你不想用脚本，也可以手动复制 [`examples/Cluster_1`](/mnt/d/DST/docker/examples/Cluster_1) 到 `data/Cluster_1`，再把 `cluster_token.txt.example` 重命名为 `cluster_token.txt`。
 
+如果宿主机 UDP 端口已经被占用，可以在 `.env` 里覆盖：
+
+- `DST_MASTER_HOST_PORT`
+- `DST_CAVES_HOST_PORT`
+- `DST_STEAM_HOST_PORT`
+
 ## 回归检查
 如果你改了脚本、文档或镜像逻辑，建议至少跑一次：
 
