@@ -10,7 +10,7 @@ rm -rf "$TMP_DIR"
 mkdir -p "$TMP_DIR/data" "$TMP_DIR/dst/mods" "$TMP_DIR/ugc/content/322330/111111111"
 
 cp -a "$FIXTURE_DIR" "$TMP_DIR/data/Cluster_1"
-cp "$REPO_ROOT/.local-notes/key.txt" "$TMP_DIR/data/Cluster_1/cluster_token.txt"
+printf '%s\n' 'real-token-value' > "$TMP_DIR/data/Cluster_1/cluster_token.txt"
 mkdir -p "$TMP_DIR/data/Cluster_1/mods"
 
 cat > "$TMP_DIR/data/Cluster_1/mods/dedicated_server_mods_setup.lua" <<'EOF'

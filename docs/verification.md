@@ -34,6 +34,8 @@
 - `bash tests/smoke/test-check-local-config-shard-settings.sh`：确认 `scripts/check-local-config.sh` 会在 `cluster_key` 仍为示例值、`shard_enabled` 被关闭、`master_port` 非法、Master/Caves 的 `server_port`/`master_server_port` 冲突，或 shard 端口偏离 compose 默认目标端口时明确失败。
 - `bash tests/smoke/test-run-smoke-script.sh`：确认 `scripts/run-smoke.sh fast --list` 会列出预期 smoke 套件，且包含 `bootstrap-local` 与 compose 端口回归测试。
 - `bash tests/smoke/test-compose-port-envs.sh`：确认 `docker-compose.yml` 支持通过 `.env` 覆盖 `DST_MASTER_HOST_PORT`、`DST_CAVES_HOST_PORT`、`DST_STEAM_HOST_PORT`、`DST_CAVES_STEAM_HOST_PORT`，并能正确渲染到 compose 配置里。
+- `bash tests/smoke/test-entrypoint-update-modes.sh`：确认容器在 fake `steamcmd` / fake `supervisord` 夹具下，会按预期处理 `install-only`、`update`、`validate`、`never` 和非法 `DST_UPDATE_MODE`。
+- `bash tests/smoke/test-entrypoint-server-mod-modes.sh`：确认容器在 fake DST binary / fake `supervisord` 夹具下，会按预期处理 `runtime`、`prewarm`、`skip` 和非法 `DST_SERVER_MODS_UPDATE_MODE`。
 - `bash tests/smoke/test-legacy-workshop-fallback-lib.sh`：确认 helper 能从 Steam metadata JSON 中正确筛出带 `file_url` 的 legacy Workshop mod，并能把解压后带反斜杠的路径名归一化成 Linux 目录结构。
 - `bash tests/smoke/test-legacy-workshop-extract-warnings.sh`：确认即使 `unzip` 因 legacy zip 的反斜杠路径发出 warning 并返回 `1`，helper 仍会继续完成 extraction 和路径归一化，而不是把 warning 误判成硬失败。
 - `docker run --rm dst-docker:v1`：entrypoint 会在缺少 `/data/Cluster_1/cluster.ini` 时立即报 `preflight error: missing cluster.ini at /data/Cluster_1/cluster.ini`，说明仍然需要配置文件才能完成启动。
@@ -62,9 +64,9 @@
 - [Klei Forum: Server fails to download workshop collection - staging/install library folder not found](https://forums.kleientertainment.com/forums/topic/169114-server-fails-to-download-workshop-collection-staginginstall-library-folder-not-found/)：2025-12 到 2026-03 仍有用户报告 `Staging library folder not found` / `ODPF failed entirely: 16`。这表明当前问题并非本仓库独有现象。
 - [Steamworks ISteamRemoteStorage](https://partner.steamgames.com/doc/api/ISteamRemoteStorage)：Steam 官方文档中 `GetPublishedFileDetails` 属于旧式 RemoteStorage Workshop API，返回结构包含 URL 字段；这为“检测 legacy 条目后按 `file_url` 下载 zip”提供了接口层支撑。
 
-## 待继续验证
-- SteamCMD 的 `app_update 343050` / `validate` 仍可能先返回 `Missing configuration`；当前实现只是在安装路径上通过“一次有限重试”提高成功率，并未证明根因已经消失。后续如果要彻底解释该错误，仍需继续定位 SteamCMD/Steam 侧触发条件。
-- “首次冷缓存 mod 预热” 已经通过 `DST_SERVER_MODS_UPDATE_MODE=prewarm` 固化到镜像逻辑中；后续仍需评估默认值是否保持 `runtime` 最稳妥，以及是否需要进一步记录失败 mod 的状态以避免对永久失效项反复预热。
-- 虽然构建期预热已经消除了运行时首次 36MB bootstrap，但 `/steam-state` 中的配置和日志文件是否还能进一步减少后续 `app_update` 的校验/清单流量，仍有继续观察空间。
+## 剩余外部不确定性
+- SteamCMD 的 `app_update 343050` / `validate` 仍可能先返回 `Missing configuration`；仓库现在已经用 helper 和 smoke 覆盖了本地重试控制流，但这并不等于 Steam/SteamCMD 上游根因已经消失。
+- “首次冷缓存 mod 预热” 的本地模式分支现在已有 smoke 覆盖；真正还需要长期观察的，是 Steam/Workshop 在线服务在高延迟、限流或元数据异常场景下的表现。
+- 虽然构建期预热已经消除了运行时首次 36MB bootstrap，但 `/steam-state` 中的缓存和日志是否还能进一步减少后续 `app_update` 的清单流量，仍属于性能观察项，不再阻塞当前 V1 的功能闭环。
 - `362175979` 与 `661253977` 现在已经能通过本地 legacy fallback 正常加载，但 DST 自带的 `/ugc` 下载链路仍持续报 `ODPF failed entirely: 16`；也就是说，我们解决的是“可运行性”，不是“DST 官方下载链路已恢复正常”。
-- 社区里有人通过替换 `dst/bin64/steamclient.so` 规避 `Staging library folder not found`；这目前只算社区 workaround，尚未纳入镜像默认行为，后续若要采用应先做独立验证并设计成显式可选开关。
+- 社区里关于 `steamclient.so` 的替换方案目前仍只视作上游波动时的应急 workaround，仓库默认行为不主动改写这一层二进制。

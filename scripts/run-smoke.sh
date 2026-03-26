@@ -25,6 +25,8 @@ full_tests=(
   "${fast_tests[@]}"
   "tests/smoke/test-preflight-missing-token.sh"
   "tests/smoke/test-managed-legacy-fallback-cleanup.sh"
+  "tests/smoke/test-entrypoint-update-modes.sh"
+  "tests/smoke/test-entrypoint-server-mod-modes.sh"
 )
 
 case "$suite" in

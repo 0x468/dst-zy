@@ -39,6 +39,8 @@
 
 - `bash scripts/run-smoke.sh full`
 
+`full` 会额外覆盖真实容器里的 `DST_UPDATE_MODE` 与 `DST_SERVER_MODS_UPDATE_MODE` 分支回归。
+
 如果只是想在起服前检查本地准备是否齐全，可以先运行：
 
 - `bash scripts/check-local-config.sh`
@@ -112,7 +114,8 @@
 `SteamCMD` 程序固定在 `/usr/local/steamcmd`，而运行时状态写入 `/steam-state`。详见 `docs/verification.md` 中对这两个路径的验证。
 - 已验证：`docker build --pull=false -t dst-docker:v1 .`、`bash scripts/run-smoke.sh fast`、`bash scripts/check-local-config.sh` 对已初始化示例目录可正确通过、`bash tests/smoke/test-preflight-missing-token.sh`、`bash tests/smoke/test-supervisord-config.sh`、`bash tests/smoke/test-steamcmd-bootstrap-baked.sh`、`bash tests/smoke/test-steamcmd-retry-lib.sh`、`bash tests/smoke/test-legacy-workshop-fallback-lib.sh`、`bash tests/smoke/test-legacy-workshop-extract-warnings.sh`、`bash tests/smoke/test-example-cluster-template.sh`、`bash tests/smoke/test-init-cluster-script.sh`、`bash tests/smoke/test-bootstrap-local-script.sh`、`bash tests/smoke/test-check-local-config-script.sh`、`bash tests/smoke/test-compose-port-envs.sh` 等关键命令均正常返回；`docker run --rm dst-docker:v1` 则在 `entrypoint` 的 preflight 阶段因 `/data/Cluster_1/cluster.ini` 缺失而退出，证明缺乏配置时不会误报成功；临时补充 `.env` 后 `docker compose config` 能完整展现 ports/volumes/environment 设定，且可以通过环境变量覆盖 published UDP ports；`docker run --rm --entrypoint cat dst-docker:v1 /etc/supervisor/conf.d/supervisord.conf` 也确认了 Master/Caves 启动命令消费 entrypoint 导出的环境变量；详见 `docs/verification.md` 获取完整验证流程与观察细节。
 - 限制：`cluster.ini`、`cluster_token.txt` 与两个 shard 的 `server.ini` 仍缺失，`entrypoint` 会在 `require_file` 阶段直接退出，因此 `docker compose up` 或 `supervisord` 的真正 Master/Caves 启动依赖这些文件才能完成。
-- 待验证：`update`/`validate` 模式在真实的 Workshop mod 场景中是否按预期更新；`./data` 下的 mod/shard 配置在多 shard 并行运行中的长期稳定性；其他 DST 更新参数与 mod 下载行为的完整性；以及是否要把社区里“替换 `steamclient.so`”的 workaround 做成可选实验开关。
+- 已通过 smoke 与容器实验覆盖：`DST_UPDATE_MODE` 与 `DST_SERVER_MODS_UPDATE_MODE` 的本地控制流、默认双分片端口模型、本地初始化、preflight 与 legacy fallback 清理。
+- 仍属外部环境不确定性：Steam/Workshop 在线服务本身的稳定性、少数 legacy mod 的上游下载异常，以及官方后续是否还会再次引入需要额外兼容处理的 `steamclient.so` 类问题。
 
 ## 其他说明
 - 目录挂载后的第一级路径（`steam-state`、`dst`、`ugc`、`data`）必须由用户提前创建并赋予合适权限。
