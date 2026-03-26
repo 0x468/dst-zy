@@ -14,6 +14,16 @@ mkdir -p "$TMP_DIR/work/scripts"
 cp "$REPO_ROOT/scripts/init-cluster.sh" "$TMP_DIR/work/scripts/init-cluster.sh"
 cp "$REPO_ROOT/scripts/bootstrap-local.sh" "$TMP_DIR/work/scripts/bootstrap-local.sh"
 
+cat >"$TMP_DIR/work/.env" <<'EOF'
+DST_UPDATE_MODE=install-only
+DST_SERVER_MODS_UPDATE_MODE=runtime
+DST_CLUSTER_NAME=OldCluster
+DST_MASTER_HOST_PORT=32000
+DST_CAVES_HOST_PORT=32001
+DST_STEAM_HOST_PORT=37018
+TZ=Asia/Shanghai
+EOF
+
 (
   cd "$TMP_DIR/work"
   bash scripts/bootstrap-local.sh Cluster_A
@@ -37,6 +47,18 @@ done
 
 if ! grep -q '^DST_CLUSTER_NAME=Cluster_A$' "$TMP_DIR/work/.env"; then
   echo ".env should be updated to match requested cluster name"
+  cat "$TMP_DIR/work/.env"
+  exit 1
+fi
+
+if ! grep -q '^DST_MASTER_HOST_PORT=32000$' "$TMP_DIR/work/.env"; then
+  echo "bootstrap-local.sh should preserve existing .env values"
+  cat "$TMP_DIR/work/.env"
+  exit 1
+fi
+
+if ! grep -q '^DST_CAVES_STEAM_HOST_PORT=27019$' "$TMP_DIR/work/.env"; then
+  echo "bootstrap-local.sh should append missing keys from .env.example"
   cat "$TMP_DIR/work/.env"
   exit 1
 fi

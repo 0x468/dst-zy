@@ -15,6 +15,7 @@
 
 - 创建 `steam-state/`、`dst/`、`ugc/`、`data/`
 - 在缺失时复制 `.env.example` 为 `.env`
+- 对已经存在的 `.env` 补齐 `.env.example` 里缺失的键，但不会覆盖你已有的值
 - 把 `.env` 里的 `DST_CLUSTER_NAME` 调整为你指定的名字
 - 调用 `init-cluster.sh` 生成 `data/<cluster>`
 
@@ -27,7 +28,7 @@
 - `DST_STEAM_HOST_PORT`：映射到 Master 的 `master_server_port = 27018`
 - `DST_CAVES_STEAM_HOST_PORT`：映射到 Caves 的 `master_server_port = 27019`
 
-如果你之前已经复制过旧版 `.env`，建议对照新的 `.env.example` 补上 `DST_CAVES_STEAM_HOST_PORT`，并确认 `DST_STEAM_HOST_PORT` 不再沿用旧值 `27015`。
+如果你之前已经复制过旧版 `.env`，重新运行一次 `bash scripts/bootstrap-local.sh Cluster_1` 就会自动补上缺失的 `DST_CAVES_STEAM_HOST_PORT`；已有值不会被覆盖，因此如果你想把旧的 `DST_STEAM_HOST_PORT=27015` 改回新示例值，仍需手动调整。
 
 ## 回归检查
 如果你改了脚本、文档或镜像逻辑，建议至少跑一次：

@@ -12,6 +12,20 @@ if [ ! -f "$REPO_ROOT/.env" ]; then
   cp "$REPO_ROOT/.env.example" "$REPO_ROOT/.env"
 fi
 
+while IFS= read -r example_line; do
+  case "$example_line" in
+    ''|'#'*)
+      continue
+      ;;
+    *=*)
+      example_key="${example_line%%=*}"
+      if ! grep -q "^${example_key}=" "$REPO_ROOT/.env"; then
+        printf '%s\n' "$example_line" >>"$REPO_ROOT/.env"
+      fi
+      ;;
+  esac
+done <"$REPO_ROOT/.env.example"
+
 if grep -q '^DST_CLUSTER_NAME=' "$REPO_ROOT/.env"; then
   sed -i "s/^DST_CLUSTER_NAME=.*/DST_CLUSTER_NAME=$cluster_name/" "$REPO_ROOT/.env"
 else

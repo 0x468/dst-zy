@@ -36,6 +36,12 @@ if ! grep -q 'test-check-local-config-shard-settings.sh' <<<"$OUTPUT"; then
   exit 1
 fi
 
+if ! grep -q 'test-bootstrap-local-script.sh' <<<"$OUTPUT"; then
+  echo "run-smoke.sh fast suite should include test-bootstrap-local-script.sh"
+  printf '%s\n' "$OUTPUT"
+  exit 1
+fi
+
 if ! grep -q 'test-compose-port-envs.sh' <<<"$OUTPUT"; then
   echo "run-smoke.sh fast suite should include test-compose-port-envs.sh"
   printf '%s\n' "$OUTPUT"
