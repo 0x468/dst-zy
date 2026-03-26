@@ -73,3 +73,39 @@ if ! grep -q 'Master/Caves master_server_port values must be different' /tmp/tes
   cat /tmp/test-check-local-config-steam-ports.out
   exit 1
 fi
+
+sed -i 's/^master_server_port = .*/master_server_port = 27019/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
+sed -i 's/^server_port = .*/server_port = 12001/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
+
+if (
+  cd "$TMP_DIR/work" &&
+  bash scripts/check-local-config.sh >/tmp/test-check-local-config-shard-targets.out 2>&1
+); then
+  echo "check-local-config.sh should fail when Caves server_port no longer matches compose target"
+  cat /tmp/test-check-local-config-shard-targets.out
+  exit 1
+fi
+
+if ! grep -q 'Caves server_port must match compose target 11001' /tmp/test-check-local-config-shard-targets.out; then
+  echo "check-local-config.sh should explain compose/server_port mismatches"
+  cat /tmp/test-check-local-config-shard-targets.out
+  exit 1
+fi
+
+sed -i 's/^server_port = .*/server_port = 11001/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
+sed -i 's/^master_server_port = .*/master_server_port = 27119/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
+
+if (
+  cd "$TMP_DIR/work" &&
+  bash scripts/check-local-config.sh >/tmp/test-check-local-config-shard-steam-targets.out 2>&1
+); then
+  echo "check-local-config.sh should fail when Caves master_server_port no longer matches compose target"
+  cat /tmp/test-check-local-config-shard-steam-targets.out
+  exit 1
+fi
+
+if ! grep -q 'Caves master_server_port must match compose target 27019' /tmp/test-check-local-config-shard-steam-targets.out; then
+  echo "check-local-config.sh should explain compose/master_server_port mismatches"
+  cat /tmp/test-check-local-config-shard-steam-targets.out
+  exit 1
+fi

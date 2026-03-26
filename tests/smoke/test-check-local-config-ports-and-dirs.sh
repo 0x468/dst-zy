@@ -58,13 +58,15 @@ if ! grep -q 'invalid host port value' /tmp/test-check-local-config-ports.out; t
 fi
 
 sed -i 's/^DST_MASTER_HOST_PORT=.*/DST_MASTER_HOST_PORT=12000/' "$TMP_DIR/work/.env"
-sed -i 's/^DST_CAVES_HOST_PORT=.*/DST_CAVES_HOST_PORT=12000/' "$TMP_DIR/work/.env"
+sed -i 's/^DST_CAVES_HOST_PORT=.*/DST_CAVES_HOST_PORT=12001/' "$TMP_DIR/work/.env"
+sed -i 's/^DST_STEAM_HOST_PORT=.*/DST_STEAM_HOST_PORT=28018/' "$TMP_DIR/work/.env"
+sed -i 's/^DST_CAVES_STEAM_HOST_PORT=.*/DST_CAVES_STEAM_HOST_PORT=12000/' "$TMP_DIR/work/.env"
 
 if (
   cd "$TMP_DIR/work" &&
   bash scripts/check-local-config.sh >/tmp/test-check-local-config-host-collision.out 2>&1
 ); then
-  echo "check-local-config.sh should fail when host UDP ports collide"
+  echo "check-local-config.sh should fail when any host UDP ports collide"
   cat /tmp/test-check-local-config-host-collision.out
   exit 1
 fi

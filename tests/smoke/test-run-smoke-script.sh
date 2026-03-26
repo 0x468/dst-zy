@@ -36,6 +36,12 @@ if ! grep -q 'test-check-local-config-shard-settings.sh' <<<"$OUTPUT"; then
   exit 1
 fi
 
+if ! grep -q 'test-compose-port-envs.sh' <<<"$OUTPUT"; then
+  echo "run-smoke.sh fast suite should include test-compose-port-envs.sh"
+  printf '%s\n' "$OUTPUT"
+  exit 1
+fi
+
 if grep -q 'test-managed-legacy-fallback-cleanup.sh' <<<"$OUTPUT"; then
   echo "run-smoke.sh fast suite should not include docker-only cleanup smoke"
   printf '%s\n' "$OUTPUT"

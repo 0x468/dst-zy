@@ -33,8 +33,13 @@ host_port_keys=(
   "DST_MASTER_HOST_PORT"
   "DST_CAVES_HOST_PORT"
   "DST_STEAM_HOST_PORT"
+  "DST_CAVES_STEAM_HOST_PORT"
 )
 host_port_values=()
+expected_master_server_port="11000"
+expected_caves_server_port="11001"
+expected_master_master_server_port="27018"
+expected_caves_master_server_port="27019"
 
 for path in "${required_dirs[@]}"; do
   if [ ! -d "$path" ]; then
@@ -79,6 +84,26 @@ fi
 
 if [ -n "$master_master_server_port" ] && [ "$master_master_server_port" = "$caves_master_server_port" ]; then
   echo "Master/Caves master_server_port values must be different: $master_master_server_port" >&2
+  exit 1
+fi
+
+if [ "$master_server_port" != "$expected_master_server_port" ]; then
+  echo "Master server_port must match compose target $expected_master_server_port: $master_server_port" >&2
+  exit 1
+fi
+
+if [ "$caves_server_port" != "$expected_caves_server_port" ]; then
+  echo "Caves server_port must match compose target $expected_caves_server_port: $caves_server_port" >&2
+  exit 1
+fi
+
+if [ "$master_master_server_port" != "$expected_master_master_server_port" ]; then
+  echo "Master master_server_port must match compose target $expected_master_master_server_port: $master_master_server_port" >&2
+  exit 1
+fi
+
+if [ "$caves_master_server_port" != "$expected_caves_master_server_port" ]; then
+  echo "Caves master_server_port must match compose target $expected_caves_master_server_port: $caves_master_server_port" >&2
   exit 1
 fi
 

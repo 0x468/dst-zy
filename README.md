@@ -22,9 +22,12 @@
 
 如果宿主机 UDP 端口已经被占用，可以在 `.env` 里覆盖：
 
-- `DST_MASTER_HOST_PORT`
-- `DST_CAVES_HOST_PORT`
-- `DST_STEAM_HOST_PORT`
+- `DST_MASTER_HOST_PORT`：映射到 Master 的 `server_port = 11000`
+- `DST_CAVES_HOST_PORT`：映射到 Caves 的 `server_port = 11001`
+- `DST_STEAM_HOST_PORT`：映射到 Master 的 `master_server_port = 27018`
+- `DST_CAVES_STEAM_HOST_PORT`：映射到 Caves 的 `master_server_port = 27019`
+
+如果你之前已经复制过旧版 `.env`，建议对照新的 `.env.example` 补上 `DST_CAVES_STEAM_HOST_PORT`，并确认 `DST_STEAM_HOST_PORT` 不再沿用旧值 `27015`。
 
 ## 回归检查
 如果你改了脚本、文档或镜像逻辑，建议至少跑一次：
@@ -43,8 +46,9 @@
 
 - 运行目录 `steam-state/`、`dst/`、`ugc/`、`data/` 是否齐全
 - `cluster_token.txt`、`cluster.ini`、两个 shard 的 `server.ini` 是否已准备好且不再是示例占位值
-- `.env` 里的宿主机 UDP 端口是否有效、是否彼此冲突
+- `.env` 里的四个宿主机 UDP 端口是否有效、是否彼此冲突
 - Master/Caves 的 `server_port` 与 `master_server_port` 是否发生冲突
+- 当前 shard 端口是否仍与 compose 默认暴露的双分片目标端口一致
 
 如果你是第一次在本地准备运行目录，建议按这个顺序：
 
