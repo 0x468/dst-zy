@@ -1,0 +1,3 @@
+# 将此文件重命名为 cluster_token.txt，并填入你自己的 Klei cluster token。
+# 该 token 需要与 cluster.ini、Master/Caves 配置一起放在 data/Cluster_1 下。
+replace-with-your-klei-cluster-token

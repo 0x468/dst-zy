@@ -1,0 +1,3 @@
+-- 在这里声明需要下载的 server mods。
+-- 例如：
+-- ServerModSetup("workshop-123456789")
