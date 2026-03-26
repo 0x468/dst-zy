@@ -22,8 +22,9 @@ RUN curl -fsSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.t
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY lib/legacy_workshop_fallback.sh /usr/local/lib/dst/legacy_workshop_fallback.sh
+COPY lib/steamcmd_retry.sh /usr/local/lib/dst/steamcmd_retry.sh
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/lib/dst/legacy_workshop_fallback.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/lib/dst/legacy_workshop_fallback.sh /usr/local/lib/dst/steamcmd_retry.sh
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

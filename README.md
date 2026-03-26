@@ -23,6 +23,9 @@
 5. 根据 `DST_SERVER_MODS_UPDATE_MODE` 决定 server mods 的更新策略。
 6. 向 `supervisord` 交付 Master 与 Caves 进程。
 
+补充说明：
+- SteamCMD 的 `app_update 343050` 在当前环境下偶发返回 `ERROR! Failed to install app '343050' (Missing configuration)`。镜像现在会仅针对这个已验证的瞬时错误自动重试一次；如果第二次仍失败，容器仍会照常退出，不会无限重试掩盖真实问题。
+
 ## 更新模式切换
 1. 复制 `.env.example` 为 `.env` 并根据需要调整：「`cp .env.example .env`」。
 2. 将 `DST_UPDATE_MODE` 设置为 `update`（或 `validate`），保存 `.env`。

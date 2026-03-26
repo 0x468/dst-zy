@@ -3,6 +3,8 @@ set -euo pipefail
 
 # shellcheck source=lib/legacy_workshop_fallback.sh
 source /usr/local/lib/dst/legacy_workshop_fallback.sh
+# shellcheck source=lib/steamcmd_retry.sh
+source /usr/local/lib/dst/steamcmd_retry.sh
 
 DST_UPDATE_MODE=${DST_UPDATE_MODE:-install-only}
 DST_CLUSTER_NAME=${DST_CLUSTER_NAME:-Cluster_1}
@@ -23,6 +25,7 @@ readonly DATA_CAVES_DIR="$DATA_CLUSTER_DIR/Caves"
 readonly DATA_MODS_DIR="$DATA_CLUSTER_DIR/mods"
 readonly SUPERVISORD_CONFIG=/etc/supervisor/conf.d/supervisord.conf
 readonly LEGACY_FALLBACK_MARKER=.dst-docker-legacy-fallback
+readonly STEAMCMD_RETRY_LOG_NAME=steamcmd-app-update.log
 
 log_info() {
   printf 'entrypoint: %s\n' "$*"
@@ -80,17 +83,19 @@ find_dst_binary() {
 run_steamcmd_app_update() {
   local extra_args=("$@")
   local description="app_update 343050"
+  local steamcmd_log_path="$DST_STEAM_STATE_DIR/$STEAMCMD_RETRY_LOG_NAME"
   if [ "${#extra_args[@]}" -gt 0 ]; then
     description+=" ${extra_args[*]}"
   fi
 
   log_info "running SteamCMD $description"
-  HOME="$DST_STEAM_STATE_DIR" "$STEAMCMD_BIN" \
-    +force_install_dir "$DST_INSTALL_DIR" \
-    +login anonymous \
-    +app_update 343050 \
-    "${extra_args[@]}" \
-    +quit
+  run_steamcmd_with_retry "$steamcmd_log_path" \
+    env HOME="$DST_STEAM_STATE_DIR" "$STEAMCMD_BIN" \
+      +force_install_dir "$DST_INSTALL_DIR" \
+      +login anonymous \
+      +app_update 343050 \
+      "${extra_args[@]}" \
+      +quit
 }
 
 require_dst_binary_after_steamcmd() {
