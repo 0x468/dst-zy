@@ -8,6 +8,7 @@ list_only="${2:-}"
 
 fast_tests=(
   "tests/smoke/test-example-cluster-template.sh"
+  "tests/smoke/test-check-local-config-script.sh"
   "tests/smoke/test-init-cluster-script.sh"
   "tests/smoke/test-legacy-workshop-extract-warnings.sh"
   "tests/smoke/test-legacy-workshop-fallback-lib.sh"
