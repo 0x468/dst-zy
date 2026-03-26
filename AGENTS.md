@@ -4,6 +4,7 @@
 - Follow [Conventional Commits](https://www.conventionalcommits.org) for every change.
 - Keep the commit subject line in English; summarize the intent concisely.
 - The commit body must include at least one paragraph written in Chinese that explains the change in detail.
+- When a commit needs multiple body lines or paragraphs, use multiple `-m` flags; never embed literal `\n` sequences in the commit message.
 - Never amend (rebase, --amend, fixup, squash) an existing commit unless explicitly requested.
 - Before signaling completion, execute the applicable verification steps (tests, linters, smoke checks) that the change depends on and record any deviations in the pull request or issue.
 

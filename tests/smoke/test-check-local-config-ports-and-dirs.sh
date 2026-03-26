@@ -21,6 +21,7 @@ cp "$REPO_ROOT/scripts/check-local-config.sh" "$TMP_DIR/work/scripts/check-local
 )
 
 printf '%s\n' 'real-token-value' > "$TMP_DIR/work/data/Cluster_P/cluster_token.txt"
+sed -i 's/^cluster_key = .*/cluster_key = real-cluster-key/' "$TMP_DIR/work/data/Cluster_P/cluster.ini"
 
 rm -rf "$TMP_DIR/work/ugc"
 if (

@@ -60,6 +60,20 @@ if [ "$token_value" = 'replace-with-your-klei-cluster-token' ]; then
   exit 1
 fi
 
+cluster_key_value="$(awk -F= '$1 ~ /^[[:space:]]*cluster_key[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/cluster.ini" | tail -n 1)"
+if [ "$cluster_key_value" = 'replace-with-your-own-cluster-key' ]; then
+  echo "cluster.ini still contains the example cluster_key: $cluster_dir/cluster.ini" >&2
+  exit 1
+fi
+
+master_server_port="$(awk -F= '$1 ~ /^[[:space:]]*server_port[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/Master/server.ini" | tail -n 1)"
+caves_server_port="$(awk -F= '$1 ~ /^[[:space:]]*server_port[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/Caves/server.ini" | tail -n 1)"
+
+if [ -n "$master_server_port" ] && [ "$master_server_port" = "$caves_server_port" ]; then
+  echo "Master/Caves server_port values must be different: $master_server_port" >&2
+  exit 1
+fi
+
 for key in "${host_port_keys[@]}"; do
   value="$(awk -F= -v k="$key" '$1==k{print $2}' "$ENV_FILE" | tail -n 1)"
   if [ -z "$value" ]; then

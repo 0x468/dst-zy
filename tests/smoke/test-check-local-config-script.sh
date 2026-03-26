@@ -21,6 +21,8 @@ cp "$REPO_ROOT/scripts/check-local-config.sh" "$TMP_DIR/work/scripts/check-local
   bash scripts/init-cluster.sh Cluster_Z
 )
 
+sed -i 's/^cluster_key = .*/cluster_key = real-cluster-key/' "$TMP_DIR/work/data/Cluster_Z/cluster.ini"
+
 OUTPUT="$(
   cd "$TMP_DIR/work" &&
   bash scripts/check-local-config.sh
