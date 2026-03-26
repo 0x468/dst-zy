@@ -1,0 +1,46 @@
+{
+  "response": {
+    "publishedfiledetails": [
+      {
+        "publishedfileid": "3359995816",
+        "result": 1,
+        "consumer_app_id": 322330,
+        "title": "Modern Mod",
+        "filename": "",
+        "file_url": ""
+      },
+      {
+        "publishedfileid": "362175979",
+        "result": 1,
+        "consumer_app_id": 322330,
+        "title": "Wormhole Marks [DST]",
+        "filename": "mod_publish_data_file.zip",
+        "file_url": "https://cdn.example.invalid/362175979.zip"
+      },
+      {
+        "publishedfileid": "661253977",
+        "result": 1,
+        "consumer_app_id": 322330,
+        "title": "Don't Drop Everything",
+        "filename": "mod_publish_data_file.zip",
+        "file_url": "https://cdn.example.invalid/661253977.zip"
+      },
+      {
+        "publishedfileid": "123456789",
+        "result": 9,
+        "consumer_app_id": 322330,
+        "title": "Broken Item",
+        "filename": "mod_publish_data_file.zip",
+        "file_url": "https://cdn.example.invalid/broken.zip"
+      },
+      {
+        "publishedfileid": "777777777",
+        "result": 1,
+        "consumer_app_id": 999999,
+        "title": "Other App",
+        "filename": "mod_publish_data_file.zip",
+        "file_url": "https://cdn.example.invalid/other.zip"
+      }
+    ]
+  }
+}

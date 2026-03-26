@@ -1,0 +1,15 @@
+services:
+  dst:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./steam-state:/steam-state
+      - ./dst:/opt/dst
+      - ./ugc:/ugc
+      - ./data:/data
+    ports:
+      - 10999:10999/udp
+      - 11000:11000/udp
+      - 27015:27015/udp
+    restart: unless-stopped
