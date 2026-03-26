@@ -427,6 +427,7 @@ configure_server_mod_update_mode() {
       log_info 'server mods: prewarm finished; shard processes will reuse cache via -skip_update_server_mods'
       ;;
     skip)
+      cleanup_legacy_fallback_temp_dirs
       cleanup_stale_managed_legacy_fallback_mods
       DST_SERVER_EXTRA_ARGS='-skip_update_server_mods'
       log_server_mod_cache_state
