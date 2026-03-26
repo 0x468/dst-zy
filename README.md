@@ -14,6 +14,15 @@
 
 如果你不想用脚本，也可以手动复制 [`examples/Cluster_1`](/mnt/d/DST/docker/examples/Cluster_1) 到 `data/Cluster_1`，再把 `cluster_token.txt.example` 重命名为 `cluster_token.txt`。
 
+## 回归检查
+如果你改了脚本、文档或镜像逻辑，建议至少跑一次：
+
+- `bash scripts/run-smoke.sh fast`
+
+如果你还想把依赖 Docker 的 smoke 一起跑掉，则使用：
+
+- `bash scripts/run-smoke.sh full`
+
 ## 目录职责
 - `/usr/local/steamcmd`：SteamCMD 程序文件被固定安装在镜像内的此路径，`entrypoint.sh` 直接调用 `/usr/local/steamcmd/steamcmd.sh`，因此用户无法通过挂载覆盖程序。
 - `./steam-state`：挂载到容器的 `/steam-state` 目录，为 SteamCMD 的 `HOME` 提供持久化状态（缓存、安装临时文件等），也就是唯一对外暴露的 Steam 状态目录。

@@ -3,9 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-TMP_DIR="$REPO_ROOT/.tmp/test-init-cluster-script"
+TMP_PARENT="$REPO_ROOT/.tmp"
 
-rm -rf "$TMP_DIR"
+mkdir -p "$TMP_PARENT"
+TMP_DIR="$(mktemp -d "$TMP_PARENT/test-init-cluster-script.XXXXXX")"
 mkdir -p "$TMP_DIR/data"
 
 bash "$REPO_ROOT/scripts/init-cluster.sh" MyCluster "$TMP_DIR/data"
