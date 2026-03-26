@@ -12,13 +12,16 @@
 - 通过对 DST dedicated server 二进制执行 `strings`，已经确认其内置支持 `-only_update_server_mods` 与 `-skip_update_server_mods` 两个 server mod 相关参数。因此镜像可以在不自造旁路脚本的前提下，复用 DST 官方行为完成 mod 预热和跳过更新。
 - supervisor 配置(`supervisord.conf`)中用 `%(ENV_DST_SERVER_BINARY)s`、`%(ENV_DST_CLUSTER_NAME)s`、`%(ENV_DST_DATA_DIR)s`、`%(ENV_DST_UGC_DIR)s` 定义 Master 与 Caves 的启动命令，entrypoint 会在前期导出这些变量供 supervisord 读取；同时两个 shard 现在都显式以 `/opt/dst/bin64` 作为工作目录启动，避免从 `/` 启动时出现 `databundles/scripts.zip skipped` 与 `scripts/main.lua` 无法加载的问题。
 - 当前最小可用双分片配置至少需要：`cluster.ini` 中启用 `[SHARD] shard_enabled = true` 并提供 `bind_ip`/`master_ip`/`master_port`/`cluster_key`，两个 shard 各自的 `server.ini` 中提供独立 `server_port` 与 `STEAM` 端口；`Caves` 额外需要 `leveldataoverride.lua` 或 `worldgenoverride.lua` 指向洞穴 preset 才能稳定生成洞穴世界。
-- entrypoint 现在会在真正启动 shard 之前，基于 `dedicated_server_mods_setup.lua` 与 `/ugc/content/322330/<id>` 的目录是否存在，打印 `cached workshop-...` / `missing workshop-...` 摘要，方便直接判断缓存状态。
+- entrypoint 现在会在真正启动 shard 之前，基于 `dedicated_server_mods_setup.lua` 与 `/ugc/content/322330/<id>` / `/opt/dst/mods/workshop-<id>` 的目录是否存在，打印 `ugc workshop-...` / `local workshop-...` / `missing workshop-...` 摘要，方便直接判断缓存状态。
 - entrypoint 还会在 preflight 阶段自动创建空的 `adminlist.txt`、`blocklist.txt`、`whitelist.txt`；这样 DST 日志会把它们记为 `(Success)`，不再反复报缺失失败。
+- entrypoint 现在还会在 `runtime`/`prewarm` 模式下，对 `/ugc` 仍缺失的 Workshop ID 额外查询 Steam metadata；如果 metadata 中还带旧式 `file_url`，就把对应 zip 解到 `/opt/dst/mods/workshop-<id>`，并写入 `.dst-docker-legacy-fallback` 作为受管本地 fallback 标记。
 
 ## 已实验验证
 - `docker build --pull=false -t dst-docker:v1 .`：镜像成功构建，所有步骤均命中缓存，Dockerfile 能顺利生成 `dst-docker:v1`。
 - `bash -n entrypoint.sh`：入口脚本无语法错误，`set -euo pipefail` 也可正常解析。
 - `bash tests/smoke/test-preflight-missing-token.sh`：烟雾测试确认缺少 `cluster_token.txt` 会通过 entrypoint 的 preflight 跳出。
+- `bash tests/smoke/test-legacy-workshop-fallback-lib.sh`：确认 helper 能从 Steam metadata JSON 中正确筛出带 `file_url` 的 legacy Workshop mod，并能把解压后带反斜杠的路径名归一化成 Linux 目录结构。
+- `bash tests/smoke/test-legacy-workshop-extract-warnings.sh`：确认即使 `unzip` 因 legacy zip 的反斜杠路径发出 warning 并返回 `1`，helper 仍会继续完成 extraction 和路径归一化，而不是把 warning 误判成硬失败。
 - `docker run --rm dst-docker:v1`：entrypoint 会在缺少 `/data/Cluster_1/cluster.ini` 时立即报 `preflight error: missing cluster.ini at /data/Cluster_1/cluster.ini`，说明仍然需要配置文件才能完成启动。
 - `docker compose config`：临时补充 `.env` 后 `docker compose config` 能正确展开 ports/volumes/environment 的设定。
 - `docker run --rm --entrypoint cat dst-docker:v1 /etc/supervisor/conf.d/supervisord.conf`：supervisor 配置可读，Master/Caves 启动命令继续消费 entrypoint 导出的环境变量。
@@ -32,9 +35,19 @@
 - `timeout 180s docker run --rm -e DST_SERVER_MODS_UPDATE_MODE=skip -v "$PWD/.tmp/e2e/steam-state:/steam-state" -v "$PWD/.tmp/e2e/dst:/opt/dst" -v "$PWD/.tmp/prewarm-e2e/ugc:/ugc" -v "$PWD/.tmp/skip-e2e/data:/data" dst-docker:v1`：在已有 `./ugc` 缓存的前提下，Master/Caves 启动日志里不再出现任何 Workshop 下载流程，而是直接注册并加载 `3359995816` 与 `378160973`；这证明 `skip` 模式适合“缓存已准备好、只想快速起服”的场景。
 - `timeout 240s docker run --rm -v "$PWD/.tmp/e2e/steam-state:/steam-state" -v "$PWD/.tmp/e2e/dst:/opt/dst" -v "$PWD/.tmp/e2e-mod-check/ugc:/ugc" -v "$PWD/.tmp/e2e-mod-check/data:/data" dst-docker:v1`：首次冷缓存的 `runtime` mod 实验中，`dedicated_server_mods_setup.lua` 触发了 Workshop 查询与下载，文件实际写入了 `/ugc/content/322330/<workshop-id>`；其中 `3359995816` 与 `378160973` 成功落盘并由 Master 加载，`362175979` 与 `661253977` 持续报 `ODPF failed entirely: 16`，而 Caves 在这次首跑中未能及时注册已下载 mod。
 - `timeout 180s docker run --rm -v "$PWD/.tmp/e2e/steam-state:/steam-state" -v "$PWD/.tmp/e2e/dst:/opt/dst" -v "$PWD/.tmp/e2e-mod-check/ugc:/ugc" -v "$PWD/.tmp/e2e-mod-check-reuse/data:/data" dst-docker:v1`：第二次复用同一 `./ugc` 缓存时，日志明确显示 `ModQuery already have IDs: {2.0.2,3359995816} {1.7.5,378160973}`，且 Master/Caves 都能启用并注册 `workshop-3359995816` 与 `workshop-378160973`；这表明首次问题主要出现在“并发冷下载”窗口，而不是 `modoverrides.lua` 的启用语义本身。
+- `timeout 300s docker run --rm -e DST_UPDATE_MODE=never -e DST_SERVER_MODS_UPDATE_MODE=prewarm -v "$PWD/.tmp/e2e/dst:/opt/dst" -v "$PWD/.tmp/legacy-fallback-reuse/steam-state:/steam-state" -v "$PWD/.tmp/legacy-fallback-reuse/ugc:/ugc" -v "$PWD/.tmp/legacy-fallback-reuse/data:/data" dst-docker:v1`：在复用已安装 DST、本轮只验证 mod fallback 的场景中，预热阶段依旧明确打印 `ODPF failed entirely: 16` 和 `Staging library folder not found`；但随后 entrypoint 会查询 Steam metadata，并把 `362175979`、`661253977` 下载为本地 fallback。最终 `/opt/dst/mods/workshop-362175979` 与 `/opt/dst/mods/workshop-661253977` 都出现 `.dst-docker-legacy-fallback` 标记，且目录中的 `images/`、`scripts/` 已从反斜杠名称成功归一化。
+- 同一轮 `legacy-fallback-reuse` 验证中，`Master/server_log.txt` 与 `Caves/server_log.txt` 都明确出现 `modoverrides.lua enabling workshop-661253977`、`modoverrides.lua enabling workshop-362175979`、`Registering Mod workshop-661253977`、`Registering Mod workshop-362175979`，说明这两个 legacy mod 已被双分片实际加载，而不是只停留在文件落盘层面。
+- 同一轮验证在约 2 分钟后由 `docker stop` 主动结束，退出状态是 `137`；停止前 Master/Caves 已完成 shard 互联、portal 校验，并未复现早先“本地 mods 目录一加入就出现缺失资源/洞穴贴图异常”的崩法。
+
+## 外部资料旁证
+- [Klei Bug Tracker: Mods are not properly downloading for dedicated servers](https://forums.kleientertainment.com/klei-bug-tracker/dont-starve-together/mods-are-not-properly-downloading-for-dedicated-servers-r29092/)：Klei 员工在 2021-03-14 说明 dedicated server 的 v2 mod 数据位于 data 目录下的 `steamapps/workshop/content/322330/...`。这与当前 `/ugc/content/322330/<id>` 的职责划分一致。
+- [Klei Forum: Questions regarding mod management post QoL](https://forums.kleientertainment.com/forums/topic/128054-questions-regarding-mod-management-post-qol/)：社区讨论提到 old Workshop mods 会以 `*_legacy.bin` 这类 zip 形式存在，并最终解到常规 `mods` 目录。这与当前 legacy fallback 解到 `/opt/dst/mods/workshop-*` 的方案同向。
+- [Klei Forum: Server fails to download workshop collection - staging/install library folder not found](https://forums.kleientertainment.com/forums/topic/169114-server-fails-to-download-workshop-collection-staginginstall-library-folder-not-found/)：2025-12 到 2026-03 仍有用户报告 `Staging library folder not found` / `ODPF failed entirely: 16`。这表明当前问题并非本仓库独有现象。
+- [Steamworks ISteamRemoteStorage](https://partner.steamgames.com/doc/api/ISteamRemoteStorage)：Steam 官方文档中 `GetPublishedFileDetails` 属于旧式 RemoteStorage Workshop API，返回结构包含 URL 字段；这为“检测 legacy 条目后按 `file_url` 下载 zip”提供了接口层支撑。
 
 ## 待继续验证
 - SteamCMD 的 `app_update 343050 validate` 在当前环境仍然报 `Missing configuration`，导致无法自动填充 `/opt/dst` 并验证 `find_dst_binary`。需要找到触发该错误的配置项（可能是 Steam 端或网络代理）后再复用这一命令确认二进制位置与版本。
 - “首次冷缓存 mod 预热” 已经通过 `DST_SERVER_MODS_UPDATE_MODE=prewarm` 固化到镜像逻辑中；后续仍需评估默认值是否保持 `runtime` 最稳妥，以及是否需要进一步记录失败 mod 的状态以避免对永久失效项反复预热。
 - 虽然 `/steam-state` 中的配置和日志文件在第二次 SteamCMD 启动时仍旧存在，但第二次 run 仍会输出 `Checking for available updates…`/`Downloading update…`/`Verifying installation…` 等自更新日志，说明只靠这一持久化状态尚无法跳过每次启动的 bootstrap；是否能利用已有 `/steam-state` 内容让后续运行真正复用且跳过下载仍需进一步调查。
-- `362175979` 与 `661253977` 在当前验证里都持续报 `ODPF failed entirely: 16`，即使复用已有 `./ugc` 缓存的第二次启动也仍然失败；这更像是具体 workshop 项目可用性/兼容性问题，而不是通用下载链路已经完全打通。
+- `362175979` 与 `661253977` 现在已经能通过本地 legacy fallback 正常加载，但 DST 自带的 `/ugc` 下载链路仍持续报 `ODPF failed entirely: 16`；也就是说，我们解决的是“可运行性”，不是“DST 官方下载链路已恢复正常”。
+- 社区里有人通过替换 `dst/bin64/steamclient.so` 规避 `Staging library folder not found`；这目前只算社区 workaround，尚未纳入镜像默认行为，后续若要采用应先做独立验证并设计成显式可选开关。

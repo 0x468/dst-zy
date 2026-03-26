@@ -35,22 +35,24 @@
 - `runtime`：默认值。由 Master/Caves 在各自启动时自行检查和下载 mod。优点是逻辑最贴近 DST 原生行为；缺点是首次冷缓存时两个 shard 可能并发访问 Workshop，日志也会更嘈杂。
 - `prewarm`：entrypoint 先用 DST 二进制的 `-only_update_server_mods` 预热一次 mod 缓存，随后再让 Master/Caves 以 `-skip_update_server_mods` 启动。优点是首次冷缓存更稳定，两个 shard 会直接复用 `/ugc` 已经下载好的内容；缺点是正式开服前会多一个预热阶段。
 - `skip`：完全跳过 shard 启动阶段的 mod 更新，要求你已经有可用的 `/ugc` 缓存。适合已知缓存完整、想压低启动噪音或避免访问 Workshop 的场景。
-- 无论使用哪种模式，只要存在 `dedicated_server_mods_setup.lua`，entrypoint 都会先打印一份缓存摘要，例如 `cached workshop-...` / `missing workshop-...`，方便你快速判断当前 `/ugc` 里到底有哪些 mod 已经准备好。
+- 无论使用哪种模式，只要存在 `dedicated_server_mods_setup.lua`，entrypoint 都会先打印一份缓存摘要，例如 `ugc workshop-...` / `local workshop-...` / `missing workshop-...`，方便你快速判断当前究竟是 `/ugc` 缓存命中、还是本地 fallback 命中、还是依旧缺失。
+- 当 `runtime` 或 `prewarm` 遇到“Steam metadata 中仍公开 `file_url` 的 legacy Workshop mod”且 `/ugc` 中没有对应缓存时，entrypoint 会额外查询 Steam metadata，并把 zip 解到 `/opt/dst/mods/workshop-<id>` 作为本地 fallback。`skip` 模式不会主动触发这条联网 fallback，只会复用现有的 `ugc` / `local` 内容。
 
 ## mod 配置职责
 - `dedicated_server_mods_setup.lua`（位于 `./data/<DST_CLUSTER_NAME>/mods/`）负责回答 “要下载哪些 Workshop/server mods”，它会被同步到 `/opt/dst/mods`，让 DST 本体在启动前得以触发下载/更新。
 - `modoverrides.lua`（`./data/<DST_CLUSTER_NAME>/Master/modoverrides.lua` 与 `./data/<DST_CLUSTER_NAME>/Caves/modoverrides.lua`）负责回答 “每个 shard 是否启用某个 mod 以及具体配置是什么”，Klei 的 shard 配置只会读取这个文件。
 - 该分工的好处是：`dedicated_server_mods_setup.lua` 统筹下载行为，`modoverrides.lua` 遵循 shard 级别的启用/配置策略。
 - 实测下载内容优先落在 `./ugc/content/322330/<workshop-id>`，而不是直接落在 `./dst/mods/workshop-*`。`./dst/mods` 保留 `dedicated_server_mods_setup.lua`、`modsettings.lua` 等入口文件，真正的 Workshop 内容则由 `-ugc_directory /ugc` 管理。
+- 对少数 legacy Workshop mod，DST 自身的 `/ugc` 下载流程可能持续报 `ODPF failed entirely: 16`。这时镜像会把 Steam metadata 中仍公开 `file_url` 的旧式 zip 解到 `./dst/mods/workshop-*`，并写入 `.dst-docker-legacy-fallback` 标记文件，供后续启动识别与清理。
 - 如果是第一次冷启动且 `./ugc` 里还没有缓存，`runtime` 模式下 Master/Caves 并发启动时可能出现 “Master 已下载并加载部分 mod，但 Caves 还没来得及复用缓存” 的窗口；`prewarm` 模式则会先完成一次统一下载，再让两个 shard 复用同一份缓存。
 - `Caves` 若需要固定洞穴世界配置，优先提供 `leveldataoverride.lua`；这是你当前真实集群的做法，也已被验证可直接被 DST 读取。
 
 
 ## 验证状态
 `SteamCMD` 程序固定在 `/usr/local/steamcmd`，而运行时状态写入 `/steam-state`。详见 `docs/verification.md` 中对这两个路径的验证。
-- 已验证：`docker build --pull=false -t dst-docker:v1 .`、`bash -n entrypoint.sh`、`bash tests/smoke/test-preflight-missing-token.sh`、`bash tests/smoke/test-supervisord-config.sh` 等关键命令均正常返回；`docker run --rm dst-docker:v1` 则在 `entrypoint` 的 preflight 阶段因 `/data/Cluster_1/cluster.ini` 缺失而退出，证明缺乏配置时不会误报成功；临时补充 `.env` 后 `docker compose config` 能完整展现 ports/volumes/environment 设定，`docker run --rm --entrypoint cat dst-docker:v1 /etc/supervisor/conf.d/supervisord.conf` 也确认了 Master/Caves 启动命令消费 entrypoint 导出的环境变量；详见 `docs/verification.md` 获取完整验证流程与观察细节。
+- 已验证：`docker build --pull=false -t dst-docker:v1 .`、`bash -n entrypoint.sh`、`bash tests/smoke/test-preflight-missing-token.sh`、`bash tests/smoke/test-supervisord-config.sh`、`bash tests/smoke/test-legacy-workshop-fallback-lib.sh`、`bash tests/smoke/test-legacy-workshop-extract-warnings.sh` 等关键命令均正常返回；`docker run --rm dst-docker:v1` 则在 `entrypoint` 的 preflight 阶段因 `/data/Cluster_1/cluster.ini` 缺失而退出，证明缺乏配置时不会误报成功；临时补充 `.env` 后 `docker compose config` 能完整展现 ports/volumes/environment 设定，`docker run --rm --entrypoint cat dst-docker:v1 /etc/supervisor/conf.d/supervisord.conf` 也确认了 Master/Caves 启动命令消费 entrypoint 导出的环境变量；详见 `docs/verification.md` 获取完整验证流程与观察细节。
 - 限制：`cluster.ini`、`cluster_token.txt` 与两个 shard 的 `server.ini` 仍缺失，`entrypoint` 会在 `require_file` 阶段直接退出，因此 `docker compose up` 或 `supervisord` 的真正 Master/Caves 启动依赖这些文件才能完成。
-- 待验证：`update`/`validate` 模式在真实的 Workshop mod 场景中是否按预期更新；`./data` 下的 mod/shard 配置在多 shard 并行运行中的长期稳定性；其他 DST 更新参数与 mod 下载行为的完整性。
+- 待验证：`update`/`validate` 模式在真实的 Workshop mod 场景中是否按预期更新；`./data` 下的 mod/shard 配置在多 shard 并行运行中的长期稳定性；其他 DST 更新参数与 mod 下载行为的完整性；以及是否要把社区里“替换 `steamclient.so`”的 workaround 做成可选实验开关。
 
 ## 其他说明
 - 目录挂载后的第一级路径（`steam-state`、`dst`、`ugc`、`data`）必须由用户提前创建并赋予合适权限。

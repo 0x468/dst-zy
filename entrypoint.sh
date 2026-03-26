@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=lib/legacy_workshop_fallback.sh
+source /usr/local/lib/dst/legacy_workshop_fallback.sh
+
 DST_UPDATE_MODE=${DST_UPDATE_MODE:-install-only}
 DST_CLUSTER_NAME=${DST_CLUSTER_NAME:-Cluster_1}
 export DST_CLUSTER_NAME
@@ -19,6 +22,7 @@ readonly DATA_MASTER_DIR="$DATA_CLUSTER_DIR/Master"
 readonly DATA_CAVES_DIR="$DATA_CLUSTER_DIR/Caves"
 readonly DATA_MODS_DIR="$DATA_CLUSTER_DIR/mods"
 readonly SUPERVISORD_CONFIG=/etc/supervisor/conf.d/supervisord.conf
+readonly LEGACY_FALLBACK_MARKER=.dst-docker-legacy-fallback
 
 log_info() {
   printf 'entrypoint: %s\n' "$*"
@@ -169,32 +173,212 @@ collect_server_mod_ids() {
   grep -oE 'workshop-[0-9]+' "$synced_mod_setup" | sort -u || true
 }
 
+is_mod_cached_in_ugc() {
+  local mod_id="$1"
+  [ -d "$DST_UGC_DIR/content/322330/${mod_id#workshop-}" ]
+}
+
+is_mod_available_locally() {
+  local mod_id="$1"
+  [ -d "$DST_INSTALL_DIR/mods/$mod_id" ]
+}
+
+is_managed_legacy_fallback_mod() {
+  local mod_id="$1"
+  [ -f "$DST_INSTALL_DIR/mods/$mod_id/$LEGACY_FALLBACK_MARKER" ]
+}
+
+collect_missing_server_mod_ids() {
+  local mod_id
+
+  while IFS= read -r mod_id; do
+    [ -n "$mod_id" ] || continue
+    if is_mod_cached_in_ugc "$mod_id"; then
+      continue
+    fi
+    if is_mod_available_locally "$mod_id"; then
+      continue
+    fi
+    printf '%s\n' "$mod_id"
+  done < <(collect_server_mod_ids)
+}
+
+cleanup_stale_managed_legacy_fallback_mods() {
+  local mod_dir
+  local mod_id
+
+  mkdir -p "$DST_INSTALL_DIR/mods"
+  while IFS= read -r -d '' mod_dir; do
+    mod_dir="$(dirname "$mod_dir")"
+    mod_id="$(basename "$mod_dir")"
+    if ! collect_server_mod_ids | grep -Fxq "$mod_id"; then
+      log_info "server mods: removing stale managed legacy fallback $mod_id"
+      rm -rf "$mod_dir"
+      continue
+    fi
+    if is_mod_cached_in_ugc "$mod_id"; then
+      log_info "server mods: removing managed legacy fallback $mod_id because UGC cache is present"
+      rm -rf "$mod_dir"
+    fi
+  done < <(find "$DST_INSTALL_DIR/mods" -mindepth 2 -maxdepth 2 -type f -name "$LEGACY_FALLBACK_MARKER" -print0 2>/dev/null)
+}
+
+cleanup_legacy_fallback_temp_dirs() {
+  mkdir -p "$DST_INSTALL_DIR/mods"
+  find "$DST_INSTALL_DIR/mods" -mindepth 1 -maxdepth 1 -type d \
+    \( -name '.legacy-api.*' -o -name '.legacy-fallback-*' \) \
+    -exec rm -rf {} +
+}
+
 log_server_mod_cache_state() {
   local mod_id
-  local -a cached_ids=()
+  local -a ugc_cached_ids=()
+  local -a local_cached_ids=()
   local -a missing_ids=()
 
   while IFS= read -r mod_id; do
     [ -n "$mod_id" ] || continue
-    if [ -d "$DST_UGC_DIR/content/322330/${mod_id#workshop-}" ]; then
-      cached_ids+=("$mod_id")
+    if is_mod_cached_in_ugc "$mod_id"; then
+      ugc_cached_ids+=("$mod_id")
+    elif is_mod_available_locally "$mod_id"; then
+      local_cached_ids+=("$mod_id")
     else
       missing_ids+=("$mod_id")
     fi
   done < <(collect_server_mod_ids)
 
-  if [ "${#cached_ids[@]}" -eq 0 ] && [ "${#missing_ids[@]}" -eq 0 ]; then
+  if [ "${#ugc_cached_ids[@]}" -eq 0 ] && [ "${#local_cached_ids[@]}" -eq 0 ] && [ "${#missing_ids[@]}" -eq 0 ]; then
     log_info 'server mods cache: no workshop ids declared'
     return
   fi
 
-  if [ "${#cached_ids[@]}" -gt 0 ]; then
-    log_info "server mods cache: cached ${cached_ids[*]}"
+  if [ "${#ugc_cached_ids[@]}" -gt 0 ]; then
+    log_info "server mods cache: ugc ${ugc_cached_ids[*]}"
+  fi
+
+  if [ "${#local_cached_ids[@]}" -gt 0 ]; then
+    log_info "server mods cache: local ${local_cached_ids[*]}"
   fi
 
   if [ "${#missing_ids[@]}" -gt 0 ]; then
     log_info "server mods cache: missing ${missing_ids[*]}"
   fi
+}
+
+fetch_steam_published_file_details() {
+  local output_json="$1"
+  shift
+
+  local index=0
+  local mod_id
+  local -a curl_args=(
+    -fsSL
+    --retry 3
+    -X POST
+    https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/
+    -d "itemcount=$#"
+  )
+
+  for mod_id in "$@"; do
+    curl_args+=(-d "publishedfileids[$index]=${mod_id#workshop-}")
+    index=$((index + 1))
+  done
+
+  curl "${curl_args[@]}" -o "$output_json"
+}
+
+install_legacy_workshop_fallback_mod() {
+  local numeric_id="$1"
+  local file_url="$2"
+  local mod_id="workshop-$numeric_id"
+  local mod_dir="$DST_INSTALL_DIR/mods/$mod_id"
+  local temp_dir
+  local zip_path
+  local extract_dir
+  local status=0
+
+  if [ -d "$mod_dir" ] && ! is_managed_legacy_fallback_mod "$mod_id"; then
+    log_info "server mods: local mod directory already exists for $mod_id; leaving it untouched"
+    return 0
+  fi
+
+  temp_dir="$(mktemp -d "$DST_INSTALL_DIR/mods/.legacy-fallback-$numeric_id.XXXXXX")"
+  zip_path="$temp_dir/mod.zip"
+  extract_dir="$temp_dir/extracted"
+
+  log_info "server mods: downloading legacy fallback for $mod_id"
+  curl -fsSL --retry 3 "$file_url" -o "$zip_path" || status=$?
+  if [ "$status" -eq 0 ]; then
+    extract_legacy_workshop_zip "$zip_path" "$extract_dir" || status=$?
+  fi
+  if [ "$status" -ne 0 ]; then
+    rm -rf "$temp_dir"
+    return "$status"
+  fi
+
+  if [ ! -f "$extract_dir/modinfo.lua" ] && [ ! -f "$extract_dir/modmain.lua" ]; then
+    log_error "server mods: legacy fallback for $mod_id is missing modinfo.lua/modmain.lua after extraction"
+    rm -rf "$temp_dir"
+    return 1
+  fi
+
+  : > "$extract_dir/$LEGACY_FALLBACK_MARKER"
+  rm -rf "$mod_dir"
+  mv "$extract_dir" "$mod_dir"
+  rm -rf "$temp_dir"
+  log_info "server mods: installed legacy fallback to $mod_dir"
+}
+
+prepare_legacy_server_mod_fallbacks() {
+  local tmp_dir
+  local metadata_json
+  local line
+  local numeric_id
+  local file_url
+  local mod_id
+  local status=0
+  local -a missing_ids=()
+  local -a handled_ids=()
+
+  cleanup_legacy_fallback_temp_dirs
+  cleanup_stale_managed_legacy_fallback_mods
+
+  while IFS= read -r mod_id; do
+    [ -n "$mod_id" ] || continue
+    missing_ids+=("$mod_id")
+  done < <(collect_missing_server_mod_ids)
+
+  if [ "${#missing_ids[@]}" -eq 0 ]; then
+    log_info 'server mods: no missing workshop ids require legacy fallback'
+    return 0
+  fi
+
+  tmp_dir="$(mktemp -d "$DST_INSTALL_DIR/mods/.legacy-api.XXXXXX")"
+  metadata_json="$tmp_dir/publishedfiledetails.json"
+
+  log_info "server mods: querying Steam metadata for missing ids ${missing_ids[*]}"
+  fetch_steam_published_file_details "$metadata_json" "${missing_ids[@]}" || status=$?
+  if [ "$status" -ne 0 ]; then
+    rm -rf "$tmp_dir"
+    return "$status"
+  fi
+
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    numeric_id="${line%%|*}"
+    file_url="${line#*|}"
+    install_legacy_workshop_fallback_mod "$numeric_id" "$file_url"
+    handled_ids+=("workshop-$numeric_id")
+  done < <(legacy_workshop_file_urls_from_json "$metadata_json")
+
+  for mod_id in "${missing_ids[@]}"; do
+    if printf '%s\n' "${handled_ids[@]:-}" | grep -Fxq "$mod_id"; then
+      continue
+    fi
+    log_info "server mods: no legacy fallback metadata for $mod_id"
+  done
+
+  rm -rf "$tmp_dir"
 }
 
 run_only_update_server_mods() {
@@ -226,16 +410,19 @@ configure_server_mod_update_mode() {
 
   case "$DST_SERVER_MODS_UPDATE_MODE" in
     runtime)
+      prepare_legacy_server_mod_fallbacks
       log_info 'server mods: runtime mode; shard processes will update mods themselves'
       log_server_mod_cache_state
       ;;
     prewarm)
       run_only_update_server_mods
+      prepare_legacy_server_mod_fallbacks
       DST_SERVER_EXTRA_ARGS='-skip_update_server_mods'
       log_server_mod_cache_state
       log_info 'server mods: prewarm finished; shard processes will reuse cache via -skip_update_server_mods'
       ;;
     skip)
+      cleanup_stale_managed_legacy_fallback_mods
       DST_SERVER_EXTRA_ARGS='-skip_update_server_mods'
       log_server_mod_cache_state
       log_info 'server mods: skip mode; shard processes will trust existing UGC cache'
