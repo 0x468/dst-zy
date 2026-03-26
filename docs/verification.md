@@ -9,7 +9,7 @@
 - SteamCMD 程序文件固定在 `/usr/local/steamcmd`，entrypoint 直接调用 `/usr/local/steamcmd/steamcmd.sh`，同时以 `/steam-state` 作为 `HOME`，保证用户无法通过挂载覆盖核心程序且所有运行状态都落在独立目录。
 - Dockerfile 现在会在构建阶段主动执行一次 `steamcmd.sh +quit`，把 SteamCMD 首次约 36MB 的程序自更新烘进镜像；因此运行时的第一次 `steamcmd +quit` 已不再重复拉取这部分 bootstrap。
 - `entrypoint.sh` 现在会把 SteamCMD 的 `app_update 343050` 包装成“仅针对 `Missing configuration` 的一次有限重试”。这是因为同一容器、同一 `HOME`、同一命令组下，已验证存在“第一次返回 `ERROR! Failed to install app '343050' (Missing configuration)`，第二次原样重试成功”的瞬时失败模式。
-- 仓库现在提供四个本地辅助脚本：`scripts/init-cluster.sh` 负责生成 `data/<cluster>`；`scripts/bootstrap-local.sh` 负责一次性准备 `.env` 和本地卷目录，并把 `.env.example` 中缺失的键回填到已有 `.env`；`scripts/check-local-config.sh` 负责在起服前检查 `.env`、cluster 目录、占位配置以及 host/shard 端口冲突；`scripts/run-smoke.sh` 负责统一执行 `fast/full` 两组 smoke。
+- 仓库现在提供四个本地辅助脚本：`scripts/init-cluster.sh` 负责生成 `data/<cluster>`；`scripts/bootstrap-local.sh` 负责一次性准备 `.env` 和本地卷目录，并把 `.env.example` 中缺失的键回填到已有 `.env`；`scripts/check-local-config.sh` 负责在起服前检查 `.env`、cluster 目录、占位配置、`cluster.ini` 的双分片关键项，以及 host/shard 端口冲突；`scripts/run-smoke.sh` 负责统一执行 `fast/full` 两组 smoke。
 - 仓库当前默认的双分片对外端口模型是四个 UDP 端口：Master `server_port` `11000`、Caves `server_port` `11001`、Master `master_server_port` `27018`、Caves `master_server_port` `27019`。`cluster.ini` 里的 `master_port` 只用于 shard 间协调，不属于 compose 默认公开端口。
 - `entrypoint.sh` 会在 `/data/<DST_CLUSTER_NAME>` 下查找 `cluster.ini`、`cluster_token.txt` 与两个 shard 的 `server.ini`，没有这些文件启动就会在 preflight 阶段失败（脚本里用 `require_file` 明确退出）。
 - 通过 `find_dst_binary` 和 `run_steamcmd_app_update` 两段逻辑，entrypoint 会优先定位 `/opt/dst/bin64/dontstarve_dedicated_server_nullrenderer_x64`，如缺失再调用 SteamCMD 下载，`DST_UPDATE_MODE` 支持 `install-only`/`update`/`validate`/`never` 四种运行方式。
@@ -31,7 +31,7 @@
 - `bash tests/smoke/test-bootstrap-local-script.sh`：确认 `scripts/bootstrap-local.sh` 能自动准备 `.env`、`steam-state/`、`dst/`、`ugc/`、`data/`，生成指定的 `data/<cluster>`，并为已有 `.env` 回填缺失键而不覆盖已有值。
 - `bash tests/smoke/test-check-local-config-script.sh`：确认 `scripts/check-local-config.sh` 会在本地配置完整时通过，并在 `cluster_token.txt` 仍为示例占位值时明确失败。
 - `bash tests/smoke/test-check-local-config-ports-and-dirs.sh`：确认 `scripts/check-local-config.sh` 会在运行目录缺失、宿主机 UDP 端口非法或 host 端口冲突时明确失败。
-- `bash tests/smoke/test-check-local-config-shard-settings.sh`：确认 `scripts/check-local-config.sh` 会在 `cluster_key` 仍为示例值、Master/Caves 的 `server_port`/`master_server_port` 冲突，或 shard 端口偏离 compose 默认目标端口时明确失败。
+- `bash tests/smoke/test-check-local-config-shard-settings.sh`：确认 `scripts/check-local-config.sh` 会在 `cluster_key` 仍为示例值、`shard_enabled` 被关闭、`master_port` 非法、Master/Caves 的 `server_port`/`master_server_port` 冲突，或 shard 端口偏离 compose 默认目标端口时明确失败。
 - `bash tests/smoke/test-run-smoke-script.sh`：确认 `scripts/run-smoke.sh fast --list` 会列出预期 smoke 套件，且包含 `bootstrap-local` 与 compose 端口回归测试。
 - `bash tests/smoke/test-compose-port-envs.sh`：确认 `docker-compose.yml` 支持通过 `.env` 覆盖 `DST_MASTER_HOST_PORT`、`DST_CAVES_HOST_PORT`、`DST_STEAM_HOST_PORT`、`DST_CAVES_STEAM_HOST_PORT`，并能正确渲染到 compose 配置里。
 - `bash tests/smoke/test-legacy-workshop-fallback-lib.sh`：确认 helper 能从 Steam metadata JSON 中正确筛出带 `file_url` 的 legacy Workshop mod，并能把解压后带反斜杠的路径名归一化成 Linux 目录结构。

@@ -67,8 +67,20 @@ if [ "$token_value" = 'replace-with-your-klei-cluster-token' ]; then
 fi
 
 cluster_key_value="$(awk -F= '$1 ~ /^[[:space:]]*cluster_key[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/cluster.ini" | tail -n 1)"
+shard_enabled_value="$(awk -F= '$1 ~ /^[[:space:]]*shard_enabled[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/cluster.ini" | tail -n 1)"
+master_port_value="$(awk -F= '$1 ~ /^[[:space:]]*master_port[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/cluster.ini" | tail -n 1)"
 if [ "$cluster_key_value" = 'replace-with-your-own-cluster-key' ]; then
   echo "cluster.ini still contains the example cluster_key: $cluster_dir/cluster.ini" >&2
+  exit 1
+fi
+
+if [ "$shard_enabled_value" != 'true' ]; then
+  echo "cluster.ini shard_enabled must be true: $cluster_dir/cluster.ini" >&2
+  exit 1
+fi
+
+if ! [[ "$master_port_value" =~ ^[0-9]+$ ]] || [ "$master_port_value" -lt 1 ] || [ "$master_port_value" -gt 65535 ]; then
+  echo "cluster.ini master_port must be a valid port: $master_port_value" >&2
   exit 1
 fi
 

@@ -39,6 +39,42 @@ if ! grep -q 'cluster.ini still contains the example cluster_key' /tmp/test-chec
 fi
 
 sed -i 's/^cluster_key = .*/cluster_key = real-cluster-key/' "$TMP_DIR/work/data/Cluster_Shard/cluster.ini"
+sed -i 's/^shard_enabled = .*/shard_enabled = false/' "$TMP_DIR/work/data/Cluster_Shard/cluster.ini"
+
+if (
+  cd "$TMP_DIR/work" &&
+  bash scripts/check-local-config.sh >/tmp/test-check-local-config-shard-mode.out 2>&1
+); then
+  echo "check-local-config.sh should fail when cluster shard mode is disabled"
+  cat /tmp/test-check-local-config-shard-mode.out
+  exit 1
+fi
+
+if ! grep -q 'cluster.ini shard_enabled must be true' /tmp/test-check-local-config-shard-mode.out; then
+  echo "check-local-config.sh should explain disabled shard mode failures"
+  cat /tmp/test-check-local-config-shard-mode.out
+  exit 1
+fi
+
+sed -i 's/^shard_enabled = .*/shard_enabled = true/' "$TMP_DIR/work/data/Cluster_Shard/cluster.ini"
+sed -i 's/^master_port = .*/master_port = abc/' "$TMP_DIR/work/data/Cluster_Shard/cluster.ini"
+
+if (
+  cd "$TMP_DIR/work" &&
+  bash scripts/check-local-config.sh >/tmp/test-check-local-config-master-port.out 2>&1
+); then
+  echo "check-local-config.sh should fail when cluster master_port is invalid"
+  cat /tmp/test-check-local-config-master-port.out
+  exit 1
+fi
+
+if ! grep -q 'cluster.ini master_port must be a valid port' /tmp/test-check-local-config-master-port.out; then
+  echo "check-local-config.sh should explain invalid cluster master_port failures"
+  cat /tmp/test-check-local-config-master-port.out
+  exit 1
+fi
+
+sed -i 's/^master_port = .*/master_port = 10889/' "$TMP_DIR/work/data/Cluster_Shard/cluster.ini"
 sed -i 's/^server_port = .*/server_port = 11000/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
 
 if (

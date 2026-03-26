@@ -47,6 +47,7 @@
 
 - 运行目录 `steam-state/`、`dst/`、`ugc/`、`data/` 是否齐全
 - `cluster_token.txt`、`cluster.ini`、两个 shard 的 `server.ini` 是否已准备好且不再是示例占位值
+- `cluster.ini` 的 `shard_enabled` 与 `master_port` 是否仍符合双分片最小要求
 - `.env` 里的四个宿主机 UDP 端口是否有效、是否彼此冲突
 - Master/Caves 的 `server_port` 与 `master_server_port` 是否发生冲突
 - 当前 shard 端口是否仍与 compose 默认暴露的双分片目标端口一致
