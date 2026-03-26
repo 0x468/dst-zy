@@ -3,10 +3,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-TMP_DIR="$REPO_ROOT/.tmp/test-check-local-config-script"
+TMP_PARENT="$REPO_ROOT/.tmp"
 
-rm -rf "$TMP_DIR"
-mkdir -p "$TMP_DIR/work"
+mkdir -p "$TMP_PARENT"
+TMP_DIR="$(mktemp -d "$TMP_PARENT/test-check-local-config-script.XXXXXX")"
+mkdir -p "$TMP_DIR/work/steam-state" "$TMP_DIR/work/dst" "$TMP_DIR/work/ugc" "$TMP_DIR/work/data"
 
 cp "$REPO_ROOT/.env.example" "$TMP_DIR/work/.env"
 sed -i 's/^DST_CLUSTER_NAME=.*/DST_CLUSTER_NAME=Cluster_Z/' "$TMP_DIR/work/.env"
