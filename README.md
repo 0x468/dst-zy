@@ -40,6 +40,7 @@
 - `bash scripts/run-smoke.sh full`
 
 `full` 会额外覆盖真实容器里的 `DST_UPDATE_MODE` 与 `DST_SERVER_MODS_UPDATE_MODE` 分支回归。
+其中还包括 `steamclient.so` 实验开关和结构化 mod 状态日志的容器级 smoke；真实 SteamCMD 的慢回归则保持为单独脚本，不进入默认套件。
 
 如果只是想在起服前检查本地准备是否齐全，可以先运行：
 
@@ -99,6 +100,21 @@
 - `skip`：完全跳过 shard 启动阶段的 mod 更新，要求你已经有可用的 `/ugc` 缓存。适合已知缓存完整、想压低启动噪音或避免访问 Workshop 的场景。
 - 无论使用哪种模式，只要存在 `dedicated_server_mods_setup.lua`，entrypoint 都会先打印一份缓存摘要，例如 `ugc workshop-...` / `local workshop-...` / `missing workshop-...`，方便你快速判断当前究竟是 `/ugc` 缓存命中、还是本地 fallback 命中、还是依旧缺失。
 - 当 `runtime` 或 `prewarm` 遇到“Steam metadata 中仍公开 `file_url` 的 legacy Workshop mod”且 `/ugc` 中没有对应缓存时，entrypoint 会额外查询 Steam metadata，并把 zip 解到 `/opt/dst/mods/workshop-<id>` 作为本地 fallback。`skip` 模式不会主动触发这条联网 fallback，只会复用现有的 `ugc` / `local` 内容。
+- 为了更快排障，server mod 日志现在会额外输出固定前缀的状态行，例如：
+  - `server mods status: ugc-hit workshop-...`
+  - `server mods status: local-hit workshop-...`
+  - `server mods status: missing workshop-...`
+  - `server mods status: legacy-fallback-installed workshop-...`
+  - `server mods status: legacy-fallback-metadata-missing workshop-...`
+
+## 实验开关
+- `DST_EXPERIMENTAL_STEAMCLIENT_WORKAROUND=1`
+  默认关闭。开启后，entrypoint 会在 DST binary 已就绪时，把 `/usr/local/steamcmd/linux64/steamclient.so` 复制到 DST 运行目录旁边。
+  这不是默认路径，只用于未来再次出现上游 `steamclient.so` 相关兼容问题时做快速实验。
+
+## 慢回归
+- `bash tests/slow/test-real-steamcmd-update-modes.sh`
+  这是一条显式执行的慢回归，用真实 `steamcmd` 验证 `DST_UPDATE_MODE=update` 和 `validate` 的实际链路。它默认不进入 `fast` 或 `full`，避免把日常开发回归拖慢。
 
 ## mod 配置职责
 - `dedicated_server_mods_setup.lua`（位于 `./data/<DST_CLUSTER_NAME>/mods/`）负责回答 “要下载哪些 Workshop/server mods”，它会被同步到 `/opt/dst/mods`，让 DST 本体在启动前得以触发下载/更新。

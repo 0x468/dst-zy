@@ -27,6 +27,8 @@ full_tests=(
   "tests/smoke/test-managed-legacy-fallback-cleanup.sh"
   "tests/smoke/test-entrypoint-update-modes.sh"
   "tests/smoke/test-entrypoint-server-mod-modes.sh"
+  "tests/smoke/test-entrypoint-steamclient-workaround.sh"
+  "tests/smoke/test-entrypoint-mod-status-logging.sh"
 )
 
 case "$suite" in

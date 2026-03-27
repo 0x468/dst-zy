@@ -36,6 +36,9 @@
 - `bash tests/smoke/test-compose-port-envs.sh`：确认 `docker-compose.yml` 支持通过 `.env` 覆盖 `DST_MASTER_HOST_PORT`、`DST_CAVES_HOST_PORT`、`DST_STEAM_HOST_PORT`、`DST_CAVES_STEAM_HOST_PORT`，并能正确渲染到 compose 配置里。
 - `bash tests/smoke/test-entrypoint-update-modes.sh`：确认容器在 fake `steamcmd` / fake `supervisord` 夹具下，会按预期处理 `install-only`、`update`、`validate`、`never` 和非法 `DST_UPDATE_MODE`。
 - `bash tests/smoke/test-entrypoint-server-mod-modes.sh`：确认容器在 fake DST binary / fake `supervisord` 夹具下，会按预期处理 `runtime`、`prewarm`、`skip` 和非法 `DST_SERVER_MODS_UPDATE_MODE`。
+- `bash tests/smoke/test-entrypoint-steamclient-workaround.sh`：确认 `DST_EXPERIMENTAL_STEAMCLIENT_WORKAROUND` 默认关闭，且显式开启后会把 `/usr/local/steamcmd/linux64/steamclient.so` 复制到 DST 运行目录。
+- `bash tests/smoke/test-entrypoint-mod-status-logging.sh`：确认容器会输出固定前缀的 server mod 状态日志，覆盖 `ugc-hit`、`local-hit`、`legacy-fallback-installed` 与 `legacy-fallback-metadata-missing` 等状态。
+- `bash tests/slow/test-real-steamcmd-update-modes.sh`：确认真实 `steamcmd` 链路下，`DST_UPDATE_MODE=update` 能完成安装并留下 DST binary，而随后 `DST_UPDATE_MODE=validate` 能基于同一安装目录继续完成校验。这条测试默认不进入 `fast/full`，只用于显式慢回归。
 - `bash tests/smoke/test-legacy-workshop-fallback-lib.sh`：确认 helper 能从 Steam metadata JSON 中正确筛出带 `file_url` 的 legacy Workshop mod，并能把解压后带反斜杠的路径名归一化成 Linux 目录结构。
 - `bash tests/smoke/test-legacy-workshop-extract-warnings.sh`：确认即使 `unzip` 因 legacy zip 的反斜杠路径发出 warning 并返回 `1`，helper 仍会继续完成 extraction 和路径归一化，而不是把 warning 误判成硬失败。
 - `docker run --rm dst-docker:v1`：entrypoint 会在缺少 `/data/Cluster_1/cluster.ini` 时立即报 `preflight error: missing cluster.ini at /data/Cluster_1/cluster.ini`，说明仍然需要配置文件才能完成启动。
@@ -57,6 +60,7 @@
 - `timeout 300s docker run --rm -e DST_UPDATE_MODE=never -e DST_SERVER_MODS_UPDATE_MODE=prewarm -v "$PWD/.tmp/e2e/dst:/opt/dst" -v "$PWD/.tmp/legacy-fallback-reuse/steam-state:/steam-state" -v "$PWD/.tmp/legacy-fallback-reuse/ugc:/ugc" -v "$PWD/.tmp/legacy-fallback-reuse/data:/data" dst-docker:v1`：在复用已安装 DST、本轮只验证 mod fallback 的场景中，预热阶段依旧明确打印 `ODPF failed entirely: 16` 和 `Staging library folder not found`；但随后 entrypoint 会查询 Steam metadata，并把 `362175979`、`661253977` 下载为本地 fallback。最终 `/opt/dst/mods/workshop-362175979` 与 `/opt/dst/mods/workshop-661253977` 都出现 `.dst-docker-legacy-fallback` 标记，且目录中的 `images/`、`scripts/` 已从反斜杠名称成功归一化。
 - 同一轮 `legacy-fallback-reuse` 验证中，`Master/server_log.txt` 与 `Caves/server_log.txt` 都明确出现 `modoverrides.lua enabling workshop-661253977`、`modoverrides.lua enabling workshop-362175979`、`Registering Mod workshop-661253977`、`Registering Mod workshop-362175979`，说明这两个 legacy mod 已被双分片实际加载，而不是只停留在文件落盘层面。
 - 同一轮验证在约 2 分钟后由 `docker stop` 主动结束，退出状态是 `137`；停止前 Master/Caves 已完成 shard 互联、portal 校验，并未复现早先“本地 mods 目录一加入就出现缺失资源/洞穴贴图异常”的崩法。
+- `bash tests/slow/test-real-steamcmd-update-modes.sh`：真实慢回归中，`update` 首次运行会先命中一次 `Missing configuration`，随后由现有 helper 自动重试并继续完成真实安装；同一套挂载目录上的后续 `validate` 也能启动并进入完整校验流程，脚本最终输出 `slow steamcmd update/validate regression passed under ...`。这说明当前仓库不仅有 fake smoke 覆盖模式分支，也已经有一条可手动触发的真实 SteamCMD 慢回归。
 
 ## 外部资料旁证
 - [Klei Bug Tracker: Mods are not properly downloading for dedicated servers](https://forums.kleientertainment.com/klei-bug-tracker/dont-starve-together/mods-are-not-properly-downloading-for-dedicated-servers-r29092/)：Klei 员工在 2021-03-14 说明 dedicated server 的 v2 mod 数据位于 data 目录下的 `steamapps/workshop/content/322330/...`。这与当前 `/ugc/content/322330/<id>` 的职责划分一致。

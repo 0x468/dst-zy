@@ -14,10 +14,12 @@ DST_INSTALL_DIR=${DST_INSTALL_DIR:-/opt/dst}
 DST_UGC_DIR=${DST_UGC_DIR:-/ugc}
 DST_DATA_DIR=${DST_DATA_DIR:-/data}
 DST_SERVER_MODS_UPDATE_MODE=${DST_SERVER_MODS_UPDATE_MODE:-runtime}
+DST_EXPERIMENTAL_STEAMCLIENT_WORKAROUND=${DST_EXPERIMENTAL_STEAMCLIENT_WORKAROUND:-0}
 export DST_UGC_DIR DST_DATA_DIR DST_STEAM_STATE_DIR DST_SERVER_MODS_UPDATE_MODE
 DST_SERVER_BINARY=""
 DST_SERVER_EXTRA_ARGS=""
 readonly STEAMCMD_BIN=/usr/local/steamcmd/steamcmd.sh
+readonly STEAMCLIENT_SOURCE=/usr/local/steamcmd/linux64/steamclient.so
 
 readonly DATA_CLUSTER_DIR="$DST_DATA_DIR/$DST_CLUSTER_NAME"
 readonly DATA_MASTER_DIR="$DATA_CLUSTER_DIR/Master"
@@ -33,6 +35,19 @@ log_info() {
 
 log_error() {
   printf 'entrypoint: %s\n' "$*" >&2
+}
+
+log_server_mod_status() {
+  local status="$1"
+  local mod_id="$2"
+  local extra="${3:-}"
+
+  if [ -n "$extra" ]; then
+    log_info "server mods status: $status $mod_id $extra"
+    return 0
+  fi
+
+  log_info "server mods status: $status $mod_id"
 }
 
 require_file() {
@@ -106,6 +121,30 @@ require_dst_binary_after_steamcmd() {
   fi
   log_error "$context completed but no DST binary was found under $DST_INSTALL_DIR"
   exit 1
+}
+
+maybe_apply_steamclient_workaround() {
+  local runtime_dir
+  local target_path
+
+  if [ "$DST_EXPERIMENTAL_STEAMCLIENT_WORKAROUND" != "1" ]; then
+    return 0
+  fi
+
+  if [ -z "${DST_SERVER_BINARY:-}" ]; then
+    log_info 'steamclient workaround: DST binary not ready, skipping'
+    return 0
+  fi
+
+  if [ ! -f "$STEAMCLIENT_SOURCE" ]; then
+    log_info "steamclient workaround: source $STEAMCLIENT_SOURCE missing, skipping"
+    return 0
+  fi
+
+  runtime_dir="$(dirname "$DST_SERVER_BINARY")"
+  target_path="$runtime_dir/steamclient.so"
+  install -m 0644 "$STEAMCLIENT_SOURCE" "$target_path"
+  log_info "steamclient workaround: copied $STEAMCLIENT_SOURCE to $target_path"
 }
 
 handle_update_mode() {
@@ -258,15 +297,21 @@ log_server_mod_cache_state() {
   fi
 
   if [ "${#ugc_cached_ids[@]}" -gt 0 ]; then
-    log_info "server mods cache: ugc ${ugc_cached_ids[*]}"
+    for mod_id in "${ugc_cached_ids[@]}"; do
+      log_server_mod_status 'ugc-hit' "$mod_id"
+    done
   fi
 
   if [ "${#local_cached_ids[@]}" -gt 0 ]; then
-    log_info "server mods cache: local ${local_cached_ids[*]}"
+    for mod_id in "${local_cached_ids[@]}"; do
+      log_server_mod_status 'local-hit' "$mod_id"
+    done
   fi
 
   if [ "${#missing_ids[@]}" -gt 0 ]; then
-    log_info "server mods cache: missing ${missing_ids[*]}"
+    for mod_id in "${missing_ids[@]}"; do
+      log_server_mod_status 'missing' "$mod_id"
+    done
   fi
 }
 
@@ -317,12 +362,14 @@ install_legacy_workshop_fallback_mod() {
     extract_legacy_workshop_zip "$zip_path" "$extract_dir" || status=$?
   fi
   if [ "$status" -ne 0 ]; then
+    log_server_mod_status 'legacy-fallback-download-failed' "$mod_id" "status=$status"
     rm -rf "$temp_dir"
     return "$status"
   fi
 
   if [ ! -f "$extract_dir/modinfo.lua" ] && [ ! -f "$extract_dir/modmain.lua" ]; then
     log_error "server mods: legacy fallback for $mod_id is missing modinfo.lua/modmain.lua after extraction"
+    log_server_mod_status 'legacy-fallback-invalid' "$mod_id"
     rm -rf "$temp_dir"
     return 1
   fi
@@ -332,6 +379,7 @@ install_legacy_workshop_fallback_mod() {
   mv "$extract_dir" "$mod_dir"
   rm -rf "$temp_dir"
   log_info "server mods: installed legacy fallback to $mod_dir"
+  log_server_mod_status 'legacy-fallback-installed' "$mod_id"
 }
 
 prepare_legacy_server_mod_fallbacks() {
@@ -381,6 +429,7 @@ prepare_legacy_server_mod_fallbacks() {
       continue
     fi
     log_info "server mods: no legacy fallback metadata for $mod_id"
+    log_server_mod_status 'legacy-fallback-metadata-missing' "$mod_id"
   done
 
   rm -rf "$tmp_dir"
@@ -458,6 +507,7 @@ main() {
   fi
   handle_update_mode
   export DST_SERVER_BINARY
+  maybe_apply_steamclient_workaround
   sync_mod_setup
   configure_server_mod_update_mode
 
