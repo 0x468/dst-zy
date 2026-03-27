@@ -1,0 +1,19 @@
+services:
+  dst:
+    image: ${DST_IMAGE:-docker.io/example/dst-docker:v1}
+    environment:
+      DST_CLUSTER_NAME: ${DST_CLUSTER_NAME:-Cluster_1}
+      DST_UPDATE_MODE: ${DST_UPDATE_MODE:-install-only}
+      DST_SERVER_MODS_UPDATE_MODE: ${DST_SERVER_MODS_UPDATE_MODE:-runtime}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./steam-state:/steam-state
+      - ./dst:/opt/dst
+      - ./ugc:/ugc
+      - ./data:/data
+    ports:
+      - ${DST_MASTER_HOST_PORT:-11000}:11000/udp
+      - ${DST_CAVES_HOST_PORT:-11001}:11001/udp
+      - ${DST_STEAM_HOST_PORT:-27018}:27018/udp
+      - ${DST_CAVES_STEAM_HOST_PORT:-27019}:27019/udp
+    restart: unless-stopped

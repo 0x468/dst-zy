@@ -12,6 +12,7 @@
 ## 文档入口
 
 - 镜像使用与快速上手：当前这份 [README.md](/mnt/d/dst/docker/README.md)
+- 直接使用已发布镜像： [docs/run-published-image.md](/mnt/d/dst/docker/docs/run-published-image.md)
 - 迁移已有存档/已有 Cluster： [docs/migrate-existing-cluster.md](/mnt/d/dst/docker/docs/migrate-existing-cluster.md)
 - 仓库目录、脚本与测试职责： [docs/repository-map.md](/mnt/d/dst/docker/docs/repository-map.md)
 - 验证记录、外部资料与已知问题： [docs/verification.md](/mnt/d/dst/docker/docs/verification.md)
@@ -32,6 +33,17 @@
 - `dst/`：DST dedicated server 本体
 - `ugc/`：Workshop/UGC 缓存
 - `data/<cluster>/`：配置、存档、日志、mod 配置
+
+## 两种使用方式
+
+当前仓库明确支持两条路径：
+
+- 本地仓库路径
+  你 clone 仓库，在本地使用 [docker-compose.yml](/mnt/d/dst/docker/docker-compose.yml) 和 `build: .` 来构建并启动。
+- 已发布镜像路径
+  你不需要 clone 仓库，只需要拿到镜像地址，使用 `image:` 方式直接拉取和启动。可参考 [docs/run-published-image.md](/mnt/d/dst/docker/docs/run-published-image.md) 与 [docker-compose.image.yml.example](/mnt/d/dst/docker/docker-compose.image.yml.example)。
+
+如果你只是普通使用者，通常更适合第二条；如果你正在修改镜像、脚本或做验证，才更适合第一条。
 
 ## 快速开始
 
@@ -80,6 +92,8 @@ services:
 ```
 
 如果你已有旧集群，而且旧配置里的内部端口不是 `11000/11001/27018/27019`，可以直接把 compose 右侧目标端口改成你自己的 `server.ini` 值；镜像本身不会在运行时重写这些端口。详见 [docs/migrate-existing-cluster.md](/mnt/d/dst/docker/docs/migrate-existing-cluster.md)。
+
+如果你想直接使用远程镜像而不是本地 build，可以直接参考 [docs/run-published-image.md](/mnt/d/dst/docker/docs/run-published-image.md)。
 
 ## 端口模型
 

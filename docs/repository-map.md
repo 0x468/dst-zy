@@ -89,8 +89,14 @@
 
 - [examples/Cluster_1](/mnt/d/dst/docker/examples/Cluster_1)
   示例集群模板，用于帮助新建集群或生成测试数据。
+- [docker-compose.yml](/mnt/d/dst/docker/docker-compose.yml)
+  面向本地仓库路径的 compose 模板，默认使用 `build: .`。
+- [docker-compose.image.yml.example](/mnt/d/dst/docker/docker-compose.image.yml.example)
+  面向已发布镜像路径的 compose 示例，默认使用 `image:`。
 - [README.md](/mnt/d/dst/docker/README.md)
   面向镜像使用者的入口文档。
+- [docs/run-published-image.md](/mnt/d/dst/docker/docs/run-published-image.md)
+  面向“直接拉已发布镜像”的用户文档。
 - [docs/migrate-existing-cluster.md](/mnt/d/dst/docker/docs/migrate-existing-cluster.md)
   面向迁移旧集群的用户文档。
 - [docs/verification.md](/mnt/d/dst/docker/docs/verification.md)
