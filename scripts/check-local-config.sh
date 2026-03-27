@@ -36,10 +36,16 @@ host_port_keys=(
   "DST_CAVES_STEAM_HOST_PORT"
 )
 host_port_values=()
-expected_master_server_port="11000"
-expected_caves_server_port="11001"
-expected_master_master_server_port="27018"
-expected_caves_master_server_port="27019"
+
+validate_port_value() {
+  local label="$1"
+  local value="$2"
+
+  if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -lt 1 ] || [ "$value" -gt 65535 ]; then
+    echo "$label must be a valid port: $value" >&2
+    exit 1
+  fi
+}
 
 for path in "${required_dirs[@]}"; do
   if [ ! -d "$path" ]; then
@@ -89,6 +95,11 @@ caves_server_port="$(awk -F= '$1 ~ /^[[:space:]]*server_port[[:space:]]*$/ {gsub
 master_master_server_port="$(awk -F= '$1 ~ /^[[:space:]]*master_server_port[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/Master/server.ini" | tail -n 1)"
 caves_master_server_port="$(awk -F= '$1 ~ /^[[:space:]]*master_server_port[[:space:]]*$/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' "$cluster_dir/Caves/server.ini" | tail -n 1)"
 
+validate_port_value "Master server_port" "$master_server_port"
+validate_port_value "Caves server_port" "$caves_server_port"
+validate_port_value "Master master_server_port" "$master_master_server_port"
+validate_port_value "Caves master_server_port" "$caves_master_server_port"
+
 if [ -n "$master_server_port" ] && [ "$master_server_port" = "$caves_server_port" ]; then
   echo "Master/Caves server_port values must be different: $master_server_port" >&2
   exit 1
@@ -99,35 +110,12 @@ if [ -n "$master_master_server_port" ] && [ "$master_master_server_port" = "$cav
   exit 1
 fi
 
-if [ "$master_server_port" != "$expected_master_server_port" ]; then
-  echo "Master server_port must match compose target $expected_master_server_port: $master_server_port" >&2
-  exit 1
-fi
-
-if [ "$caves_server_port" != "$expected_caves_server_port" ]; then
-  echo "Caves server_port must match compose target $expected_caves_server_port: $caves_server_port" >&2
-  exit 1
-fi
-
-if [ "$master_master_server_port" != "$expected_master_master_server_port" ]; then
-  echo "Master master_server_port must match compose target $expected_master_master_server_port: $master_master_server_port" >&2
-  exit 1
-fi
-
-if [ "$caves_master_server_port" != "$expected_caves_master_server_port" ]; then
-  echo "Caves master_server_port must match compose target $expected_caves_master_server_port: $caves_master_server_port" >&2
-  exit 1
-fi
-
 for key in "${host_port_keys[@]}"; do
   value="$(awk -F= -v k="$key" '$1==k{print $2}' "$ENV_FILE" | tail -n 1)"
   if [ -z "$value" ]; then
     continue
   fi
-  if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -lt 1 ] || [ "$value" -gt 65535 ]; then
-    echo "invalid host port value for $key: $value" >&2
-    exit 1
-  fi
+  validate_port_value "invalid host port value for $key" "$value"
   host_port_values+=("$value")
 done
 

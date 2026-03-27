@@ -75,6 +75,42 @@ if ! grep -q 'cluster.ini master_port must be a valid port' /tmp/test-check-loca
 fi
 
 sed -i 's/^master_port = .*/master_port = 10889/' "$TMP_DIR/work/data/Cluster_Shard/cluster.ini"
+sed -i 's/^server_port = .*/server_port = abc/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
+
+if (
+  cd "$TMP_DIR/work" &&
+  bash scripts/check-local-config.sh >/tmp/test-check-local-config-invalid-server-port.out 2>&1
+); then
+  echo "check-local-config.sh should fail when a shard server_port is invalid"
+  cat /tmp/test-check-local-config-invalid-server-port.out
+  exit 1
+fi
+
+if ! grep -q 'Caves server_port must be a valid port' /tmp/test-check-local-config-invalid-server-port.out; then
+  echo "check-local-config.sh should explain invalid shard server_port failures"
+  cat /tmp/test-check-local-config-invalid-server-port.out
+  exit 1
+fi
+
+sed -i 's/^server_port = .*/server_port = 11001/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
+sed -i 's/^master_server_port = .*/master_server_port = 99999/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
+
+if (
+  cd "$TMP_DIR/work" &&
+  bash scripts/check-local-config.sh >/tmp/test-check-local-config-invalid-master-server-port.out 2>&1
+); then
+  echo "check-local-config.sh should fail when a shard master_server_port is invalid"
+  cat /tmp/test-check-local-config-invalid-master-server-port.out
+  exit 1
+fi
+
+if ! grep -q 'Caves master_server_port must be a valid port' /tmp/test-check-local-config-invalid-master-server-port.out; then
+  echo "check-local-config.sh should explain invalid shard master_server_port failures"
+  cat /tmp/test-check-local-config-invalid-master-server-port.out
+  exit 1
+fi
+
+sed -i 's/^master_server_port = .*/master_server_port = 27019/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
 sed -i 's/^server_port = .*/server_port = 11000/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
 
 if (
@@ -113,35 +149,15 @@ fi
 sed -i 's/^master_server_port = .*/master_server_port = 27019/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
 sed -i 's/^server_port = .*/server_port = 12001/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
 
-if (
-  cd "$TMP_DIR/work" &&
-  bash scripts/check-local-config.sh >/tmp/test-check-local-config-shard-targets.out 2>&1
-); then
-  echo "check-local-config.sh should fail when Caves server_port no longer matches compose target"
-  cat /tmp/test-check-local-config-shard-targets.out
-  exit 1
-fi
-
-if ! grep -q 'Caves server_port must match compose target 11001' /tmp/test-check-local-config-shard-targets.out; then
-  echo "check-local-config.sh should explain compose/server_port mismatches"
-  cat /tmp/test-check-local-config-shard-targets.out
-  exit 1
-fi
-
-sed -i 's/^server_port = .*/server_port = 11001/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
 sed -i 's/^master_server_port = .*/master_server_port = 27119/' "$TMP_DIR/work/data/Cluster_Shard/Caves/server.ini"
 
-if (
+OUTPUT="$(
   cd "$TMP_DIR/work" &&
-  bash scripts/check-local-config.sh >/tmp/test-check-local-config-shard-steam-targets.out 2>&1
-); then
-  echo "check-local-config.sh should fail when Caves master_server_port no longer matches compose target"
-  cat /tmp/test-check-local-config-shard-steam-targets.out
-  exit 1
-fi
+  bash scripts/check-local-config.sh
+)"
 
-if ! grep -q 'Caves master_server_port must match compose target 27019' /tmp/test-check-local-config-shard-steam-targets.out; then
-  echo "check-local-config.sh should explain compose/master_server_port mismatches"
-  cat /tmp/test-check-local-config-shard-steam-targets.out
+if ! grep -q 'local config looks ready' <<<"$OUTPUT"; then
+  echo "check-local-config.sh should accept non-default shard ports when they are valid and non-conflicting"
+  printf '%s\n' "$OUTPUT"
   exit 1
 fi

@@ -31,7 +31,7 @@
 - `bash tests/smoke/test-bootstrap-local-script.sh`：确认 `scripts/bootstrap-local.sh` 能自动准备 `.env`、`steam-state/`、`dst/`、`ugc/`、`data/`，生成指定的 `data/<cluster>`，并为已有 `.env` 回填缺失键而不覆盖已有值。
 - `bash tests/smoke/test-check-local-config-script.sh`：确认 `scripts/check-local-config.sh` 会在本地配置完整时通过，并在 `cluster_token.txt` 仍为示例占位值时明确失败。
 - `bash tests/smoke/test-check-local-config-ports-and-dirs.sh`：确认 `scripts/check-local-config.sh` 会在运行目录缺失、宿主机 UDP 端口非法或 host 端口冲突时明确失败。
-- `bash tests/smoke/test-check-local-config-shard-settings.sh`：确认 `scripts/check-local-config.sh` 会在 `cluster_key` 仍为示例值、`shard_enabled` 被关闭、`master_port` 非法、Master/Caves 的 `server_port`/`master_server_port` 冲突，或 shard 端口偏离 compose 默认目标端口时明确失败。
+- `bash tests/smoke/test-check-local-config-shard-settings.sh`：确认 `scripts/check-local-config.sh` 会在 `cluster_key` 仍为示例值、`shard_enabled` 被关闭、`master_port` 非法、shard 端口值非法，或 Master/Caves 的 `server_port`/`master_server_port` 发生冲突时明确失败；同时也确认脚本允许保留非默认的 shard 内部端口。
 - `bash tests/smoke/test-run-smoke-script.sh`：确认 `scripts/run-smoke.sh fast --list` 会列出预期 smoke 套件，且包含 `bootstrap-local` 与 compose 端口回归测试。
 - `bash tests/smoke/test-compose-port-envs.sh`：确认 `docker-compose.yml` 支持通过 `.env` 覆盖 `DST_MASTER_HOST_PORT`、`DST_CAVES_HOST_PORT`、`DST_STEAM_HOST_PORT`、`DST_CAVES_STEAM_HOST_PORT`，并能正确渲染到 compose 配置里。
 - `bash tests/smoke/test-entrypoint-update-modes.sh`：确认容器在 fake `steamcmd` / fake `supervisord` 夹具下，会按预期处理 `install-only`、`update`、`validate`、`never` 和非法 `DST_UPDATE_MODE`。
