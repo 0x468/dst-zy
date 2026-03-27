@@ -34,6 +34,7 @@
 - `bash tests/smoke/test-check-local-config-shard-settings.sh`：确认 `scripts/check-local-config.sh` 会在 `cluster_key` 仍为示例值、`shard_enabled` 被关闭、`master_port` 非法、shard 端口值非法，或 Master/Caves 的 `server_port`/`master_server_port` 发生冲突时明确失败；同时也确认脚本允许保留非默认的 shard 内部端口。
 - `bash tests/smoke/test-run-smoke-script.sh`：确认 `scripts/run-smoke.sh fast --list` 会列出预期 smoke 套件，且包含 `bootstrap-local` 与 compose 端口回归测试。
 - `bash tests/smoke/test-compose-port-envs.sh`：确认 `docker-compose.yml` 支持通过 `.env` 覆盖 `DST_MASTER_HOST_PORT`、`DST_CAVES_HOST_PORT`、`DST_STEAM_HOST_PORT`、`DST_CAVES_STEAM_HOST_PORT`，并能正确渲染到 compose 配置里。
+- `docker compose -f docker-compose.image.yml.example config`：确认新增的已发布镜像 compose 示例可以被 Compose 正常解析，且 `image:`、环境变量、挂载和四个默认 UDP 端口映射都能按预期渲染。
 - `bash tests/smoke/test-entrypoint-update-modes.sh`：确认容器在 fake `steamcmd` / fake `supervisord` 夹具下，会按预期处理 `install-only`、`update`、`validate`、`never` 和非法 `DST_UPDATE_MODE`。
 - `bash tests/smoke/test-entrypoint-server-mod-modes.sh`：确认容器在 fake DST binary / fake `supervisord` 夹具下，会按预期处理 `runtime`、`prewarm`、`skip` 和非法 `DST_SERVER_MODS_UPDATE_MODE`。
 - `bash tests/smoke/test-entrypoint-steamclient-workaround.sh`：确认 `DST_EXPERIMENTAL_STEAMCLIENT_WORKAROUND` 默认关闭，且显式开启后会把 `/usr/local/steamcmd/linux64/steamclient.so` 复制到 DST 运行目录。
