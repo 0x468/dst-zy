@@ -1,148 +1,198 @@
 # DST Docker 运行说明
 
+## 这份仓库适合谁
+
+这份仓库同时服务两类读者：
+
+- 镜像使用者：关心如何准备 Cluster 配置、如何写 `docker-compose.yml`、如何挂载目录并启动容器。
+- 仓库维护者：关心本地初始化脚本、smoke 测试、验证记录和设计文档。
+
+如果你只是想使用镜像起服，不需要先跑仓库里的辅助脚本；它们不是镜像运行必需条件。
+
+## 文档入口
+
+- 镜像使用与快速上手：当前这份 [README.md](/mnt/d/dst/docker/README.md)
+- 迁移已有存档/已有 Cluster： [docs/migrate-existing-cluster.md](/mnt/d/dst/docker/docs/migrate-existing-cluster.md)
+- 仓库目录、脚本与测试职责： [docs/repository-map.md](/mnt/d/dst/docker/docs/repository-map.md)
+- 验证记录、外部资料与已知问题： [docs/verification.md](/mnt/d/dst/docker/docs/verification.md)
+
 ## 项目目标
-本仓库在现有的 `Dockerfile`、`entrypoint.sh` 和 `supervisord.conf` 基础上，提供一个可直接运行的 `docker-compose.yml`，搭配 `.env` 模板和中文文档，帮助用户在本地快速启动一个完整的 DST dedicated server（Master + Caves）。
 
-## 快速准备
-如果你想先把目录跑起来，再按需微调，建议直接从 [`examples/Cluster_1`](/mnt/d/DST/docker/examples/Cluster_1) 复制：
+本仓库提供一个基于 Debian 的 DST dedicated server 镜像，默认以单容器运行一个完整集群（Master + Caves）。镜像内负责：
 
-1. 运行 `bash scripts/bootstrap-local.sh Cluster_1`
-2. 编辑 `data/Cluster_1/cluster_token.txt`，填入你自己的 token
-3. 按需修改 `cluster.ini`、`Master/server.ini`、`Caves/server.ini`、`modoverrides.lua`
-4. 再执行 `docker compose up --build`
+- 安装并调用 SteamCMD
+- 在缺失 DST 本体时自动安装
+- 按需执行 `update` 或 `validate`
+- 同步 `dedicated_server_mods_setup.lua`
+- 启动 Master 与 Caves
 
-`bootstrap-local.sh` 会自动：
+镜像外由用户提供并持久化：
 
-- 创建 `steam-state/`、`dst/`、`ugc/`、`data/`
-- 在缺失时复制 `.env.example` 为 `.env`
-- 对已经存在的 `.env` 补齐 `.env.example` 里缺失的键，但不会覆盖你已有的值
-- 把 `.env` 里的 `DST_CLUSTER_NAME` 调整为你指定的名字
-- 调用 `init-cluster.sh` 生成 `data/<cluster>`
+- `steam-state/`：SteamCMD 运行状态
+- `dst/`：DST dedicated server 本体
+- `ugc/`：Workshop/UGC 缓存
+- `data/<cluster>/`：配置、存档、日志、mod 配置
 
-如果你不想用脚本，也可以手动复制 [`examples/Cluster_1`](/mnt/d/DST/docker/examples/Cluster_1) 到 `data/Cluster_1`，再把 `cluster_token.txt.example` 重命名为 `cluster_token.txt`。
+## 快速开始
 
-如果宿主机 UDP 端口已经被占用，可以在 `.env` 里覆盖：
+如果你只是想直接起一个新的集群，建议从 [`examples/Cluster_1`](/mnt/d/dst/docker/examples/Cluster_1) 复制一份开始。
 
-- `DST_MASTER_HOST_PORT`：映射到 Master 的 `server_port = 11000`
-- `DST_CAVES_HOST_PORT`：映射到 Caves 的 `server_port = 11001`
-- `DST_STEAM_HOST_PORT`：映射到 Master 的 `master_server_port = 27018`
-- `DST_CAVES_STEAM_HOST_PORT`：映射到 Caves 的 `master_server_port = 27019`
+最小准备项如下：
 
-如果你之前已经复制过旧版 `.env`，重新运行一次 `bash scripts/bootstrap-local.sh Cluster_1` 就会自动补上缺失的 `DST_CAVES_STEAM_HOST_PORT`；已有值不会被覆盖，因此如果你想把旧的 `DST_STEAM_HOST_PORT=27015` 改回新示例值，仍需手动调整。
+1. 准备四个宿主机目录：`steam-state/`、`dst/`、`ugc/`、`data/`
+2. 在 `data/<你的集群名>/` 下准备：
+   - `cluster.ini`
+   - `cluster_token.txt`
+   - `Master/server.ini`
+   - `Caves/server.ini`
+3. 如果你要启用 server mods，再准备：
+   - `mods/dedicated_server_mods_setup.lua`
+   - `Master/modoverrides.lua`
+   - `Caves/modoverrides.lua`
+4. 启动容器
 
-## 回归检查
-如果你改了脚本、文档或镜像逻辑，建议至少跑一次：
+仓库里提供了 `scripts/bootstrap-local.sh` 和 `scripts/init-cluster.sh` 来帮你生成这些目录，但它们只是本地辅助工具，不是镜像运行必需条件。
 
-- `bash scripts/run-smoke.sh fast`
+## 最小 compose 示例
 
-`fast` 现在会包含 `docker compose config` 这类轻量 Docker 检查。如果你还想把更重的容器级 smoke 一起跑掉，则使用：
+下面这份 compose 更接近“镜像使用者”路径：你可以直接按自己的 Cluster 配置修改挂载和端口，而不是必须照抄仓库默认值。
 
-- `bash scripts/run-smoke.sh full`
+```yaml
+services:
+  dst:
+    image: dst-docker:v1
+    environment:
+      DST_CLUSTER_NAME: Cluster_1
+      DST_UPDATE_MODE: install-only
+      DST_SERVER_MODS_UPDATE_MODE: runtime
+      TZ: Asia/Shanghai
+    volumes:
+      - ./steam-state:/steam-state
+      - ./dst:/opt/dst
+      - ./ugc:/ugc
+      - ./data:/data
+    ports:
+      - "11000:11000/udp"
+      - "11001:11001/udp"
+      - "27018:27018/udp"
+      - "27019:27019/udp"
+    restart: unless-stopped
+```
 
-`full` 会额外覆盖真实容器里的 `DST_UPDATE_MODE` 与 `DST_SERVER_MODS_UPDATE_MODE` 分支回归。
-其中还包括 `steamclient.so` 实验开关和结构化 mod 状态日志的容器级 smoke；真实 SteamCMD 的慢回归则保持为单独脚本，不进入默认套件。
+如果你已有旧集群，而且旧配置里的内部端口不是 `11000/11001/27018/27019`，可以直接把 compose 右侧目标端口改成你自己的 `server.ini` 值；镜像本身不会在运行时重写这些端口。详见 [docs/migrate-existing-cluster.md](/mnt/d/dst/docker/docs/migrate-existing-cluster.md)。
 
-如果只是想在起服前检查本地准备是否齐全，可以先运行：
+## 端口模型
 
-- `bash scripts/check-local-config.sh`
+请把这三类端口分开理解：
 
-它会额外检查：
+- `cluster.ini` 里的 `master_port`
+  用于 Master 与 Caves 分片内部协同，不是玩家直接连接端口，通常不需要对宿主机公开。
+- `Master/server.ini` 与 `Caves/server.ini` 里的 `server_port`
+  这是各 shard 的游戏监听端口，玩家最终会访问这里。
+- 两个 `server.ini` 里的 `master_server_port`
+  这是 DST/Steam 相关端口，同一集群内两个 shard 必须不同。
 
-- 运行目录 `steam-state/`、`dst/`、`ugc/`、`data/` 是否齐全
-- `cluster_token.txt`、`cluster.ini`、两个 shard 的 `server.ini` 是否已准备好且不再是示例占位值
-- `cluster.ini` 的 `shard_enabled` 与 `master_port` 是否仍符合双分片最小要求
-- `.env` 里的四个宿主机 UDP 端口是否有效、是否彼此冲突
-- Master/Caves 的 `server_port` 与 `master_server_port` 是否发生冲突
-- 当前 shard 端口是否仍与 compose 默认暴露的双分片目标端口一致
+Docker 端口映射的语义是：
 
-如果你是第一次在本地准备运行目录，建议按这个顺序：
+```text
+宿主机端口:容器内端口/udp
+```
 
-1. `bash scripts/bootstrap-local.sh Cluster_1`
-2. 编辑 `data/Cluster_1/cluster_token.txt`
-3. `bash scripts/check-local-config.sh`
-4. `docker compose up --build`
+所以：
 
-## 目录职责
-- `/usr/local/steamcmd`：SteamCMD 程序文件被固定安装在镜像内的此路径，`entrypoint.sh` 直接调用 `/usr/local/steamcmd/steamcmd.sh`，因此用户无法通过挂载覆盖程序。
-- `./steam-state`：挂载到容器的 `/steam-state` 目录，为 SteamCMD 的 `HOME` 提供持久化状态（缓存、安装临时文件等），也就是唯一对外暴露的 Steam 状态目录。
-- SteamCMD 首次 36MB 程序自更新现在已经前移到镜像构建阶段，因此运行时不再需要额外完成这一步 bootstrap；`./steam-state` 主要承接运行状态、日志与 app/depot cache，而不是承接 SteamCMD 程序本体升级。
-- `./dst`：DST dedicated server 的安装目录（`/opt/dst`），包含二进制、`mods` 目录以及由 `dedicated_server_mods_setup.lua` 同步进来的内容。
-- `./ugc`：`-ugc_directory` 指向的工作组/用户自定义内容目录，务必挂载以避免 Workshop 下载重复。
-- `./data`：专门用于存放对应 `DST_CLUSTER_NAME` 的配置、存档与 mod 资料，默认例子仍是 `Cluster_1`：
-  - `./data/<DST_CLUSTER_NAME>/cluster.ini` 与 `cluster_token.txt`
-  - `./data/<DST_CLUSTER_NAME>/Master/server.ini` 与 `./data/<DST_CLUSTER_NAME>/Caves/server.ini`
-  - `./data/<DST_CLUSTER_NAME>/mods/dedicated_server_mods_setup.lua`（mod 下载列表）
-- `./data/<DST_CLUSTER_NAME>`：`DST_CLUSTER_NAME` 与 `./data` 下的集群目录必须保持一致，修改变量值时务必同步重命名或新建对应目录并补齐配置文件。
+- 左边宿主机端口可以自由选，只要宿主机没有冲突
+- 右边容器内端口必须和你实际 `server.ini` 里的端口一致
+- 当前仓库自带的 `docker-compose.yml` 只是基于示例 Cluster 的默认模板，不是镜像硬限制
 
-## 首次启动行为
-`entrypoint.sh` 会按顺序执行：
-1. 确认 `./steam-state`、`./dst`、`./ugc`、`./data/<DST_CLUSTER_NAME>` 等目录存在，并创建缺失项。
-2. 检查必须的配置文件（`./data/<DST_CLUSTER_NAME>/cluster.ini`、`./data/<DST_CLUSTER_NAME>/cluster_token.txt`、两个 shard 的 `server.ini`），并自动补齐空的 `adminlist.txt`、`blocklist.txt`、`whitelist.txt`。
-3. 根据 `DST_UPDATE_MODE` 决定是否通过 SteamCMD 安装/更新（默认 `install-only` 只在首次无 binary 时安装）。
-4. 将 `./data/<DST_CLUSTER_NAME>/mods/dedicated_server_mods_setup.lua` 同步到 `/opt/dst/mods`。
-5. 根据 `DST_SERVER_MODS_UPDATE_MODE` 决定 server mods 的更新策略。
-6. 向 `supervisord` 交付 Master 与 Caves 进程。
+## `cluster_key` 和 `cluster_token.txt` 的区别
+
+- `cluster_token.txt`
+  这是你向 Klei 申请的 cluster token，用来让集群在官方服务侧完成注册。
+- `cluster.ini` 里的 `cluster_key`
+  这是同一个集群内各 shard 共享的内部密钥，用来让从分片认证到主分片。它不是 Klei 发给你的值，通常由你自己生成并固定保存。
+
+如果是双分片集群，`cluster_key` 必须存在且同集群保持一致。
+
+## 首次启动时会发生什么
+
+镜像入口脚本会按顺序执行：
+
+1. 确保 `/steam-state`、`/opt/dst`、`/ugc`、`/data/<cluster>` 存在
+2. 检查 `cluster.ini`、`cluster_token.txt`、两个 `server.ini` 是否存在
+3. 自动补齐空的 `adminlist.txt`、`blocklist.txt`、`whitelist.txt`
+4. 根据 `DST_UPDATE_MODE` 决定是否通过 SteamCMD 安装/更新 DST 本体
+5. 将 `mods/dedicated_server_mods_setup.lua` 同步到 `/opt/dst/mods`
+6. 根据 `DST_SERVER_MODS_UPDATE_MODE` 处理 server mod 更新
+7. 交给 `supervisord` 启动 Master 与 Caves
 
 补充说明：
-- SteamCMD 的 `app_update 343050` 在当前环境下偶发返回 `ERROR! Failed to install app '343050' (Missing configuration)`。镜像现在会仅针对这个已验证的瞬时错误自动重试一次；如果第二次仍失败，容器仍会照常退出，不会无限重试掩盖真实问题。
 
-## 更新模式切换
-1. 复制 `.env.example` 为 `.env` 并根据需要调整：「`cp .env.example .env`」。
-2. 将 `DST_UPDATE_MODE` 设置为 `update`（或 `validate`），保存 `.env`。
-3. 执行 `docker compose up --build`，容器启动时会执行 `steamcmd +app_update 343050`（`validate` 会附带 `validate` 参数并可能覆盖默认文件，entrypoint 会在 SteamCMD 完成后自动同步 mod setup）。
-4. 更新完成后，再将 `DST_UPDATE_MODE` 改回 `install-only`，重启容器以恢复常规启动流程。
+- 默认 `DST_UPDATE_MODE=install-only`
+  只有在 `/opt/dst` 里还没有 DST 二进制时才会安装；已有本体时直接起服。
+- 默认 `DST_SERVER_MODS_UPDATE_MODE=runtime`
+  由 Master/Caves 在启动时自行下载和更新 mods。
+
+## Server Mod 配置职责
+
+- `dedicated_server_mods_setup.lua`
+  负责告诉服务器“要下载哪些 Workshop/server mods”。
+- `modoverrides.lua`
+  负责告诉各 shard“要启用哪些 mod，以及具体配置是什么”。
+
+这两者不是一回事。即使你没有现成的 `ugc/` 或 `dst/mods/` 缓存，只要 `dedicated_server_mods_setup.lua` 存在，镜像也可以在首次启动时自动去下载所需 mod。
+
+## 更新模式
+
+`DST_UPDATE_MODE` 支持：
+
+- `install-only`
+  默认模式。只有当 `/opt/dst` 里没有 DST 本体时才安装。
+- `update`
+  每次启动时都执行 `steamcmd +app_update 343050`。
+- `validate`
+  每次启动时执行 `steamcmd +app_update 343050 validate`。
+- `never`
+  完全不联网更新，要求 `/opt/dst` 里已经有可用 DST 本体。
+
+常规运行建议保持 `install-only`；只有在你明确要更新或校验时，才临时切到 `update` 或 `validate`。
 
 ## Server Mod 更新模式
-`DST_SERVER_MODS_UPDATE_MODE` 只影响 `dedicated_server_mods_setup.lua` 对应的 Workshop server mods，不影响 SteamCMD 的 DST 本体安装/更新。
 
-- `runtime`：默认值。由 Master/Caves 在各自启动时自行检查和下载 mod。优点是逻辑最贴近 DST 原生行为；缺点是首次冷缓存时两个 shard 可能并发访问 Workshop，日志也会更嘈杂。
-- `prewarm`：entrypoint 先用 DST 二进制的 `-only_update_server_mods` 预热一次 mod 缓存，随后再让 Master/Caves 以 `-skip_update_server_mods` 启动。优点是首次冷缓存更稳定，两个 shard 会直接复用 `/ugc` 已经下载好的内容；缺点是正式开服前会多一个预热阶段。
-- `skip`：完全跳过 shard 启动阶段的 mod 更新，要求你已经有可用的 `/ugc` 缓存。适合已知缓存完整、想压低启动噪音或避免访问 Workshop 的场景。
-- 无论使用哪种模式，只要存在 `dedicated_server_mods_setup.lua`，entrypoint 都会先打印一份缓存摘要，例如 `ugc workshop-...` / `local workshop-...` / `missing workshop-...`，方便你快速判断当前究竟是 `/ugc` 缓存命中、还是本地 fallback 命中、还是依旧缺失。
-- 当 `runtime` 或 `prewarm` 遇到“Steam metadata 中仍公开 `file_url` 的 legacy Workshop mod”且 `/ugc` 中没有对应缓存时，entrypoint 会额外查询 Steam metadata，并把 zip 解到 `/opt/dst/mods/workshop-<id>` 作为本地 fallback。`skip` 模式不会主动触发这条联网 fallback，只会复用现有的 `ugc` / `local` 内容。
-- 为了更快排障，server mod 日志现在会额外输出固定前缀的状态行，例如：
-  - `server mods status: ugc-hit workshop-...`
-  - `server mods status: local-hit workshop-...`
-  - `server mods status: missing workshop-...`
-  - `server mods status: legacy-fallback-installed workshop-...`
-  - `server mods status: legacy-fallback-metadata-missing workshop-...`
+`DST_SERVER_MODS_UPDATE_MODE` 支持：
 
-## 实验开关
-- `DST_EXPERIMENTAL_STEAMCLIENT_WORKAROUND=1`
-  默认关闭。开启后，entrypoint 会在 DST binary 已就绪时，把 `/usr/local/steamcmd/linux64/steamclient.so` 复制到 DST 运行目录旁边。
-  这不是默认路径，只用于未来再次出现上游 `steamclient.so` 相关兼容问题时做快速实验。
+- `runtime`
+  默认值。由 Master/Caves 启动时自行下载和更新。
+- `prewarm`
+  先预热 mod 缓存，再启动两个 shard，更适合冷缓存首启。
+- `skip`
+  跳过 mod 更新，只复用现有缓存。
 
-## 慢回归
-- `bash tests/slow/test-real-steamcmd-update-modes.sh`
-  这是一条显式执行的慢回归，用真实 `steamcmd` 验证 `DST_UPDATE_MODE=update` 和 `validate` 的实际链路。它默认不进入 `fast` 或 `full`，避免把日常开发回归拖慢。
+对少数 legacy Workshop mod，镜像还会在必要时尝试本地 fallback，以提升“能否启动成功”的概率。相关验证和限制见 [docs/verification.md](/mnt/d/dst/docker/docs/verification.md)。
 
-## mod 配置职责
-- `dedicated_server_mods_setup.lua`（位于 `./data/<DST_CLUSTER_NAME>/mods/`）负责回答 “要下载哪些 Workshop/server mods”，它会被同步到 `/opt/dst/mods`，让 DST 本体在启动前得以触发下载/更新。
-- `modoverrides.lua`（`./data/<DST_CLUSTER_NAME>/Master/modoverrides.lua` 与 `./data/<DST_CLUSTER_NAME>/Caves/modoverrides.lua`）负责回答 “每个 shard 是否启用某个 mod 以及具体配置是什么”，Klei 的 shard 配置只会读取这个文件。
-- 该分工的好处是：`dedicated_server_mods_setup.lua` 统筹下载行为，`modoverrides.lua` 遵循 shard 级别的启用/配置策略。
-- 实测下载内容优先落在 `./ugc/content/322330/<workshop-id>`，而不是直接落在 `./dst/mods/workshop-*`。`./dst/mods` 保留 `dedicated_server_mods_setup.lua`、`modsettings.lua` 等入口文件，真正的 Workshop 内容则由 `-ugc_directory /ugc` 管理。
-- 对少数 legacy Workshop mod，DST 自身的 `/ugc` 下载流程可能持续报 `ODPF failed entirely: 16`。这时镜像会把 Steam metadata 中仍公开 `file_url` 的旧式 zip 解到 `./dst/mods/workshop-*`，并写入 `.dst-docker-legacy-fallback` 标记文件，供后续启动识别与清理。
-- 如果是第一次冷启动且 `./ugc` 里还没有缓存，`runtime` 模式下 Master/Caves 并发启动时可能出现 “Master 已下载并加载部分 mod，但 Caves 还没来得及复用缓存” 的窗口；`prewarm` 模式则会先完成一次统一下载，再让两个 shard 复用同一份缓存。
-- `Caves` 若需要固定洞穴世界配置，优先提供 `leveldataoverride.lua`；这是你当前真实集群的做法，也已被验证可直接被 DST 读取。
+## 仓库脚本是不是必须运行
 
+不是。
+
+如果你只是使用镜像：
+
+- 不需要运行 `scripts/bootstrap-local.sh`
+- 不需要运行 `scripts/init-cluster.sh`
+- 不需要运行 `scripts/check-local-config.sh`
+- 不需要运行 `scripts/run-smoke.sh`
+
+这些脚本主要服务于“从源码仓库直接开发、试跑、验证”的路径。它们的定位和作用见 [docs/repository-map.md](/mnt/d/dst/docker/docs/repository-map.md)。
 
 ## 验证状态
-`SteamCMD` 程序固定在 `/usr/local/steamcmd`，而运行时状态写入 `/steam-state`。详见 `docs/verification.md` 中对这两个路径的验证。
-- 已验证：`docker build --pull=false -t dst-docker:v1 .`、`bash scripts/run-smoke.sh fast`、`bash scripts/check-local-config.sh` 对已初始化示例目录可正确通过、`bash tests/smoke/test-preflight-missing-token.sh`、`bash tests/smoke/test-supervisord-config.sh`、`bash tests/smoke/test-steamcmd-bootstrap-baked.sh`、`bash tests/smoke/test-steamcmd-retry-lib.sh`、`bash tests/smoke/test-legacy-workshop-fallback-lib.sh`、`bash tests/smoke/test-legacy-workshop-extract-warnings.sh`、`bash tests/smoke/test-example-cluster-template.sh`、`bash tests/smoke/test-init-cluster-script.sh`、`bash tests/smoke/test-bootstrap-local-script.sh`、`bash tests/smoke/test-check-local-config-script.sh`、`bash tests/smoke/test-compose-port-envs.sh` 等关键命令均正常返回；`docker run --rm dst-docker:v1` 则在 `entrypoint` 的 preflight 阶段因 `/data/Cluster_1/cluster.ini` 缺失而退出，证明缺乏配置时不会误报成功；临时补充 `.env` 后 `docker compose config` 能完整展现 ports/volumes/environment 设定，且可以通过环境变量覆盖 published UDP ports；`docker run --rm --entrypoint cat dst-docker:v1 /etc/supervisor/conf.d/supervisord.conf` 也确认了 Master/Caves 启动命令消费 entrypoint 导出的环境变量；详见 `docs/verification.md` 获取完整验证流程与观察细节。
-- 限制：`cluster.ini`、`cluster_token.txt` 与两个 shard 的 `server.ini` 仍缺失，`entrypoint` 会在 `require_file` 阶段直接退出，因此 `docker compose up` 或 `supervisord` 的真正 Master/Caves 启动依赖这些文件才能完成。
-- 已通过 smoke 与容器实验覆盖：`DST_UPDATE_MODE` 与 `DST_SERVER_MODS_UPDATE_MODE` 的本地控制流、默认双分片端口模型、本地初始化、preflight 与 legacy fallback 清理。
-- 仍属外部环境不确定性：Steam/Workshop 在线服务本身的稳定性、少数 legacy mod 的上游下载异常，以及官方后续是否还会再次引入需要额外兼容处理的 `steamclient.so` 类问题。
+
+当前镜像和控制流的验证记录集中在 [docs/verification.md](/mnt/d/dst/docker/docs/verification.md)：
+
+- 已覆盖 `DST_UPDATE_MODE` 与 `DST_SERVER_MODS_UPDATE_MODE` 的主要分支
+- 已验证 `steam-state`、`dst`、`ugc`、`data` 的目录职责
+- 已验证 SteamCMD 首次约 36MB bootstrap 已前移到构建阶段
+- 已验证 legacy mod fallback、结构化 mod 状态日志与 slow regression 路径
 
 ## 其他说明
-- 目录挂载后的第一级路径（`steam-state`、`dst`、`ugc`、`data`）必须由用户提前创建并赋予合适权限。
-- 当前的 compose 版本只依赖本地构建，后续可考虑用远程镜像替代。
 
-## 疑难问题定义与结论
-- 问题 1：`steamcmd +app_update 343050` 偶发 `Missing configuration`
-  结论：这不是当前仓库控制流缺失，而是 Steam/SteamCMD 上游偶发行为。仓库内已经通过一次有限重试把“第一次失败、第二次成功”的瞬时场景收进来了；如果后续仍持续失败，应视为外部服务或环境问题继续排查。
-- 问题 2：少数 legacy Workshop mod 在 `/ugc` 链路上报 `ODPF failed entirely: 16` / `Staging library folder not found`
-  结论：仓库内已经通过 Steam metadata + `file_url` 的 legacy fallback 解决“能否运行”的问题，但没有声称修复 Klei/Steam 的原生下载链路。也就是说，我们解决的是可用性，不是上游根因。
-- 问题 3：`steamclient.so` 社区 workaround 是否应该默认启用
-  结论：暂不默认启用。当前没有足够稳定、可复现、可回归验证的证据证明它应成为仓库默认行为；它只保留为未来上游波动时的应急方向，而不是现在的标准路径。
-- 问题 4：`DST_UPDATE_MODE`、`DST_SERVER_MODS_UPDATE_MODE` 是否仍属于待验证逻辑
-  结论：不是。它们的本地控制流已经由 smoke 和容器实验覆盖，剩下要观察的是 Steam/Workshop 在线服务稳定性，而不是仓库内部模式分支本身。
+- 当前默认架构是“一容器一个 DST 集群（Master + Caves）”。
+- 如果你要在同一台宿主机上运行多个集群，更推荐启动多个容器，而不是把多个集群塞进一个容器里。
+- 当前仓库附带的 `docker-compose.yml` 仍然是示例模板，便于快速本地试跑；生产环境完全可以按你的目录结构、镜像标签和端口策略自行编写 compose。
