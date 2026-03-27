@@ -120,3 +120,13 @@
 ## 其他说明
 - 目录挂载后的第一级路径（`steam-state`、`dst`、`ugc`、`data`）必须由用户提前创建并赋予合适权限。
 - 当前的 compose 版本只依赖本地构建，后续可考虑用远程镜像替代。
+
+## 疑难问题定义与结论
+- 问题 1：`steamcmd +app_update 343050` 偶发 `Missing configuration`
+  结论：这不是当前仓库控制流缺失，而是 Steam/SteamCMD 上游偶发行为。仓库内已经通过一次有限重试把“第一次失败、第二次成功”的瞬时场景收进来了；如果后续仍持续失败，应视为外部服务或环境问题继续排查。
+- 问题 2：少数 legacy Workshop mod 在 `/ugc` 链路上报 `ODPF failed entirely: 16` / `Staging library folder not found`
+  结论：仓库内已经通过 Steam metadata + `file_url` 的 legacy fallback 解决“能否运行”的问题，但没有声称修复 Klei/Steam 的原生下载链路。也就是说，我们解决的是可用性，不是上游根因。
+- 问题 3：`steamclient.so` 社区 workaround 是否应该默认启用
+  结论：暂不默认启用。当前没有足够稳定、可复现、可回归验证的证据证明它应成为仓库默认行为；它只保留为未来上游波动时的应急方向，而不是现在的标准路径。
+- 问题 4：`DST_UPDATE_MODE`、`DST_SERVER_MODS_UPDATE_MODE` 是否仍属于待验证逻辑
+  结论：不是。它们的本地控制流已经由 smoke 和容器实验覆盖，剩下要观察的是 Steam/Workshop 在线服务稳定性，而不是仓库内部模式分支本身。

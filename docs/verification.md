@@ -64,6 +64,12 @@
 - [Klei Forum: Server fails to download workshop collection - staging/install library folder not found](https://forums.kleientertainment.com/forums/topic/169114-server-fails-to-download-workshop-collection-staginginstall-library-folder-not-found/)：2025-12 到 2026-03 仍有用户报告 `Staging library folder not found` / `ODPF failed entirely: 16`。这表明当前问题并非本仓库独有现象。
 - [Steamworks ISteamRemoteStorage](https://partner.steamgames.com/doc/api/ISteamRemoteStorage)：Steam 官方文档中 `GetPublishedFileDetails` 属于旧式 RemoteStorage Workshop API，返回结构包含 URL 字段；这为“检测 legacy 条目后按 `file_url` 下载 zip”提供了接口层支撑。
 
+## 开源实现对照
+- [Jamesits/docker-dst-server](https://github.com/Jamesits/docker-dst-server)：采用 `entrypoint.sh + supervisord + steamcmd script` 路线，并在每次启动时执行 `app_update 343050` 与 `-only_update_server_mods`。它对“如何自动更新”和“如何预热 mod”给出了成熟样例，但没有看到针对 `Missing configuration`、legacy Workshop fallback、或 `steamclient.so` 的额外工程处理。
+- [yeet-zone/docker-dontstarvetogether](https://github.com/yeet-zone/docker-dontstarvetogether)：采用 `gosu` 切换用户、分拆 boot 脚本的路线，强调启动前的 token/settings/world/mods 写入流程。同样没有看到针对 `Missing configuration`、legacy Workshop fallback 或 `steamclient.so` 的特殊修复逻辑。
+- [superjump22/dontstarve-server-docker](https://github.com/superjump22/dontstarve-server-docker)：更偏“工具箱”路线，额外提供 modinfo/worldgenoverride 等辅助能力，对配置生成和数据提取更友好，但公开脚本里也没有给出比当前仓库更强的 `steamcmd` 异常恢复或 legacy mod 下载修复。
+- 对照结论：这些开源实现能提供结构和功能组织上的灵感，但在我们当前最关心的三个疑难点上，并没有现成证据表明“只要照抄某个项目就能彻底解决上游问题”。因此当前仓库的定位应当是：把本地控制流、预检、回归和可运行性做到确定，把上游波动明确归类为外部不确定性。
+
 ## 剩余外部不确定性
 - SteamCMD 的 `app_update 343050` / `validate` 仍可能先返回 `Missing configuration`；仓库现在已经用 helper 和 smoke 覆盖了本地重试控制流，但这并不等于 Steam/SteamCMD 上游根因已经消失。
 - “首次冷缓存 mod 预热” 的本地模式分支现在已有 smoke 覆盖；真正还需要长期观察的，是 Steam/Workshop 在线服务在高延迟、限流或元数据异常场景下的表现。
