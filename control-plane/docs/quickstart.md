@@ -85,6 +85,7 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
 如果你希望在真正导入自己的集群前，先确认这套控制平面“当前到底能不能用”，建议继续看：
 
 - [control-plane/docs/verification.md](verification.md)
+- [control-plane/docs/troubleshooting.md](troubleshooting.md)
 
 ## 创建新集群
 

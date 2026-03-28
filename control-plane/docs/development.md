@@ -59,6 +59,7 @@ bash control-plane/tests/e2e/smoke-image.sh
 如果你想知道“这些命令分别证明什么、什么时候该跑”，请直接看：
 
 - [control-plane/docs/verification.md](verification.md)
+- [control-plane/docs/troubleshooting.md](troubleshooting.md)
 
 开发 compose 配置检查：
 
