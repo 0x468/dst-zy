@@ -127,7 +127,7 @@ func (handlerFakeJobsService) List(_ context.Context, _ int) ([]models.JobRecord
 func issueServerSessionCookie(t *testing.T, secret []byte) *http.Cookie {
 	t.Helper()
 
-	token, err := auth.IssueSessionToken("admin", time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC), 2*time.Hour, secret)
+	token, err := auth.IssueSessionToken("admin", time.Now().UTC().Add(-time.Hour), 2*time.Hour, secret)
 	if err != nil {
 		t.Fatalf("expected session token, got error: %v", err)
 	}

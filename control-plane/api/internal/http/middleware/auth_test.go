@@ -33,7 +33,7 @@ func TestAuthRequiredRejectsUnauthenticatedWriteRequest(t *testing.T) {
 
 func TestAuthRequiredAllowsAuthenticatedWriteRequest(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
-	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC().Add(-time.Hour)
 	token, err := auth.IssueSessionToken("admin", now, 2*time.Hour, secret)
 	if err != nil {
 		t.Fatalf("expected session token, got error: %v", err)
