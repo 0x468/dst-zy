@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTROL_PLANE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TMP_DIR="$(mktemp -d /tmp/dst-control-plane-create.XXXXXX)"
+mkdir -p "$CONTROL_PLANE_ROOT/.tmp"
 DATA_ROOT_HOST="$(mktemp -d "$CONTROL_PLANE_ROOT/.tmp/e2e-create-data.XXXXXX")"
 SERVER_NAME="dst-control-plane-e2e-create"
 COOKIE_JAR="$TMP_DIR/cookies.txt"

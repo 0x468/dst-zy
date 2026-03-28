@@ -9,6 +9,7 @@ COOKIE_JAR="$TMP_DIR/cookies.txt"
 API_URL="${CONTROL_PLANE_SMOKE_URL:-http://127.0.0.1:18082}"
 HOST_PORT="${CONTROL_PLANE_SMOKE_PORT:-18082}"
 IMAGE="${CONTROL_PLANE_IMAGE:-dst-control-plane:v2-check}"
+mkdir -p "$CONTROL_PLANE_ROOT/.tmp"
 DATA_ROOT_HOST="$(mktemp -d "$CONTROL_PLANE_ROOT/.tmp/e2e-image-data.XXXXXX")"
 
 cleanup() {
