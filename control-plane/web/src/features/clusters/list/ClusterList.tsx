@@ -73,15 +73,19 @@ function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
             return;
           }
 
-          await onSubmit({
-            mode,
-            slug,
-            displayName,
-            clusterName,
-            baseDir,
-          });
-          setErrorMessage(undefined);
-          form.reset();
+          try {
+            await onSubmit({
+              mode,
+              slug,
+              displayName,
+              clusterName,
+              baseDir,
+            });
+            setErrorMessage(undefined);
+            form.reset();
+          } catch (error) {
+            setErrorMessage(`Failed to ${mode} cluster`);
+          }
         }}
       >
         <div>

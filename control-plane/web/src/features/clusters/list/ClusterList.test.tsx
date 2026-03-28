@@ -44,4 +44,24 @@ describe("ClusterList", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Import path is required");
     expect(onMutate).not.toHaveBeenCalled();
   });
+
+  it("shows a submission error when mutation fails", async () => {
+    const user = userEvent.setup();
+    const onMutate = vi.fn().mockRejectedValue(new Error("request failed"));
+
+    render(
+      <ClusterList
+        clusters={[]}
+        onMutate={onMutate}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Slug"), "cluster-a");
+    await user.type(screen.getByLabelText("Display name"), "Cluster A");
+    await user.type(screen.getByLabelText("Cluster name"), "Cluster_A");
+    await user.click(screen.getByRole("button", { name: "Create cluster" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to create cluster");
+  });
 });

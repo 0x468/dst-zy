@@ -82,9 +82,8 @@ export function App() {
       const createdCluster = await mutateCluster(input);
       setErrorMessage(undefined);
       await refreshClusters(createdCluster.slug);
-    } catch (error) {
+    } catch {
       setErrorMessage(`Failed to ${input.mode} cluster`);
-      throw error;
     }
   }
 
@@ -97,7 +96,7 @@ export function App() {
       await saveClusterConfig(selectedSlug, nextSnapshot);
       setErrorMessage(undefined);
       setSnapshot(await getClusterConfig(selectedSlug));
-    } catch (error) {
+    } catch {
       setErrorMessage("Failed to save config");
     }
   }
@@ -113,7 +112,7 @@ export function App() {
       const nextJobs = await listJobs();
       setJobs(filterJobsForCluster(nextJobs, selectedCluster?.id));
       await refreshClusters(selectedSlug);
-    } catch (error) {
+    } catch {
       setErrorMessage(`Failed to run ${action}`);
     }
   }
