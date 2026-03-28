@@ -10,9 +10,11 @@ type ClusterConfigFormProps = {
 export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) {
   const [draft, setDraft] = useState(snapshot);
   const [pending, setPending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>();
 
   useEffect(() => {
     setDraft(snapshot);
+    setErrorMessage(undefined);
   }, [snapshot]);
 
   return (
@@ -23,11 +25,15 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
 
         try {
           await onSave(draft);
+          setErrorMessage(undefined);
+        } catch (error) {
+          setErrorMessage(getErrorMessage(error, "Failed to save config"));
         } finally {
           setPending(false);
         }
       }}
     >
+      {errorMessage ? <p role="alert">{errorMessage}</p> : null}
       <div>
         <label htmlFor="cluster-name">Cluster name</label>
         <input
@@ -56,4 +62,12 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
       <button type="submit" disabled={pending}>Save config</button>
     </form>
   );
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim() !== "") {
+    return error.message;
+  }
+
+  return fallback;
 }

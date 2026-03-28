@@ -87,6 +87,6 @@ describe("ClusterList", () => {
     await user.type(screen.getByLabelText("Cluster name"), "Cluster_A");
     await user.click(screen.getByRole("button", { name: "Create cluster" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to create cluster");
+    expect(await screen.findByRole("alert")).toHaveTextContent("request failed");
   });
 });

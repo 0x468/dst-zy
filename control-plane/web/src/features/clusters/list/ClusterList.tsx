@@ -86,7 +86,7 @@ function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
             setErrorMessage(undefined);
             form.reset();
           } catch (error) {
-            setErrorMessage(`Failed to ${mode} cluster`);
+            setErrorMessage(getErrorMessage(error, `Failed to ${mode} cluster`));
           } finally {
             setPending(false);
           }
@@ -129,4 +129,12 @@ function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
       </form>
     </section>
   );
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim() !== "") {
+    return error.message;
+  }
+
+  return fallback;
 }

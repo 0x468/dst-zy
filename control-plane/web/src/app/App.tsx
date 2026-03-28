@@ -133,7 +133,11 @@ export function App() {
       setErrorMessage(undefined);
       await refreshClusters(createdCluster.slug);
     } catch (error) {
-      handleAppError(error, `Failed to ${input.mode} cluster`);
+      if (isUnauthorizedError(error)) {
+        handleAppError(error, `Failed to ${input.mode} cluster`);
+        return;
+      }
+      throw error;
     }
   }
 
@@ -147,7 +151,11 @@ export function App() {
       setErrorMessage(undefined);
       setSnapshot(await getClusterConfig(selectedSlug));
     } catch (error) {
-      handleAppError(error, "Failed to save config");
+      if (isUnauthorizedError(error)) {
+        handleAppError(error, "Failed to save config");
+        return;
+      }
+      throw error;
     }
   }
 

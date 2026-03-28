@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -253,6 +253,36 @@ describe("App", () => {
     });
   });
 
+  it("shows create errors inside the mutation form instead of the global banner", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ error: "invalid cluster slug" }, 400));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Clusters" });
+
+    await user.type(screen.getByLabelText("Slug"), "../bad");
+    await user.type(screen.getByLabelText("Display name"), "Bad Cluster");
+    await user.type(screen.getByLabelText("Cluster name"), "Bad_Cluster");
+    await user.click(screen.getByRole("button", { name: "Create cluster" }));
+
+    const mutationSection = screen.getByRole("heading", { name: "Create or import" }).closest("section");
+    if (!mutationSection) {
+      throw new Error("expected mutation section");
+    }
+
+    expect(await within(mutationSection).findByRole("alert")).toHaveTextContent("invalid cluster slug");
+    expect(screen.queryAllByRole("alert")).toHaveLength(1);
+  });
+
   it("refreshes cluster status after a lifecycle action", async () => {
     const user = userEvent.setup();
     fetchMock
@@ -342,6 +372,62 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getAllByText("stopped").length).toBeGreaterThan(0);
     });
+  });
+
+  it("shows config save errors inside the config form instead of the global banner", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ error: "invalid cluster.ini" }, 400));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    await user.click(screen.getByRole("button", { name: "Save config" }));
+
+    const configForm = screen.getByRole("button", { name: "Save config" }).closest("form");
+    if (!configForm) {
+      throw new Error("expected config form");
+    }
+
+    expect(await within(configForm).findByRole("alert")).toHaveTextContent("invalid cluster.ini");
+    expect(screen.queryAllByRole("alert")).toHaveLength(1);
   });
 
   it("clears stale cluster details while the next cluster config is loading", async () => {

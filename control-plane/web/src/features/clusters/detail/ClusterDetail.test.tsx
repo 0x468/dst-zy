@@ -182,6 +182,46 @@ describe("ClusterDetailPage", () => {
     resolveSave?.();
   });
 
+  it("shows a local config save error when saving fails", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockRejectedValue(new Error("invalid cluster.ini"));
+
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          gameMode: "survival",
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+        }}
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save config" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("invalid cluster.ini");
+  });
+
   it("supports advanced raw file editing", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
@@ -280,5 +320,49 @@ describe("ClusterDetailPage", () => {
     expect(screen.getByRole("button", { name: "Save raw file" })).toBeDisabled();
 
     resolveSave?.();
+  });
+
+  it("shows a local raw save error when saving fails", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockRejectedValue(new Error("invalid cluster.ini"));
+
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          gameMode: "survival",
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+          rawFiles: {
+            clusterIni: "cluster_name = Cluster_A",
+          },
+        }}
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("button", { name: "Save raw file" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("invalid cluster.ini");
   });
 });
