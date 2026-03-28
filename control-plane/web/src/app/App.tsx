@@ -10,6 +10,7 @@ import {
   saveClusterConfig,
   signIn,
   signOut,
+  ApiError,
   type ClusterConfigSnapshot,
   type ClusterMutationInput,
   type ClusterSummary,
@@ -60,16 +61,37 @@ export function App() {
     setJobs([]);
   }, [selectedSlug]);
 
-  async function handleSignIn(username: string, password: string) {
-    const ok = await signIn(username, password);
-    if (!ok) {
-      setErrorMessage("Invalid username or password");
+  function handleAppError(error: unknown, fallback: string) {
+    if (isUnauthorizedError(error)) {
+      clearAuthenticatedState(
+        setAuthenticated,
+        setClusters,
+        setSelectedSlug,
+        setSnapshot,
+        setJobs,
+        setErrorMessage,
+        "Session expired",
+      );
       return;
     }
 
-    setErrorMessage(undefined);
-    await refreshClusters();
-    setAuthenticated(true);
+    setErrorMessage(getErrorMessage(error, fallback));
+  }
+
+  async function handleSignIn(username: string, password: string) {
+    try {
+      const ok = await signIn(username, password);
+      if (!ok) {
+        setErrorMessage("Invalid username or password");
+        return;
+      }
+
+      setErrorMessage(undefined);
+      await refreshClusters();
+      setAuthenticated(true);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Failed to sign in"));
+    }
   }
 
   async function handleSignOut() {
@@ -108,7 +130,7 @@ export function App() {
       setErrorMessage(undefined);
       await refreshClusters(createdCluster.slug);
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, `Failed to ${input.mode} cluster`));
+      handleAppError(error, `Failed to ${input.mode} cluster`);
     }
   }
 
@@ -122,7 +144,7 @@ export function App() {
       setErrorMessage(undefined);
       setSnapshot(await getClusterConfig(selectedSlug));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, "Failed to save config"));
+      handleAppError(error, "Failed to save config");
     }
   }
 
@@ -138,7 +160,7 @@ export function App() {
       setJobs(filterJobsForCluster(nextJobs, selectedCluster?.id));
       await refreshClusters(selectedSlug);
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, `Failed to run ${action}`));
+      handleAppError(error, `Failed to run ${action}`);
     }
   }
 
@@ -152,17 +174,23 @@ export function App() {
     let cancelled = false;
 
     async function loadClusterDetails() {
-      const [nextSnapshot, nextJobs] = await Promise.all([
-        getClusterConfig(activeSlug),
-        listJobs(),
-      ]);
+      try {
+        const [nextSnapshot, nextJobs] = await Promise.all([
+          getClusterConfig(activeSlug),
+          listJobs(),
+        ]);
 
-      if (cancelled) {
-        return;
+        if (cancelled) {
+          return;
+        }
+
+        setSnapshot(nextSnapshot);
+        setJobs(filterJobsForCluster(nextJobs, activeClusterID));
+      } catch (error) {
+        if (!cancelled) {
+          handleAppError(error, "Failed to load cluster details");
+        }
       }
-
-      setSnapshot(nextSnapshot);
-      setJobs(filterJobsForCluster(nextJobs, activeClusterID));
     }
 
     void loadClusterDetails();
@@ -209,4 +237,25 @@ function getErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function isUnauthorizedError(error: unknown) {
+  return error instanceof ApiError && error.status === 401;
+}
+
+function clearAuthenticatedState(
+  setAuthenticated: (value: boolean) => void,
+  setClusters: (value: ClusterSummary[]) => void,
+  setSelectedSlug: (value: string | undefined) => void,
+  setSnapshot: (value: ClusterConfigSnapshot | undefined) => void,
+  setJobs: (value: JobSummary[]) => void,
+  setErrorMessage: (value: string | undefined) => void,
+  message: string,
+) {
+  setAuthenticated(false);
+  setClusters([]);
+  setSelectedSlug(undefined);
+  setSnapshot(undefined);
+  setJobs([]);
+  setErrorMessage(message);
 }

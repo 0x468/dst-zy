@@ -106,7 +106,7 @@ export async function signIn(username: string, password: string): Promise<boolea
     return false;
   }
   if (!response.ok) {
-    throw new Error(`request failed: ${response.status}`);
+    throw new ApiError(response.status, await readErrorMessage(response));
   }
 
   return response.ok;
@@ -121,7 +121,7 @@ export async function getSession(): Promise<boolean> {
     return false;
   }
   if (!response.ok) {
-    throw new Error(`request failed: ${response.status}`);
+    throw new ApiError(response.status, await readErrorMessage(response));
   }
 
   return true;
@@ -134,7 +134,7 @@ export async function signOut(): Promise<void> {
   });
 
   if (!response.ok && response.status !== 204) {
-    throw new Error(`request failed: ${response.status}`);
+    throw new ApiError(response.status, await readErrorMessage(response));
   }
 }
 
