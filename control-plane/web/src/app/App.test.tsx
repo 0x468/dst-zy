@@ -569,7 +569,13 @@ describe("App", () => {
     await screen.findByRole("heading", { name: "Cluster A" });
     await user.click(screen.getByRole("button", { name: "Stop" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("unsupported action");
+    const actionsSection = screen.getByRole("heading", { name: "Actions" }).closest("section");
+    if (!actionsSection) {
+      throw new Error("expected actions section");
+    }
+
+    expect(await within(actionsSection).findByRole("alert")).toHaveTextContent("unsupported action");
+    expect(screen.queryAllByRole("alert")).toHaveLength(1);
   });
 
   it("returns to the login screen when an authenticated request gets 401", async () => {

@@ -8,10 +8,12 @@ const lifecycleActions = ["Start", "Stop", "Restart", "Update", "Validate"];
 
 export function LifecycleActions({ onAction }: LifecycleActionsProps) {
   const [pending, setPending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>();
 
   return (
     <section>
       <h2>Actions</h2>
+      {errorMessage ? <p role="alert">{errorMessage}</p> : null}
       <div>
         {lifecycleActions.map((action) => (
           <button
@@ -23,6 +25,9 @@ export function LifecycleActions({ onAction }: LifecycleActionsProps) {
 
               try {
                 await onAction(action.toLowerCase());
+                setErrorMessage(undefined);
+              } catch (error) {
+                setErrorMessage(getErrorMessage(error, `Failed to run ${action.toLowerCase()}`));
               } finally {
                 setPending(false);
               }
@@ -34,4 +39,12 @@ export function LifecycleActions({ onAction }: LifecycleActionsProps) {
       </div>
     </section>
   );
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim() !== "") {
+    return error.message;
+  }
+
+  return fallback;
 }

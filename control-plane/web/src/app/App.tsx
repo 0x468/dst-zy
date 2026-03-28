@@ -171,7 +171,11 @@ export function App() {
       setJobs(filterJobsForCluster(nextJobs, selectedCluster?.id));
       await refreshClusters(selectedSlug);
     } catch (error) {
-      handleAppError(error, `Failed to run ${action}`);
+      if (isUnauthorizedError(error)) {
+        handleAppError(error, `Failed to run ${action}`);
+        return;
+      }
+      throw error;
     }
   }
 
