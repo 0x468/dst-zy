@@ -41,6 +41,7 @@ type ClusterMutationFormProps = {
 function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
   const [mode, setMode] = useState<"create" | "import">("create");
   const [errorMessage, setErrorMessage] = useState<string>();
+  const [pending, setPending] = useState(false);
 
   return (
     <section>
@@ -74,6 +75,7 @@ function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
           }
 
           try {
+            setPending(true);
             await onSubmit({
               mode,
               slug,
@@ -85,6 +87,8 @@ function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
             form.reset();
           } catch (error) {
             setErrorMessage(`Failed to ${mode} cluster`);
+          } finally {
+            setPending(false);
           }
         }}
       >
@@ -93,6 +97,7 @@ function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
           <select
             id="mutation-mode"
             value={mode}
+            disabled={pending}
             onChange={(event) => {
               setErrorMessage(undefined);
               setMode(event.target.value as "create" | "import");
@@ -104,23 +109,23 @@ function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
         </div>
         <div>
           <label htmlFor="mutation-slug">Slug</label>
-          <input id="mutation-slug" name="slug" type="text" />
+          <input id="mutation-slug" name="slug" type="text" disabled={pending} />
         </div>
         <div>
           <label htmlFor="mutation-display-name">Display name</label>
-          <input id="mutation-display-name" name="displayName" type="text" />
+          <input id="mutation-display-name" name="displayName" type="text" disabled={pending} />
         </div>
         <div>
           <label htmlFor="mutation-cluster-name">Cluster name</label>
-          <input id="mutation-cluster-name" name="clusterName" type="text" />
+          <input id="mutation-cluster-name" name="clusterName" type="text" disabled={pending} />
         </div>
         {mode === "import" ? (
           <div>
             <label htmlFor="mutation-base-dir">Import path</label>
-            <input id="mutation-base-dir" name="baseDir" type="text" />
+            <input id="mutation-base-dir" name="baseDir" type="text" disabled={pending} />
           </div>
         ) : null}
-        <button type="submit">{mode === "create" ? "Create cluster" : "Import cluster"}</button>
+        <button type="submit" disabled={pending}>{mode === "create" ? "Create cluster" : "Import cluster"}</button>
       </form>
     </section>
   );

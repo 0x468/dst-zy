@@ -5,6 +5,53 @@ import { describe, expect, it, vi } from "vitest";
 import { ClusterDetailPage } from "./ClusterDetailPage";
 
 describe("ClusterDetailPage", () => {
+  it("disables lifecycle buttons while an action is running", async () => {
+    const user = userEvent.setup();
+    let resolveAction: (() => void) | undefined;
+    const onAction = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+      resolveAction = resolve;
+    }));
+
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          gameMode: "survival",
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+        }}
+        onSave={vi.fn()}
+        onAction={onAction}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start" }));
+
+    expect(screen.getByRole("button", { name: "Start" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Stop" })).toBeDisabled();
+
+    resolveAction?.();
+  });
+
   it("shows cluster metadata and status summary", () => {
     render(
       <ClusterDetailPage
@@ -90,6 +137,51 @@ describe("ClusterDetailPage", () => {
     );
   });
 
+  it("disables the config save button while saving", async () => {
+    const user = userEvent.setup();
+    let resolveSave: (() => void) | undefined;
+    const onSave = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+      resolveSave = resolve;
+    }));
+
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          gameMode: "survival",
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+        }}
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save config" }));
+
+    expect(screen.getByRole("button", { name: "Save config" })).toBeDisabled();
+
+    resolveSave?.();
+  });
+
   it("supports advanced raw file editing", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
@@ -139,5 +231,54 @@ describe("ClusterDetailPage", () => {
         }),
       }),
     );
+  });
+
+  it("disables the raw save button while saving", async () => {
+    const user = userEvent.setup();
+    let resolveSave: (() => void) | undefined;
+    const onSave = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+      resolveSave = resolve;
+    }));
+
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          gameMode: "survival",
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+          rawFiles: {
+            clusterIni: "cluster_name = Cluster_A",
+          },
+        }}
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("button", { name: "Save raw file" }));
+
+    expect(screen.getByRole("button", { name: "Save raw file" })).toBeDisabled();
+
+    resolveSave?.();
   });
 });

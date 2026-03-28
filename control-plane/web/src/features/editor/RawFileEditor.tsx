@@ -4,11 +4,12 @@ import type { ClusterConfigSnapshot } from "../../lib/api";
 
 type RawFileEditorProps = {
   snapshot: ClusterConfigSnapshot;
-  onSave: (snapshot: ClusterConfigSnapshot) => void;
+  onSave: (snapshot: ClusterConfigSnapshot) => Promise<void> | void;
 };
 
 export function RawFileEditor({ snapshot, onSave }: RawFileEditorProps) {
   const [clusterIni, setClusterIni] = useState(snapshot.rawFiles?.clusterIni ?? "");
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     setClusterIni(snapshot.rawFiles?.clusterIni ?? "");
@@ -16,14 +17,20 @@ export function RawFileEditor({ snapshot, onSave }: RawFileEditorProps) {
 
   return (
     <form
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
-        onSave({
-          ...snapshot,
-          rawFiles: {
-            clusterIni: clusterIni.trim(),
-          },
-        });
+        setPending(true);
+
+        try {
+          await onSave({
+            ...snapshot,
+            rawFiles: {
+              clusterIni: clusterIni.trim(),
+            },
+          });
+        } finally {
+          setPending(false);
+        }
       }}
     >
       <div>
@@ -32,6 +39,7 @@ export function RawFileEditor({ snapshot, onSave }: RawFileEditorProps) {
           id="cluster-ini"
           aria-label="cluster.ini"
           value={clusterIni}
+          disabled={pending}
           onChange={(event) => {
             setClusterIni(event.target.value);
           }}
@@ -39,7 +47,7 @@ export function RawFileEditor({ snapshot, onSave }: RawFileEditorProps) {
         />
       </div>
 
-      <button type="submit">Save raw file</button>
+      <button type="submit" disabled={pending}>Save raw file</button>
     </form>
   );
 }

@@ -5,6 +5,31 @@ import { describe, expect, it, vi } from "vitest";
 import { ClusterList } from "./ClusterList";
 
 describe("ClusterList", () => {
+  it("disables the mutation submit button while a request is in flight", async () => {
+    const user = userEvent.setup();
+    let resolveMutation: (() => void) | undefined;
+    const onMutate = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+      resolveMutation = resolve;
+    }));
+
+    render(
+      <ClusterList
+        clusters={[]}
+        onMutate={onMutate}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Slug"), "cluster-a");
+    await user.type(screen.getByLabelText("Display name"), "Cluster A");
+    await user.type(screen.getByLabelText("Cluster name"), "Cluster_A");
+    await user.click(screen.getByRole("button", { name: "Create cluster" }));
+
+    expect(screen.getByRole("button", { name: "Create cluster" })).toBeDisabled();
+
+    resolveMutation?.();
+  });
+
   it("shows a validation error when create is missing required fields", async () => {
     const user = userEvent.setup();
     const onMutate = vi.fn();

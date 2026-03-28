@@ -4,11 +4,12 @@ import type { ClusterConfigSnapshot } from "../../../lib/api";
 
 type ClusterConfigFormProps = {
   snapshot: ClusterConfigSnapshot;
-  onSave: (snapshot: ClusterConfigSnapshot) => void;
+  onSave: (snapshot: ClusterConfigSnapshot) => Promise<void> | void;
 };
 
 export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) {
   const [draft, setDraft] = useState(snapshot);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     setDraft(snapshot);
@@ -16,9 +17,15 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
 
   return (
     <form
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
-        onSave(draft);
+        setPending(true);
+
+        try {
+          await onSave(draft);
+        } finally {
+          setPending(false);
+        }
       }}
     >
       <div>
@@ -26,6 +33,7 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
         <input
           id="cluster-name"
           value={draft.clusterName}
+          disabled={pending}
           onChange={(event) => {
             setDraft({ ...draft, clusterName: event.target.value });
           }}
@@ -38,13 +46,14 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
           id="cluster-description"
           aria-label="Cluster description"
           value={draft.clusterDescription}
+          disabled={pending}
           onChange={(event) => {
             setDraft({ ...draft, clusterDescription: event.target.value });
           }}
         />
       </div>
 
-      <button type="submit">Save config</button>
+      <button type="submit" disabled={pending}>Save config</button>
     </form>
   );
 }
