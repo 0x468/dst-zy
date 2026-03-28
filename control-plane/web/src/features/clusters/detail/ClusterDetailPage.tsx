@@ -1,20 +1,29 @@
 import { useState } from "react";
 
-import type { ClusterConfigSnapshot, ClusterSummary, JobSummary } from "../../../lib/api";
+import type { AuditSummary, ClusterConfigSnapshot, ClusterSummary, JobSummary } from "../../../lib/api";
 import { LifecycleActions } from "../actions/LifecycleActions";
 import { RawFileEditor } from "../../editor/RawFileEditor";
 import { ClusterConfigForm } from "../forms/ClusterConfigForm";
 import { JobPanel } from "../../jobs/JobPanel";
+import { AuditPanel } from "../../jobs/AuditPanel";
 
 type ClusterDetailPageProps = {
   cluster: ClusterSummary;
   snapshot: ClusterConfigSnapshot;
   onSave: (snapshot: ClusterConfigSnapshot) => void;
   jobs?: JobSummary[];
+  audit?: AuditSummary[];
   onAction?: (action: string) => void;
 };
 
-export function ClusterDetailPage({ cluster, snapshot, onSave, jobs = [], onAction = () => {} }: ClusterDetailPageProps) {
+export function ClusterDetailPage({
+  cluster,
+  snapshot,
+  onSave,
+  jobs = [],
+  audit = [],
+  onAction = () => {},
+}: ClusterDetailPageProps) {
   const [tab, setTab] = useState<"overview" | "advanced">("overview");
 
   return (
@@ -62,6 +71,7 @@ export function ClusterDetailPage({ cluster, snapshot, onSave, jobs = [], onActi
           </dl>
           <ClusterConfigForm snapshot={snapshot} onSave={onSave} />
           <JobPanel jobs={jobs} />
+          <AuditPanel audit={audit} />
         </>
       ) : (
         <RawFileEditor snapshot={snapshot} onSave={onSave} />

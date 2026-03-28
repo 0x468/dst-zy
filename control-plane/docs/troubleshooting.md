@@ -177,9 +177,11 @@ GOPROXY=https://goproxy.cn,direct
 
 ### 9. 想确认最近有没有登录失败或被限流
 
-第一阶段现在会把登录成功、登录失败、限流拒绝写进本地 SQLite 审计表。
+第一阶段现在会把登录成功、登录失败、限流拒绝写进本地 SQLite 审计表，并在控制平面 Overview 区展示最近记录。
 
-如果你只是想快速确认，可以直接进入控制平面数据目录查询：
+如果你只是想快速确认，可以先看页面里的 `Recent audit`。
+
+如果还想更细地确认原始数据，可以直接进入控制平面数据目录查询：
 
 ```bash
 sqlite3 app.db "select id, actor, action, summary, created_at from audit_records order by id desc limit 20;"
@@ -193,7 +195,7 @@ sqlite3 app.db "select id, actor, action, summary, created_at from audit_records
 
 注意：
 
-- 这是底层审计表查询，不是前端页面功能
+- 页面里展示的是最近记录的简化视图，底层 SQLite 仍然是真实数据源
 - `summary` 里当前主要记录客户端地址线索，方便排查单机场景问题
 - 更完整的审计展示和筛选能力仍属于后续增强项
 

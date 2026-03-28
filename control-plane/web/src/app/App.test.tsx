@@ -60,6 +60,7 @@ describe("App", () => {
           cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
         },
       }))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]));
 
     render(<App />);
@@ -90,7 +91,7 @@ describe("App", () => {
     expect(screen.queryByRole("heading", { name: "Clusters" })).not.toBeInTheDocument();
   });
 
-  it("loads clusters, config and jobs after sign in", async () => {
+  it("loads clusters, config, jobs and audit entries after sign in", async () => {
     const user = userEvent.setup();
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
@@ -134,6 +135,17 @@ describe("App", () => {
           stdout_excerpt: "",
           stderr_excerpt: "compose up failed",
         },
+      ]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 31,
+          actor: "admin",
+          action: "login_failed",
+          target_type: "auth",
+          target_id: 0,
+          summary: "client=127.0.0.1",
+          created_at: "2026-03-28T12:00:00Z",
+        },
       ]));
 
     render(<App />);
@@ -146,11 +158,14 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Cluster A" })).toBeInTheDocument();
     expect(screen.getByText("Primary world")).toBeInTheDocument();
     expect(screen.getByText("compose up failed")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recent audit" })).toBeInTheDocument();
+    expect(screen.getByText("login_failed")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/login", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/clusters", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/clusters/cluster-a/config", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/jobs", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(6, "/api/audit", expect.any(Object));
   });
 
   it("stays on the login form when credentials are rejected", async () => {
@@ -230,6 +245,7 @@ describe("App", () => {
           cluster_ini: "[NETWORK]\ncluster_name = Cluster_B\n",
         },
       }))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]));
 
     render(<App />);
@@ -319,6 +335,7 @@ describe("App", () => {
         },
       }))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({
         id: 21,
         cluster_id: 1,
@@ -358,6 +375,7 @@ describe("App", () => {
           cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
         },
       }))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]));
 
     render(<App />);
@@ -409,6 +427,7 @@ describe("App", () => {
           cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
         },
       }))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ error: "invalid cluster.ini" }, 400));
 
@@ -476,7 +495,9 @@ describe("App", () => {
         },
       }))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockImplementationOnce(() => clusterBConfig.promise)
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]));
 
     render(<App />);
@@ -558,6 +579,7 @@ describe("App", () => {
         },
       }))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ error: "unsupported action" }, 400));
 
     render(<App />);
@@ -614,6 +636,7 @@ describe("App", () => {
         },
       }))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ error: "Unauthorized" }, 401));
 
     render(<App />);
@@ -663,6 +686,7 @@ describe("App", () => {
           cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
         },
       }))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
 

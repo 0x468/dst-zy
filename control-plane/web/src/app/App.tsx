@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   getClusterConfig,
   getSession,
+  listAudit,
   listClusters,
   listJobs,
   mutateCluster,
@@ -11,6 +12,7 @@ import {
   signIn,
   signOut,
   ApiError,
+  type AuditSummary,
   type ClusterConfigSnapshot,
   type ClusterMutationInput,
   type ClusterSummary,
@@ -25,6 +27,7 @@ export function App() {
   const [selectedSlug, setSelectedSlug] = useState<string>();
   const [snapshot, setSnapshot] = useState<ClusterConfigSnapshot>();
   const [jobs, setJobs] = useState<JobSummary[]>([]);
+  const [audit, setAudit] = useState<AuditSummary[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>();
 
   const selectedCluster = clusters.find((cluster) => cluster.slug === selectedSlug);
@@ -62,6 +65,7 @@ export function App() {
   useEffect(() => {
     setSnapshot(undefined);
     setJobs([]);
+    setAudit([]);
   }, [selectedSlug]);
 
   function handleAppError(error: unknown, fallback: string) {
@@ -72,6 +76,7 @@ export function App() {
         setSelectedSlug,
         setSnapshot,
         setJobs,
+        setAudit,
         setErrorMessage,
         "Session expired",
       );
@@ -106,6 +111,7 @@ export function App() {
       setSelectedSlug(undefined);
       setSnapshot(undefined);
       setJobs([]);
+      setAudit([]);
       setErrorMessage(undefined);
     }
   }
@@ -118,6 +124,7 @@ export function App() {
       setSelectedSlug(undefined);
       setSnapshot(undefined);
       setJobs([]);
+      setAudit([]);
       return;
     }
 
@@ -190,9 +197,10 @@ export function App() {
 
     async function loadClusterDetails() {
       try {
-        const [nextSnapshot, nextJobs] = await Promise.all([
+        const [nextSnapshot, nextJobs, nextAudit] = await Promise.all([
           getClusterConfig(activeSlug),
           listJobs(),
+          listAudit(),
         ]);
 
         if (cancelled) {
@@ -201,6 +209,7 @@ export function App() {
 
         setSnapshot(nextSnapshot);
         setJobs(filterJobsForCluster(nextJobs, activeClusterID));
+        setAudit(nextAudit);
       } catch (error) {
         if (!cancelled) {
           handleAppError(error, "Failed to load cluster details");
@@ -228,6 +237,7 @@ export function App() {
           detailCluster={selectedCluster}
           snapshot={snapshot}
           jobs={jobs}
+          audit={audit}
           onSaveConfig={handleSaveConfig}
           onAction={handleAction}
         />
@@ -264,6 +274,7 @@ function clearAuthenticatedState(
   setSelectedSlug: (value: string | undefined) => void,
   setSnapshot: (value: ClusterConfigSnapshot | undefined) => void,
   setJobs: (value: JobSummary[]) => void,
+  setAudit: (value: AuditSummary[]) => void,
   setErrorMessage: (value: string | undefined) => void,
   message: string,
 ) {
@@ -272,5 +283,6 @@ function clearAuthenticatedState(
   setSelectedSlug(undefined);
   setSnapshot(undefined);
   setJobs([]);
+  setAudit([]);
   setErrorMessage(message);
 }

@@ -137,6 +137,11 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 				{ID: 10, JobType: "start", Status: "running"},
 			},
 		},
+		Audit: &fakeAuditService{
+			list: []models.AuditRecord{
+				{ID: 21, Actor: "admin", Action: "login_success", Summary: "client=127.0.0.1"},
+			},
+		},
 	})
 
 	sessionCookie := issueSessionCookie(t, secret)
@@ -181,6 +186,18 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	if jobsRec.Code != http.StatusOK {
 		t.Fatalf("expected jobs list to return 200, got %d", jobsRec.Code)
 	}
+
+	auditReq := httptest.NewRequest(http.MethodGet, "/api/audit", nil)
+	auditReq.AddCookie(sessionCookie)
+	auditRec := httptest.NewRecorder()
+	router.ServeHTTP(auditRec, auditReq)
+
+	if auditRec.Code != http.StatusOK {
+		t.Fatalf("expected audit list to return 200, got %d", auditRec.Code)
+	}
+	if !bytes.Contains(auditRec.Body.Bytes(), []byte(`"action":"login_success"`)) {
+		t.Fatalf("expected audit list to include login_success entry, got %q", auditRec.Body.String())
+	}
 }
 
 func TestReadHandlersRequireSession(t *testing.T) {
@@ -200,6 +217,7 @@ func TestReadHandlersRequireSession(t *testing.T) {
 		{name: "cluster list", path: "/api/clusters"},
 		{name: "cluster config", path: "/api/clusters/cluster-a/config"},
 		{name: "jobs list", path: "/api/jobs"},
+		{name: "audit list", path: "/api/audit"},
 	}
 
 	for _, testCase := range tests {
@@ -420,6 +438,7 @@ func (f fakeLoginLimiter) Reset(_ string) {}
 
 type fakeAuditService struct {
 	records []fakeAuditRecord
+	list    []models.AuditRecord
 }
 
 type fakeAuditRecord struct {
@@ -446,6 +465,14 @@ func (f *fakeAuditService) Record(actor string, action string, targetType string
 		TargetID:   targetID,
 		Summary:    summary,
 	}, nil
+}
+
+func (f *fakeAuditService) List(limit int) ([]models.AuditRecord, error) {
+	if len(f.list) <= limit {
+		return f.list, nil
+	}
+
+	return f.list[:limit], nil
 }
 
 type fakeClusterService struct {

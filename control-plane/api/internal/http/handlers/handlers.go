@@ -40,6 +40,7 @@ type LoginLimiter interface {
 
 type AuditService interface {
 	Record(actor string, action string, targetType string, targetID int64, summary string) (models.AuditRecord, error)
+	List(limit int) ([]models.AuditRecord, error)
 }
 
 type ClusterService interface {
@@ -248,6 +249,21 @@ func NewRouter(deps Dependencies) http.Handler {
 		}
 
 		writeJSON(w, http.StatusOK, jobs)
+	})))
+
+	mux.Handle("GET /api/audit", protected(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if deps.Audit == nil {
+			writeJSON(w, http.StatusOK, []models.AuditRecord{})
+			return
+		}
+
+		records, err := deps.Audit.List(50)
+		if err != nil {
+			writeMappedError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, records)
 	})))
 
 	return mux

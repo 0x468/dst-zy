@@ -35,6 +35,16 @@ export type JobSummary = {
   stderrExcerpt: string;
 };
 
+export type AuditSummary = {
+  id: number;
+  actor: string;
+  action: string;
+  targetType: string;
+  targetId: number;
+  summary: string;
+  createdAt: string;
+};
+
 export type ClusterMutationInput = {
   mode: "create" | "import";
   slug: string;
@@ -90,6 +100,16 @@ type JobSummaryResponse = {
   status: string;
   stdout_excerpt: string;
   stderr_excerpt: string;
+};
+
+type AuditSummaryResponse = {
+  id: number;
+  actor: string;
+  action: string;
+  target_type: string;
+  target_id: number;
+  summary: string;
+  created_at: string;
 };
 
 export async function signIn(username: string, password: string): Promise<boolean> {
@@ -158,6 +178,11 @@ export async function saveClusterConfig(slug: string, snapshot: ClusterConfigSna
 export async function listJobs(): Promise<JobSummary[]> {
   const response = await request("/api/jobs");
   return mapJobs(await response.json() as JobSummaryResponse[]);
+}
+
+export async function listAudit(): Promise<AuditSummary[]> {
+  const response = await request("/api/audit");
+  return mapAudit(await response.json() as AuditSummaryResponse[]);
 }
 
 export async function runClusterAction(slug: string, action: string): Promise<JobSummary> {
@@ -257,6 +282,18 @@ function mapSnapshot(snapshot: ClusterConfigSnapshotResponse): ClusterConfigSnap
       clusterIni: snapshot.raw_files.cluster_ini,
     } : undefined,
   };
+}
+
+function mapAudit(records: AuditSummaryResponse[]): AuditSummary[] {
+  return records.map((record) => ({
+    id: record.id,
+    actor: record.actor,
+    action: record.action,
+    targetType: record.target_type,
+    targetId: record.target_id,
+    summary: record.summary,
+    createdAt: record.created_at,
+  }));
 }
 
 function encodeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapshotResponse {
