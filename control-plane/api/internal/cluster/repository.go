@@ -91,6 +91,19 @@ func (r *Repository) GetBySlug(slug string) (models.ClusterRecord, error) {
 	return scanClusterRecord(row)
 }
 
+func (r *Repository) UpdateStatus(id int64, status string) error {
+	_, err := r.db.Exec(
+		`UPDATE cluster_records
+		 SET status = ?, updated_at = ?
+		 WHERE id = ?`,
+		status,
+		time.Now().UTC().Format(time.RFC3339Nano),
+		id,
+	)
+
+	return err
+}
+
 type clusterScanner interface {
 	Scan(dest ...any) error
 }

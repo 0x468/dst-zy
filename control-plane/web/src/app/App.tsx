@@ -74,6 +74,7 @@ export function App() {
     await runClusterAction(selectedSlug, action);
     const nextJobs = await listJobs();
     setJobs(filterJobsForCluster(nextJobs, selectedCluster?.id));
+    await refreshClusters(selectedSlug);
   }
 
   useEffect(() => {
