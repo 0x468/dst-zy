@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,6 +22,12 @@ func TestAuthRequiredRejectsUnauthenticatedWriteRequest(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for unauthenticated write request, got %d", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("expected json content type for unauthenticated response, got %q", got)
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`"error":"Unauthorized"`)) {
+		t.Fatalf("expected json unauthorized body, got %q", rec.Body.String())
 	}
 }
 
