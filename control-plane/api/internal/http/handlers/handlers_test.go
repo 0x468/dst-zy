@@ -265,6 +265,41 @@ func TestHandlersMapKnownErrorsToStructuredResponses(t *testing.T) {
 	}
 }
 
+func TestClusterMutationHandlersMapInvalidInputsToBadRequest(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	sessionCookie := issueSessionCookie(t, secret)
+	router := NewRouter(Dependencies{
+		SessionSecret: secret,
+		Auth:          fakeAuthService{allow: true},
+		Clusters: fakeClusterService{
+			createErr: apierror.Invalid("invalid cluster slug", nil),
+			importErr: apierror.Invalid("base_dir required for import", nil),
+		},
+	})
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/clusters", bytes.NewBufferString(`{"mode":"create","slug":"../bad","display_name":"Bad","cluster_name":"Bad"}`))
+	createReq.AddCookie(sessionCookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid create request to return 400, got %d", createRec.Code)
+	}
+	if !bytes.Contains(createRec.Body.Bytes(), []byte(`"error":"invalid cluster slug"`)) {
+		t.Fatalf("expected invalid create response to include json error, got %q", createRec.Body.String())
+	}
+
+	importReq := httptest.NewRequest(http.MethodPost, "/api/clusters", bytes.NewBufferString(`{"mode":"import","slug":"cluster-a","display_name":"Cluster A","cluster_name":"Cluster_A","base_dir":""}`))
+	importReq.AddCookie(sessionCookie)
+	importRec := httptest.NewRecorder()
+	router.ServeHTTP(importRec, importReq)
+	if importRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid import request to return 400, got %d", importRec.Code)
+	}
+	if !bytes.Contains(importRec.Body.Bytes(), []byte(`"error":"base_dir required for import"`)) {
+		t.Fatalf("expected invalid import response to include json error, got %q", importRec.Body.String())
+	}
+}
+
 func issueSessionCookie(t *testing.T, secret []byte) *http.Cookie {
 	t.Helper()
 
@@ -291,6 +326,8 @@ type fakeClusterService struct {
 	list     []models.ClusterRecord
 	created  models.ClusterRecord
 	imported models.ClusterRecord
+	createErr error
+	importErr error
 }
 
 func (f fakeClusterService) List(_ context.Context) ([]models.ClusterRecord, error) {
@@ -298,11 +335,11 @@ func (f fakeClusterService) List(_ context.Context) ([]models.ClusterRecord, err
 }
 
 func (f fakeClusterService) Create(_ context.Context, _ ClusterMutationRequest) (models.ClusterRecord, error) {
-	return f.created, nil
+	return f.created, f.createErr
 }
 
 func (f fakeClusterService) Import(_ context.Context, _ ClusterMutationRequest) (models.ClusterRecord, error) {
-	return f.imported, nil
+	return f.imported, f.importErr
 }
 
 type fakeConfigService struct {

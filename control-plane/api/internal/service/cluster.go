@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
 	"github.com/gwf/dst-docker/control-plane/api/internal/files"
 	"github.com/gwf/dst-docker/control-plane/api/internal/http/handlers"
@@ -30,7 +31,7 @@ func (s ClusterService) List(_ context.Context) ([]models.ClusterRecord, error) 
 func (s ClusterService) Create(_ context.Context, req handlers.ClusterMutationRequest) (models.ClusterRecord, error) {
 	clusterDir, err := s.guard.ClusterDir(req.Slug)
 	if err != nil {
-		return models.ClusterRecord{}, err
+		return models.ClusterRecord{}, mapClusterMutationError(err)
 	}
 
 	layout := files.BuildManagedLayout(clusterDir)
@@ -61,15 +62,15 @@ func (s ClusterService) Create(_ context.Context, req handlers.ClusterMutationRe
 
 func (s ClusterService) Import(_ context.Context, req handlers.ClusterMutationRequest) (models.ClusterRecord, error) {
 	if req.BaseDir == "" {
-		return models.ClusterRecord{}, errors.New("base_dir required for import")
+		return models.ClusterRecord{}, apierror.Invalid("base_dir required for import", nil)
 	}
 	if err := s.guard.EnsureWithinRoot(req.BaseDir); err != nil {
-		return models.ClusterRecord{}, err
+		return models.ClusterRecord{}, mapClusterMutationError(err)
 	}
 
 	clusterDir, err := s.guard.ClusterDir(req.Slug)
 	if err != nil {
-		return models.ClusterRecord{}, err
+		return models.ClusterRecord{}, mapClusterMutationError(err)
 	}
 
 	layout := files.BuildManagedLayout(clusterDir)
@@ -245,4 +246,15 @@ func copyBareClusterDir(src string, dst string) error {
 	}
 
 	return nil
+}
+
+func mapClusterMutationError(err error) error {
+	switch {
+	case errors.Is(err, files.ErrInvalidSlug):
+		return apierror.Invalid("invalid cluster slug", err)
+	case errors.Is(err, files.ErrPathOutsideRoot):
+		return apierror.Invalid("path outside managed root", err)
+	default:
+		return err
+	}
 }
