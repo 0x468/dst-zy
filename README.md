@@ -16,6 +16,9 @@
 - 迁移已有存档/已有 Cluster： [docs/migrate-existing-cluster.md](/mnt/d/dst/docker/docs/migrate-existing-cluster.md)
 - 仓库目录、脚本与测试职责： [docs/repository-map.md](/mnt/d/dst/docker/docs/repository-map.md)
 - 验证记录、外部资料与已知问题： [docs/verification.md](/mnt/d/dst/docker/docs/verification.md)
+- 控制平面 V2 快速上手： [control-plane/docs/quickstart.md](control-plane/docs/quickstart.md)
+- 控制平面 V2 安全边界： [control-plane/docs/security.md](control-plane/docs/security.md)
+- 控制平面 V2 开发说明： [control-plane/docs/development.md](control-plane/docs/development.md)
 
 ## 项目目标
 
@@ -210,3 +213,16 @@ Docker 端口映射的语义是：
 - 当前默认架构是“一容器一个 DST 集群（Master + Caves）”。
 - 如果你要在同一台宿主机上运行多个集群，更推荐启动多个容器，而不是把多个集群塞进一个容器里。
 - 当前仓库附带的 `docker-compose.yml` 仍然是示例模板，便于快速本地试跑；生产环境完全可以按你的目录结构、镜像标签和端口策略自行编写 compose。
+
+## 控制平面 V2
+
+仓库中还在推进一个独立的 `control-plane/` 子项目，用来管理多个 DST 集群。它和现有游戏镜像不是一回事：
+
+- 游戏镜像负责真正运行 DST dedicated server
+- 控制平面负责管理集群目录、配置文件、任务和 compose 生命周期
+
+如果你要体验控制平面，请先阅读：
+
+- [control-plane/docs/quickstart.md](control-plane/docs/quickstart.md)
+- [control-plane/docs/security.md](control-plane/docs/security.md)
+- [control-plane/docs/development.md](control-plane/docs/development.md)
