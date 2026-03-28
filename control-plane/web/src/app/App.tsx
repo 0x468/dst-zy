@@ -40,11 +40,14 @@ export function App() {
         }
 
         setErrorMessage(undefined);
-        setAuthenticated(true);
         await refreshClusters();
-      } catch {
+        if (cancelled) {
+          return;
+        }
+        setAuthenticated(true);
+      } catch (error) {
         if (!cancelled) {
-          setErrorMessage("Failed to restore session");
+          handleAppError(error, "Failed to restore session");
         }
       }
     }

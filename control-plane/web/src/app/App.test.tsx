@@ -75,7 +75,19 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "DST Control Plane" })).toBeInTheDocument();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to restore session");
+    expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+  });
+
+  it("stays on the login screen when cluster refresh fails during session restore", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ authenticated: true, username: "admin" }))
+      .mockResolvedValueOnce(jsonResponse({ error: "cluster list unavailable" }, 500));
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "DST Control Plane" })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("cluster list unavailable");
+    expect(screen.queryByRole("heading", { name: "Clusters" })).not.toBeInTheDocument();
   });
 
   it("loads clusters, config and jobs after sign in", async () => {
