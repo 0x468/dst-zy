@@ -31,14 +31,19 @@ DST Control Plane V2 当前是第一阶段 alpha：
 
 ## 启动方式
 
-当前仓库提供一个开发/本地试跑用 compose 模板：[control-plane/deploy/docker-compose.control-plane.yml](../deploy/docker-compose.control-plane.yml)。
+当前仓库现在提供两条启动路径：
+
+- 开发/本地试跑：
+  [control-plane/deploy/docker-compose.control-plane.dev.yml](../deploy/docker-compose.control-plane.dev.yml)
+- 单镜像本地部署：
+  [control-plane/deploy/docker-compose.control-plane.yml](../deploy/docker-compose.control-plane.yml)
 
 最小流程如下：
 
 1. 进入仓库根目录。
 2. 为控制平面准备数据目录，例如 `control-plane/.tmp/local-data/`。
 3. 设置管理员账号、密码和会话密钥。
-4. 启动 API 与前端。
+4. 按你的场景选择开发 compose 或单镜像 compose。
 
 建议的最小环境变量：
 
@@ -58,10 +63,24 @@ DST Control Plane V2 当前是第一阶段 alpha：
 开发时推荐先用：
 
 ```bash
-docker compose -f control-plane/deploy/docker-compose.control-plane.yml up
+docker compose -f control-plane/deploy/docker-compose.control-plane.dev.yml up
 ```
 
 如果只是本地验证 API/页面交互，可以把执行模式设成 `dry-run`，这样“启动/停止/更新/校验”只会生成任务记录，不会真正调用 `docker compose`。
+
+如果你要直接试跑单镜像部署，推荐用：
+
+```bash
+docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --build
+```
+
+这条路径会：
+
+- 构建一个同时包含 Go 后端和前端静态文件的镜像
+- 由同一个进程对外提供 API 和页面
+- 把 `/var/run/docker.sock` 挂进容器，让控制平面能真正执行 `docker compose`
+
+请注意，挂载 Docker socket 代表控制平面对宿主机 Docker 拥有较高权限，这只适合当前第一阶段的单机/可信用户场景。
 
 ## 创建新集群
 

@@ -18,7 +18,7 @@
 - `web/`
   TypeScript/React 前端。负责登录、集群列表、详情页、表单编辑和任务展示。
 - `deploy/`
-  本地开发与试跑模板。
+  开发 compose、单镜像部署 compose 和反代示例。
 - `docs/`
   控制平面自己的使用、部署与安全说明。
 - `tests/e2e/`
@@ -53,6 +53,13 @@ docker run --rm -v "$PWD":/workspace -w /workspace/control-plane/web node:22.22.
 ```bash
 bash control-plane/tests/e2e/create-cluster.sh
 bash control-plane/tests/e2e/import-cluster.sh
+```
+
+开发 compose 配置检查：
+
+```bash
+docker compose -f control-plane/deploy/docker-compose.control-plane.dev.yml config
+docker compose -f control-plane/deploy/docker-compose.control-plane.yml config
 ```
 
 仓库级格式检查：

@@ -43,12 +43,7 @@ func main() {
 		Jobs:     service.NewJobsService(jobsRepo),
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-	mux.Handle("/api/", httpapi.NewRouter(deps))
+	mux := httpapi.NewServerHandler(deps, cfg.WebStaticDir)
 
 	log.Printf("dst control plane api listening on %s", cfg.ListenAddr)
 	if err := http.ListenAndServe(cfg.ListenAddr, mux); err != nil {

@@ -19,4 +19,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if cfg.ExecutionMode == "" {
 		t.Fatal("expected default execution mode")
 	}
+	if cfg.WebStaticDir == "" {
+		t.Fatal("expected default web static dir")
+	}
 }

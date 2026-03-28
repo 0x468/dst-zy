@@ -1,22 +1,20 @@
 services:
-  control-plane-api:
-    image: golang:1.26.1-bookworm
-    working_dir: /workspace/control-plane/api
-    command: ["go", "run", "./cmd/server"]
+  control-plane:
+    image: dst-control-plane:v2-alpha
+    build:
+      context: ../..
+      dockerfile: control-plane/Dockerfile
     environment:
       DST_CONTROL_PLANE_LISTEN_ADDR: :8080
       DST_CONTROL_PLANE_DATA_ROOT: /opt/dst-control-plane/data
+      DST_CONTROL_PLANE_WEB_STATIC_DIR: /opt/dst-control-plane/web
+      DST_CONTROL_PLANE_EXECUTION_MODE: compose
+      DST_CONTROL_PLANE_ADMIN_USERNAME: ${DST_CONTROL_PLANE_ADMIN_USERNAME:-admin}
+      DST_CONTROL_PLANE_ADMIN_PASSWORD: ${DST_CONTROL_PLANE_ADMIN_PASSWORD:-change-me}
+      DST_CONTROL_PLANE_SESSION_SECRET: ${DST_CONTROL_PLANE_SESSION_SECRET:-replace-me-with-a-long-random-secret}
     ports:
       - "8080:8080"
     volumes:
-      - ..:/workspace/control-plane
       - ./data:/opt/dst-control-plane/data
-
-  control-plane-web:
-    image: node:22.22.1-bookworm
-    working_dir: /workspace/control-plane/web
-    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "4173"]
-    ports:
-      - "4173:4173"
-    volumes:
-      - ..:/workspace/control-plane
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped

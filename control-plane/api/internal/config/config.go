@@ -9,6 +9,7 @@ type Config struct {
 	AdminUsername string
 	AdminPassword string
 	ExecutionMode string
+	WebStaticDir  string
 }
 
 func Load() Config {
@@ -19,6 +20,7 @@ func Load() Config {
 		AdminUsername: envOrDefault("DST_CONTROL_PLANE_ADMIN_USERNAME", "admin"),
 		AdminPassword: envOrDefault("DST_CONTROL_PLANE_ADMIN_PASSWORD", "admin"),
 		ExecutionMode: envOrDefault("DST_CONTROL_PLANE_EXECUTION_MODE", "compose"),
+		WebStaticDir:  envOrDefault("DST_CONTROL_PLANE_WEB_STATIC_DIR", "/opt/dst-control-plane/web"),
 	}
 }
 
