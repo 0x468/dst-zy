@@ -109,3 +109,53 @@ func (s *Service) Get(id int64) (models.JobRecord, error) {
 
 	return record, nil
 }
+
+func (s *Service) List(limit int) ([]models.JobRecord, error) {
+	rows, err := s.db.Query(
+		`SELECT id, cluster_id, job_type, status, requested_by, stdout_excerpt, stderr_excerpt, started_at, finished_at
+		 FROM jobs
+		 ORDER BY id DESC
+		 LIMIT ?`,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	jobs := []models.JobRecord{}
+	for rows.Next() {
+		var job models.JobRecord
+		var startedAt string
+		var finishedAt sql.NullString
+		if err := rows.Scan(
+			&job.ID,
+			&job.ClusterID,
+			&job.JobType,
+			&job.Status,
+			&job.RequestedBy,
+			&job.StdoutExcerpt,
+			&job.StderrExcerpt,
+			&startedAt,
+			&finishedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		job.StartedAt, err = time.Parse(time.RFC3339Nano, startedAt)
+		if err != nil {
+			return nil, err
+		}
+		if finishedAt.Valid {
+			parsedFinishedAt, err := time.Parse(time.RFC3339Nano, finishedAt.String)
+			if err != nil {
+				return nil, err
+			}
+			job.FinishedAt = &parsedFinishedAt
+		}
+
+		jobs = append(jobs, job)
+	}
+
+	return jobs, rows.Err()
+}
