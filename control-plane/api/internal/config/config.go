@@ -1,6 +1,10 @@
 package config
 
-import "os"
+import (
+	"os"
+	"strconv"
+	"time"
+)
 
 type Config struct {
 	ListenAddr    string
@@ -10,6 +14,8 @@ type Config struct {
 	AdminPassword string
 	ExecutionMode string
 	WebStaticDir  string
+	LoginRateLimitMaxAttempts int
+	LoginRateLimitWindow time.Duration
 }
 
 func Load() Config {
@@ -21,6 +27,8 @@ func Load() Config {
 		AdminPassword: envOrDefault("DST_CONTROL_PLANE_ADMIN_PASSWORD", "admin"),
 		ExecutionMode: envOrDefault("DST_CONTROL_PLANE_EXECUTION_MODE", "compose"),
 		WebStaticDir:  envOrDefault("DST_CONTROL_PLANE_WEB_STATIC_DIR", "/opt/dst-control-plane/web"),
+		LoginRateLimitMaxAttempts: envOrDefaultInt("DST_CONTROL_PLANE_LOGIN_RATE_LIMIT_MAX_ATTEMPTS", 5),
+		LoginRateLimitWindow: envOrDefaultDuration("DST_CONTROL_PLANE_LOGIN_RATE_LIMIT_WINDOW", 5*time.Minute),
 	}
 }
 
@@ -29,4 +37,28 @@ func envOrDefault(key string, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func envOrDefaultInt(key string, fallback int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func envOrDefaultDuration(key string, fallback time.Duration) time.Duration {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }

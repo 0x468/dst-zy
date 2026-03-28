@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"github.com/gwf/dst-docker/control-plane/api/internal/auth"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
 	"github.com/gwf/dst-docker/control-plane/api/internal/config"
 	"github.com/gwf/dst-docker/control-plane/api/internal/db"
@@ -37,6 +38,11 @@ func main() {
 			Username: cfg.AdminUsername,
 			Password: cfg.AdminPassword,
 		},
+		LoginLimiter: auth.NewLoginLimiter(
+			cfg.LoginRateLimitMaxAttempts,
+			cfg.LoginRateLimitWindow,
+			nil,
+		),
 		Clusters: service.NewClusterService(clusterRepo, guard, "dst-docker:v1"),
 		Config:   service.NewConfigService(clusterRepo),
 		Runtime:  service.NewRuntimeService(clusterRepo, jobsRepo, cfg.ExecutionMode),

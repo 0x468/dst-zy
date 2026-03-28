@@ -22,4 +22,10 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if cfg.WebStaticDir == "" {
 		t.Fatal("expected default web static dir")
 	}
+	if cfg.LoginRateLimitMaxAttempts <= 0 {
+		t.Fatal("expected positive default login rate limit attempts")
+	}
+	if cfg.LoginRateLimitWindow <= 0 {
+		t.Fatal("expected positive default login rate limit window")
+	}
 }

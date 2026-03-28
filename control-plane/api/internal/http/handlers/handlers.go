@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"time"
 
@@ -19,6 +20,7 @@ const SessionCookieName = middleware.SessionCookieName
 type Dependencies struct {
 	SessionSecret []byte
 	Auth          AuthService
+	LoginLimiter  LoginLimiter
 	Clusters      ClusterService
 	Config        ConfigService
 	Runtime       RuntimeService
@@ -27,6 +29,12 @@ type Dependencies struct {
 
 type AuthService interface {
 	Authenticate(ctx context.Context, username string, password string) (bool, error)
+}
+
+type LoginLimiter interface {
+	Allow(key string) bool
+	RegisterFailure(key string)
+	Reset(key string)
 }
 
 type ClusterService interface {
@@ -75,14 +83,26 @@ func NewRouter(deps Dependencies) http.Handler {
 			return
 		}
 
+		clientKey := loginClientKey(r)
+		if deps.LoginLimiter != nil && !deps.LoginLimiter.Allow(clientKey) {
+			writeError(w, http.StatusTooManyRequests, "too many login attempts")
+			return
+		}
+
 		ok, err := deps.Auth.Authenticate(r.Context(), req.Username, req.Password)
 		if err != nil {
 			writeMappedError(w, err)
 			return
 		}
 		if !ok {
+			if deps.LoginLimiter != nil {
+				deps.LoginLimiter.RegisterFailure(clientKey)
+			}
 			writeError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
 			return
+		}
+		if deps.LoginLimiter != nil {
+			deps.LoginLimiter.Reset(clientKey)
 		}
 
 		token, err := auth.IssueSessionToken(req.Username, time.Now().UTC(), 12*time.Hour, deps.SessionSecret)
@@ -248,4 +268,13 @@ func writeMappedError(w http.ResponseWriter, err error) {
 	default:
 		writeError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 	}
+}
+
+func loginClientKey(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil && host != "" {
+		return host
+	}
+
+	return r.RemoteAddr
 }

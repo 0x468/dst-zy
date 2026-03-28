@@ -300,6 +300,28 @@ func TestClusterMutationHandlersMapInvalidInputsToBadRequest(t *testing.T) {
 	}
 }
 
+func TestLoginHandlerReturnsTooManyRequestsWhenRateLimited(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	router := NewRouter(Dependencies{
+		SessionSecret: secret,
+		Auth:          fakeAuthService{allow: true},
+		LoginLimiter:  fakeLoginLimiter{allow: false},
+	})
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewBufferString(`{"username":"admin","password":"secret"}`))
+	loginReq.RemoteAddr = "127.0.0.1:43210"
+	loginRec := httptest.NewRecorder()
+
+	router.ServeHTTP(loginRec, loginReq)
+
+	if loginRec.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected rate limited login to return 429, got %d", loginRec.Code)
+	}
+	if !bytes.Contains(loginRec.Body.Bytes(), []byte(`"error":"too many login attempts"`)) {
+		t.Fatalf("expected rate limited login response to include json error, got %q", loginRec.Body.String())
+	}
+}
+
 func issueSessionCookie(t *testing.T, secret []byte) *http.Cookie {
 	t.Helper()
 
@@ -321,6 +343,18 @@ type fakeAuthService struct {
 func (f fakeAuthService) Authenticate(_ context.Context, username string, password string) (bool, error) {
 	return f.allow && username != "" && password != "", nil
 }
+
+type fakeLoginLimiter struct {
+	allow bool
+}
+
+func (f fakeLoginLimiter) Allow(_ string) bool {
+	return f.allow
+}
+
+func (f fakeLoginLimiter) RegisterFailure(_ string) {}
+
+func (f fakeLoginLimiter) Reset(_ string) {}
 
 type fakeClusterService struct {
 	list     []models.ClusterRecord

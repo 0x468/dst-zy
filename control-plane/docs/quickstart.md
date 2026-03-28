@@ -59,6 +59,10 @@ DST Control Plane V2 当前是第一阶段 alpha：
   会话签名密钥，至少应使用高强度随机值
 - `DST_CONTROL_PLANE_EXECUTION_MODE`
   `dry-run` 用于开发验证，`compose` 用于真实执行
+- `DST_CONTROL_PLANE_LOGIN_RATE_LIMIT_MAX_ATTEMPTS`
+  登录失败限流阈值，默认 `5`
+- `DST_CONTROL_PLANE_LOGIN_RATE_LIMIT_WINDOW`
+  登录失败限流时间窗，默认 `5m`
 
 开发时推荐先用：
 
