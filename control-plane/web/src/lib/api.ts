@@ -102,6 +102,21 @@ export async function signIn(username: string, password: string): Promise<boolea
   return response.ok;
 }
 
+export async function getSession(): Promise<boolean> {
+  const response = await fetch("/api/session", {
+    credentials: "include",
+  });
+
+  if (response.status === 401) {
+    return false;
+  }
+  if (!response.ok) {
+    throw new Error(`request failed: ${response.status}`);
+  }
+
+  return true;
+}
+
 export async function listClusters(): Promise<ClusterSummary[]> {
   const response = await request("/api/clusters");
   return mapClusters(await response.json() as ClusterSummaryResponse[]);

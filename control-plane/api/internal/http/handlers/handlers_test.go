@@ -46,6 +46,28 @@ func TestLoginAndLogoutHandlers(t *testing.T) {
 	}
 }
 
+func TestSessionHandler(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	router := NewRouter(Dependencies{
+		SessionSecret: secret,
+		Auth:          fakeAuthService{allow: true},
+	})
+
+	sessionReq := httptest.NewRequest(http.MethodGet, "/api/session", nil)
+	sessionReq.AddCookie(issueSessionCookie(t, secret))
+	sessionRec := httptest.NewRecorder()
+
+	router.ServeHTTP(sessionRec, sessionReq)
+
+	if sessionRec.Code != http.StatusOK {
+		t.Fatalf("expected session to return 200, got %d", sessionRec.Code)
+	}
+
+	if !bytes.Contains(sessionRec.Body.Bytes(), []byte(`"authenticated":true`)) {
+		t.Fatalf("expected session response to mark authenticated, got %q", sessionRec.Body.String())
+	}
+}
+
 func TestClusterHandlers(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
 	router := NewRouter(Dependencies{

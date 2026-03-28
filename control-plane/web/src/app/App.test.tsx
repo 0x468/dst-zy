@@ -17,6 +17,8 @@ describe("App", () => {
   });
 
   it("shows a login form before authentication", () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401));
+
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "DST Control Plane" })).toBeInTheDocument();
@@ -25,9 +27,52 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
   });
 
+  it("restores an existing session on first load", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ authenticated: true, username: "admin" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]));
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Clusters" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Cluster A" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", expect.any(Object));
+  });
+
   it("loads clusters, config and jobs after sign in", async () => {
     const user = userEvent.setup();
     fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
       .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
       .mockResolvedValueOnce(jsonResponse([
         {
@@ -80,15 +125,18 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Cluster A" })).toBeInTheDocument();
     expect(screen.getByText("Primary world")).toBeInTheDocument();
     expect(screen.getByText("compose up failed")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/login", expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/clusters", expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/clusters/cluster-a/config", expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/jobs", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/login", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/clusters", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/clusters/cluster-a/config", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/jobs", expect.any(Object));
   });
 
   it("stays on the login form when credentials are rejected", async () => {
     const user = userEvent.setup();
-    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401));
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401));
 
     render(<App />);
 
@@ -103,6 +151,7 @@ describe("App", () => {
   it("creates a cluster from the dashboard and refreshes the selection", async () => {
     const user = userEvent.setup();
     fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
       .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({
@@ -169,6 +218,7 @@ describe("App", () => {
   it("refreshes cluster status after a lifecycle action", async () => {
     const user = userEvent.setup();
     fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
       .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
       .mockResolvedValueOnce(jsonResponse([
         {

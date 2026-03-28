@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import {
   getClusterConfig,
+  getSession,
   listClusters,
   listJobs,
   mutateCluster,
@@ -24,6 +25,26 @@ export function App() {
   const [jobs, setJobs] = useState<JobSummary[]>([]);
 
   const selectedCluster = clusters.find((cluster) => cluster.slug === selectedSlug);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restoreSession() {
+      const hasSession = await getSession();
+      if (!hasSession || cancelled) {
+        return;
+      }
+
+      setAuthenticated(true);
+      await refreshClusters();
+    }
+
+    void restoreSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSignIn(username: string, password: string) {
     const ok = await signIn(username, password);

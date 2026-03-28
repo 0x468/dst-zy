@@ -98,6 +98,25 @@ func NewRouter(deps Dependencies) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	mux.HandleFunc("GET /api/session", func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(SessionCookieName)
+		if err != nil || cookie.Value == "" {
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+
+		session, err := auth.ParseSessionToken(cookie.Value, time.Now().UTC(), deps.SessionSecret)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"authenticated": true,
+			"username":      session.Username,
+		})
+	})
+
 	protected := middleware.AuthRequired(deps.SessionSecret)
 
 	mux.Handle("POST /api/logout", protected(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
