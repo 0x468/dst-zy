@@ -356,6 +356,54 @@ describe("App", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Failed to run stop");
   });
+
+  it("signs out and returns to the login screen", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ authenticated: true, username: "admin" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(await screen.findByRole("heading", { name: "DST Control Plane" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/logout", expect.objectContaining({
+      method: "POST",
+    }));
+  });
 });
 
 function jsonResponse(payload: unknown, status = 200) {

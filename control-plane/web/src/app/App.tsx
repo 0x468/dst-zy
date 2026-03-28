@@ -9,6 +9,7 @@ import {
   runClusterAction,
   saveClusterConfig,
   signIn,
+  signOut,
   type ClusterConfigSnapshot,
   type ClusterMutationInput,
   type ClusterSummary,
@@ -58,6 +59,19 @@ export function App() {
     setErrorMessage(undefined);
     await refreshClusters();
     setAuthenticated(true);
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+    } finally {
+      setAuthenticated(false);
+      setClusters([]);
+      setSelectedSlug(undefined);
+      setSnapshot(undefined);
+      setJobs([]);
+      setErrorMessage(undefined);
+    }
   }
 
   async function refreshClusters(preferredSlug?: string) {
@@ -154,6 +168,7 @@ export function App() {
         <ClustersRoute
           clusters={clusters}
           selectedSlug={selectedSlug}
+          onSignOut={handleSignOut}
           onSelectCluster={setSelectedSlug}
           onMutateCluster={handleMutateCluster}
           detailCluster={selectedCluster}

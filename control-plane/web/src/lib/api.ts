@@ -117,6 +117,17 @@ export async function getSession(): Promise<boolean> {
   return true;
 }
 
+export async function signOut(): Promise<void> {
+  const response = await fetch("/api/logout", {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok && response.status !== 204) {
+    throw new Error(`request failed: ${response.status}`);
+  }
+}
+
 export async function listClusters(): Promise<ClusterSummary[]> {
   const response = await request("/api/clusters");
   return mapClusters(await response.json() as ClusterSummaryResponse[]);

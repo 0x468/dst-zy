@@ -5,6 +5,7 @@ import { ClusterList } from "../features/clusters/list/ClusterList";
 type ClustersRouteProps = {
   clusters: ClusterSummary[];
   selectedSlug?: string;
+  onSignOut: () => Promise<void> | void;
   onSelectCluster: (slug: string) => void;
   onMutateCluster: (input: ClusterMutationInput) => Promise<void> | void;
   detailCluster?: ClusterSummary;
@@ -17,6 +18,7 @@ type ClustersRouteProps = {
 export function ClustersRoute({
   clusters,
   selectedSlug,
+  onSignOut,
   onSelectCluster,
   onMutateCluster,
   detailCluster,
@@ -27,6 +29,9 @@ export function ClustersRoute({
 }: ClustersRouteProps) {
   return (
     <section>
+      <header>
+        <button type="button" onClick={() => void onSignOut()}>Sign out</button>
+      </header>
       <ClusterList
         clusters={clusters}
         selectedSlug={selectedSlug}
