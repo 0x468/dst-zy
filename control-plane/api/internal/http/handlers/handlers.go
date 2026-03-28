@@ -21,6 +21,7 @@ type Dependencies struct {
 	SessionSecret []byte
 	Auth          AuthService
 	LoginLimiter  LoginLimiter
+	Audit         AuditService
 	Clusters      ClusterService
 	Config        ConfigService
 	Runtime       RuntimeService
@@ -35,6 +36,10 @@ type LoginLimiter interface {
 	Allow(key string) bool
 	RegisterFailure(key string)
 	Reset(key string)
+}
+
+type AuditService interface {
+	Record(actor string, action string, targetType string, targetID int64, summary string) (models.AuditRecord, error)
 }
 
 type ClusterService interface {
@@ -85,6 +90,7 @@ func NewRouter(deps Dependencies) http.Handler {
 
 		clientKey := loginClientKey(r)
 		if deps.LoginLimiter != nil && !deps.LoginLimiter.Allow(clientKey) {
+			recordLoginAudit(deps.Audit, req.Username, "login_rate_limited", clientKey)
 			writeError(w, http.StatusTooManyRequests, "too many login attempts")
 			return
 		}
@@ -98,6 +104,7 @@ func NewRouter(deps Dependencies) http.Handler {
 			if deps.LoginLimiter != nil {
 				deps.LoginLimiter.RegisterFailure(clientKey)
 			}
+			recordLoginAudit(deps.Audit, req.Username, "login_failed", clientKey)
 			writeError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
 			return
 		}
@@ -118,6 +125,7 @@ func NewRouter(deps Dependencies) http.Handler {
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 		})
+		recordLoginAudit(deps.Audit, req.Username, "login_success", clientKey)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
@@ -277,4 +285,17 @@ func loginClientKey(r *http.Request) string {
 	}
 
 	return r.RemoteAddr
+}
+
+func recordLoginAudit(auditService AuditService, username string, action string, clientKey string) {
+	if auditService == nil {
+		return
+	}
+
+	actor := username
+	if actor == "" {
+		actor = "unknown"
+	}
+
+	_, _ = auditService.Record(actor, action, "auth", 0, "client="+clientKey)
 }

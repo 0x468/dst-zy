@@ -302,10 +302,12 @@ func TestClusterMutationHandlersMapInvalidInputsToBadRequest(t *testing.T) {
 
 func TestLoginHandlerReturnsTooManyRequestsWhenRateLimited(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
+	auditService := &fakeAuditService{}
 	router := NewRouter(Dependencies{
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
 		LoginLimiter:  fakeLoginLimiter{allow: false},
+		Audit:         auditService,
 	})
 
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewBufferString(`{"username":"admin","password":"secret"}`))
@@ -320,6 +322,66 @@ func TestLoginHandlerReturnsTooManyRequestsWhenRateLimited(t *testing.T) {
 	if !bytes.Contains(loginRec.Body.Bytes(), []byte(`"error":"too many login attempts"`)) {
 		t.Fatalf("expected rate limited login response to include json error, got %q", loginRec.Body.String())
 	}
+	if len(auditService.records) != 1 {
+		t.Fatalf("expected one audit record for rate limited login, got %d", len(auditService.records))
+	}
+	if auditService.records[0].action != "login_rate_limited" {
+		t.Fatalf("expected audit action login_rate_limited, got %q", auditService.records[0].action)
+	}
+}
+
+func TestLoginHandlerRecordsAuditEntriesForSuccessfulAndFailedAttempts(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+
+	t.Run("success", func(t *testing.T) {
+		auditService := &fakeAuditService{}
+		router := NewRouter(Dependencies{
+			SessionSecret: secret,
+			Auth:          fakeAuthService{allow: true},
+			Audit:         auditService,
+		})
+
+		loginReq := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewBufferString(`{"username":"admin","password":"secret"}`))
+		loginReq.RemoteAddr = "127.0.0.1:43210"
+		loginRec := httptest.NewRecorder()
+
+		router.ServeHTTP(loginRec, loginReq)
+
+		if loginRec.Code != http.StatusOK {
+			t.Fatalf("expected login to succeed, got %d", loginRec.Code)
+		}
+		if len(auditService.records) != 1 {
+			t.Fatalf("expected one audit record for successful login, got %d", len(auditService.records))
+		}
+		if auditService.records[0].action != "login_success" {
+			t.Fatalf("expected audit action login_success, got %q", auditService.records[0].action)
+		}
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		auditService := &fakeAuditService{}
+		router := NewRouter(Dependencies{
+			SessionSecret: secret,
+			Auth:          fakeAuthService{allow: false},
+			Audit:         auditService,
+		})
+
+		loginReq := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewBufferString(`{"username":"admin","password":"wrong"}`))
+		loginReq.RemoteAddr = "127.0.0.1:43210"
+		loginRec := httptest.NewRecorder()
+
+		router.ServeHTTP(loginRec, loginReq)
+
+		if loginRec.Code != http.StatusUnauthorized {
+			t.Fatalf("expected login failure to return 401, got %d", loginRec.Code)
+		}
+		if len(auditService.records) != 1 {
+			t.Fatalf("expected one audit record for failed login, got %d", len(auditService.records))
+		}
+		if auditService.records[0].action != "login_failed" {
+			t.Fatalf("expected audit action login_failed, got %q", auditService.records[0].action)
+		}
+	})
 }
 
 func issueSessionCookie(t *testing.T, secret []byte) *http.Cookie {
@@ -355,6 +417,36 @@ func (f fakeLoginLimiter) Allow(_ string) bool {
 func (f fakeLoginLimiter) RegisterFailure(_ string) {}
 
 func (f fakeLoginLimiter) Reset(_ string) {}
+
+type fakeAuditService struct {
+	records []fakeAuditRecord
+}
+
+type fakeAuditRecord struct {
+	actor      string
+	action     string
+	targetType string
+	targetID   int64
+	summary    string
+}
+
+func (f *fakeAuditService) Record(actor string, action string, targetType string, targetID int64, summary string) (models.AuditRecord, error) {
+	f.records = append(f.records, fakeAuditRecord{
+		actor:      actor,
+		action:     action,
+		targetType: targetType,
+		targetID:   targetID,
+		summary:    summary,
+	})
+
+	return models.AuditRecord{
+		Actor:      actor,
+		Action:     action,
+		TargetType: targetType,
+		TargetID:   targetID,
+		Summary:    summary,
+	}, nil
+}
 
 type fakeClusterService struct {
 	list     []models.ClusterRecord

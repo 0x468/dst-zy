@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"github.com/gwf/dst-docker/control-plane/api/internal/audit"
 	"github.com/gwf/dst-docker/control-plane/api/internal/auth"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
 	"github.com/gwf/dst-docker/control-plane/api/internal/config"
@@ -31,6 +32,7 @@ func main() {
 
 	clusterRepo := cluster.NewRepository(database)
 	jobsRepo := jobs.NewService(database)
+	auditService := audit.NewService(database)
 
 	deps := handlers.Dependencies{
 		SessionSecret: []byte(cfg.SessionSecret),
@@ -43,6 +45,7 @@ func main() {
 			cfg.LoginRateLimitWindow,
 			nil,
 		),
+		Audit:    auditService,
 		Clusters: service.NewClusterService(clusterRepo, guard, "dst-docker:v1"),
 		Config:   service.NewConfigService(clusterRepo),
 		Runtime:  service.NewRuntimeService(clusterRepo, jobsRepo, cfg.ExecutionMode),
