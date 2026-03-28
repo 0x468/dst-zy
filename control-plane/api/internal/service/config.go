@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
 	"github.com/gwf/dst-docker/control-plane/api/internal/files"
 	"github.com/gwf/dst-docker/control-plane/api/internal/models"
@@ -73,7 +74,7 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 	if snapshot.RawFiles != nil && strings.TrimSpace(snapshot.RawFiles.ClusterINI) != "" {
 		rawClusterINI := strings.TrimSpace(snapshot.RawFiles.ClusterINI) + "\n"
 		if _, err := files.ParseClusterINIContents(rawClusterINI); err != nil {
-			return err
+			return apierror.Invalid("invalid cluster.ini", err)
 		}
 		if err := os.WriteFile(clusterINIPath, []byte(rawClusterINI), 0o644); err != nil {
 			return err

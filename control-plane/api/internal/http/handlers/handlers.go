@@ -2,10 +2,13 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
+	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/auth"
 	"github.com/gwf/dst-docker/control-plane/api/internal/http/middleware"
 	"github.com/gwf/dst-docker/control-plane/api/internal/models"
@@ -68,23 +71,23 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.HandleFunc("POST /api/login", func(w http.ResponseWriter, r *http.Request) {
 		var req loginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
 		ok, err := deps.Auth.Authenticate(r.Context(), req.Username, req.Password)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			writeMappedError(w, err)
 			return
 		}
 		if !ok {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
 			return
 		}
 
 		token, err := auth.IssueSessionToken(req.Username, time.Now().UTC(), 12*time.Hour, deps.SessionSecret)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			writeMappedError(w, err)
 			return
 		}
 
@@ -101,13 +104,13 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.HandleFunc("GET /api/session", func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(SessionCookieName)
 		if err != nil || cookie.Value == "" {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
 			return
 		}
 
 		session, err := auth.ParseSessionToken(cookie.Value, time.Now().UTC(), deps.SessionSecret)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
 			return
 		}
 
@@ -134,7 +137,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.Handle("GET /api/clusters", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		clusters, err := deps.Clusters.List(r.Context())
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			writeMappedError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, clusters)
@@ -143,7 +146,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.Handle("POST /api/clusters", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req ClusterMutationRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
@@ -157,11 +160,11 @@ func NewRouter(deps Dependencies) http.Handler {
 		case "import":
 			record, err = deps.Clusters.Import(r.Context(), req)
 		default:
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid cluster mutation mode")
 			return
 		}
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			writeMappedError(w, err)
 			return
 		}
 
@@ -171,7 +174,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.Handle("GET /api/clusters/{slug}/config", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		snapshot, err := deps.Config.GetSnapshot(r.Context(), r.PathValue("slug"))
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			writeMappedError(w, err)
 			return
 		}
 
@@ -181,12 +184,12 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.Handle("PUT /api/clusters/{slug}/config", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var snapshot models.ClusterConfigSnapshot
 		if err := json.NewDecoder(r.Body).Decode(&snapshot); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
 		if err := deps.Config.SaveSnapshot(r.Context(), r.PathValue("slug"), snapshot); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			writeMappedError(w, err)
 			return
 		}
 
@@ -196,13 +199,13 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.Handle("POST /api/clusters/{slug}/actions", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req actionRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
 		job, err := deps.Runtime.RunAction(r.Context(), r.PathValue("slug"), req.Action, "admin")
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			writeMappedError(w, err)
 			return
 		}
 
@@ -212,7 +215,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.Handle("GET /api/jobs", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		jobs, err := deps.Jobs.List(r.Context(), 20)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			writeMappedError(w, err)
 			return
 		}
 
@@ -226,4 +229,23 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func writeError(w http.ResponseWriter, status int, message string) {
+	writeJSON(w, status, map[string]string{
+		"error": message,
+	})
+}
+
+func writeMappedError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		writeError(w, http.StatusNotFound, "cluster not found")
+	case apierror.IsKind(err, apierror.KindNotFound):
+		writeError(w, http.StatusNotFound, apierror.Message(err))
+	case apierror.IsKind(err, apierror.KindInvalid):
+		writeError(w, http.StatusBadRequest, apierror.Message(err))
+	default:
+		writeError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+	}
 }

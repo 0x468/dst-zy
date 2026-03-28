@@ -107,8 +107,8 @@ export function App() {
       const createdCluster = await mutateCluster(input);
       setErrorMessage(undefined);
       await refreshClusters(createdCluster.slug);
-    } catch {
-      setErrorMessage(`Failed to ${input.mode} cluster`);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, `Failed to ${input.mode} cluster`));
     }
   }
 
@@ -121,8 +121,8 @@ export function App() {
       await saveClusterConfig(selectedSlug, nextSnapshot);
       setErrorMessage(undefined);
       setSnapshot(await getClusterConfig(selectedSlug));
-    } catch {
-      setErrorMessage("Failed to save config");
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Failed to save config"));
     }
   }
 
@@ -137,8 +137,8 @@ export function App() {
       const nextJobs = await listJobs();
       setJobs(filterJobsForCluster(nextJobs, selectedCluster?.id));
       await refreshClusters(selectedSlug);
-    } catch {
-      setErrorMessage(`Failed to run ${action}`);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, `Failed to run ${action}`));
     }
   }
 
@@ -201,4 +201,12 @@ function filterJobsForCluster(jobs: JobSummary[], clusterID?: number) {
   }
 
   return jobs.filter((job) => job.clusterId === clusterID);
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim() !== "") {
+    return error.message;
+  }
+
+  return fallback;
 }

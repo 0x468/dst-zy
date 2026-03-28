@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
 	"github.com/gwf/dst-docker/control-plane/api/internal/jobs"
 	"github.com/gwf/dst-docker/control-plane/api/internal/models"
@@ -34,6 +35,10 @@ func NewRuntimeService(repo *cluster.Repository, jobs *jobs.Service, executionMo
 }
 
 func (s RuntimeService) RunAction(_ context.Context, slug string, action string, actor string) (models.JobRecord, error) {
+	if !isSupportedAction(action) {
+		return models.JobRecord{}, apierror.Invalid("unsupported action", nil)
+	}
+
 	record, err := s.repo.GetBySlug(slug)
 	if err != nil {
 		return models.JobRecord{}, err
@@ -106,6 +111,15 @@ func commandForAction(runner composeCommandFactory, action string) (*exec.Cmd, e
 		return runner.ValidateCommand(), nil
 	default:
 		return nil, errors.New("unsupported action")
+	}
+}
+
+func isSupportedAction(action string) bool {
+	switch action {
+	case "start", "stop", "restart", "update", "validate":
+		return true
+	default:
+		return false
 	}
 }
 

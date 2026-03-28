@@ -3,12 +3,14 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/auth"
 	"github.com/gwf/dst-docker/control-plane/api/internal/models"
 )
@@ -214,6 +216,55 @@ func TestReadHandlersRequireSession(t *testing.T) {
 	}
 }
 
+func TestHandlersMapKnownErrorsToStructuredResponses(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	sessionCookie := issueSessionCookie(t, secret)
+	router := NewRouter(Dependencies{
+		SessionSecret: secret,
+		Auth:          fakeAuthService{allow: true},
+		Config: fakeConfigService{
+			getErr: sql.ErrNoRows,
+			saveErr: apierror.Invalid("invalid cluster.ini", nil),
+		},
+		Runtime: fakeRuntimeService{
+			runErr: apierror.Invalid("unsupported action", nil),
+		},
+	})
+
+	getConfigReq := httptest.NewRequest(http.MethodGet, "/api/clusters/missing/config", nil)
+	getConfigReq.AddCookie(sessionCookie)
+	getConfigRec := httptest.NewRecorder()
+	router.ServeHTTP(getConfigRec, getConfigReq)
+	if getConfigRec.Code != http.StatusNotFound {
+		t.Fatalf("expected missing cluster config to return 404, got %d", getConfigRec.Code)
+	}
+	if !bytes.Contains(getConfigRec.Body.Bytes(), []byte(`"error":"cluster not found"`)) {
+		t.Fatalf("expected missing cluster config body to include json error, got %q", getConfigRec.Body.String())
+	}
+
+	saveConfigReq := httptest.NewRequest(http.MethodPut, "/api/clusters/cluster-a/config", bytes.NewBufferString(`{"cluster_name":"Cluster_A"}`))
+	saveConfigReq.AddCookie(sessionCookie)
+	saveConfigRec := httptest.NewRecorder()
+	router.ServeHTTP(saveConfigRec, saveConfigReq)
+	if saveConfigRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid config save to return 400, got %d", saveConfigRec.Code)
+	}
+	if !bytes.Contains(saveConfigRec.Body.Bytes(), []byte(`"error":"invalid cluster.ini"`)) {
+		t.Fatalf("expected invalid config save body to include json error, got %q", saveConfigRec.Body.String())
+	}
+
+	actionReq := httptest.NewRequest(http.MethodPost, "/api/clusters/cluster-a/actions", bytes.NewBufferString(`{"action":"explode"}`))
+	actionReq.AddCookie(sessionCookie)
+	actionRec := httptest.NewRecorder()
+	router.ServeHTTP(actionRec, actionReq)
+	if actionRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected unsupported action to return 400, got %d", actionRec.Code)
+	}
+	if !bytes.Contains(actionRec.Body.Bytes(), []byte(`"error":"unsupported action"`)) {
+		t.Fatalf("expected unsupported action body to include json error, got %q", actionRec.Body.String())
+	}
+}
+
 func issueSessionCookie(t *testing.T, secret []byte) *http.Cookie {
 	t.Helper()
 
@@ -256,22 +307,25 @@ func (f fakeClusterService) Import(_ context.Context, _ ClusterMutationRequest) 
 
 type fakeConfigService struct {
 	snapshot models.ClusterConfigSnapshot
+	getErr   error
+	saveErr  error
 }
 
 func (f fakeConfigService) GetSnapshot(_ context.Context, _ string) (models.ClusterConfigSnapshot, error) {
-	return f.snapshot, nil
+	return f.snapshot, f.getErr
 }
 
 func (f fakeConfigService) SaveSnapshot(_ context.Context, _ string, _ models.ClusterConfigSnapshot) error {
-	return nil
+	return f.saveErr
 }
 
 type fakeRuntimeService struct {
-	job models.JobRecord
+	job    models.JobRecord
+	runErr error
 }
 
 func (f fakeRuntimeService) RunAction(_ context.Context, _ string, _ string, _ string) (models.JobRecord, error) {
-	return f.job, nil
+	return f.job, f.runErr
 }
 
 type fakeJobsService struct {

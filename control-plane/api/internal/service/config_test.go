@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
 	"github.com/gwf/dst-docker/control-plane/api/internal/db"
 	"github.com/gwf/dst-docker/control-plane/api/internal/files"
@@ -114,5 +115,61 @@ master_port = 10889
 
 	if strings.TrimSpace(string(writtenClusterINI)) != rawClusterINI {
 		t.Fatalf("expected raw cluster.ini to be persisted, got:\n%s", string(writtenClusterINI))
+	}
+}
+
+func TestConfigServiceRejectsInvalidRawClusterINI(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	record, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "stopped",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster record to be created, got error: %v", err)
+	}
+
+	clusterDir := filepath.Join(record.BaseDir, "runtime", "data", record.ClusterName)
+	if err := os.MkdirAll(filepath.Join(clusterDir, "Master"), 0o755); err != nil {
+		t.Fatalf("expected master dir to be created, got error: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(clusterDir, "Caves"), 0o755); err != nil {
+		t.Fatalf("expected caves dir to be created, got error: %v", err)
+	}
+
+	if err := files.WriteClusterINI(filepath.Join(clusterDir, "cluster.ini"), files.ClusterINIConfig{}); err != nil {
+		t.Fatalf("expected cluster ini to be written, got error: %v", err)
+	}
+	if err := files.WriteServerINI(filepath.Join(clusterDir, "Master", "server.ini"), files.ServerINIConfig{}); err != nil {
+		t.Fatalf("expected master ini to be written, got error: %v", err)
+	}
+	if err := files.WriteServerINI(filepath.Join(clusterDir, "Caves", "server.ini"), files.ServerINIConfig{}); err != nil {
+		t.Fatalf("expected caves ini to be written, got error: %v", err)
+	}
+
+	service := NewConfigService(repo)
+	err = service.SaveSnapshot(context.Background(), record.Slug, models.ClusterConfigSnapshot{
+		ClusterName: "Cluster_A",
+		RawFiles: &models.RawConfigFiles{
+			ClusterINI: "[NETWORK",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid raw cluster.ini to fail")
+	}
+	if !apierror.IsKind(err, apierror.KindInvalid) {
+		t.Fatalf("expected invalid raw cluster.ini to return invalid api error, got %T %v", err, err)
 	}
 }

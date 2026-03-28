@@ -444,7 +444,7 @@ describe("App", () => {
         },
       }))
       .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse({ error: "boom" }, 500));
+      .mockResolvedValueOnce(jsonResponse({ error: "unsupported action" }, 400));
 
     render(<App />);
 
@@ -455,7 +455,7 @@ describe("App", () => {
     await screen.findByRole("heading", { name: "Cluster A" });
     await user.click(screen.getByRole("button", { name: "Stop" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to run stop");
+    expect(await screen.findByRole("alert")).toHaveTextContent("unsupported action");
   });
 
   it("signs out and returns to the login screen", async () => {

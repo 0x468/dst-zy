@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
 	"github.com/gwf/dst-docker/control-plane/api/internal/db"
 	"github.com/gwf/dst-docker/control-plane/api/internal/jobs"
@@ -124,6 +125,49 @@ func TestRuntimeServiceComposeModeMarksFailures(t *testing.T) {
 	}
 	if reloaded.Status != "running" {
 		t.Fatalf("expected cluster status to stay running after failed stop, got %q", reloaded.Status)
+	}
+}
+
+func TestRuntimeServiceRejectsUnsupportedActionBeforeCreatingJob(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	jobsRepo := jobs.NewService(database)
+	record, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "running",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster record to be created, got error: %v", err)
+	}
+
+	service := NewRuntimeService(repo, jobsRepo, "compose")
+
+	_, err = service.RunAction(context.Background(), record.Slug, "explode", "admin")
+	if err == nil {
+		t.Fatal("expected unsupported action to fail")
+	}
+	if !apierror.IsKind(err, apierror.KindInvalid) {
+		t.Fatalf("expected unsupported action to return invalid api error, got %T %v", err, err)
+	}
+
+	jobRecords, err := jobsRepo.List(20)
+	if err != nil {
+		t.Fatalf("expected jobs to list, got error: %v", err)
+	}
+	if len(jobRecords) != 0 {
+		t.Fatalf("expected no job to be created for unsupported action, got %d", len(jobRecords))
 	}
 }
 

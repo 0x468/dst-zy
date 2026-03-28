@@ -2,6 +2,7 @@ package files
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -43,7 +44,7 @@ func parseINIScanner(scanner *bufio.Scanner) (iniSections, error) {
 
 		key, value, found := strings.Cut(line, "=")
 		if !found {
-			continue
+			return nil, fmt.Errorf("invalid ini line: %q", line)
 		}
 
 		if _, exists := sections[currentSection]; !exists {

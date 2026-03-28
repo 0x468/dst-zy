@@ -43,6 +43,16 @@ export type ClusterMutationInput = {
   baseDir?: string;
 };
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 type ClusterSummaryResponse = {
   id: number;
   slug: string;
@@ -184,10 +194,31 @@ async function request(path: string, init: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    throw new Error(`request failed: ${response.status}`);
+    throw new ApiError(response.status, await readErrorMessage(response));
   }
 
   return response;
+}
+
+async function readErrorMessage(response: Response) {
+  const contentType = response.headers.get("Content-Type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      const payload = await response.json() as { error?: unknown };
+      if (typeof payload.error === "string" && payload.error.trim() !== "") {
+        return payload.error;
+      }
+    } catch {
+      // Fall back to text parsing below when the body is not valid JSON.
+    }
+  }
+
+  const text = await response.text();
+  if (text.trim() !== "") {
+    return text.trim();
+  }
+
+  return `request failed: ${response.status}`;
 }
 
 function mapClusters(clusters: ClusterSummaryResponse[]): ClusterSummary[] {
