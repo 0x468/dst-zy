@@ -1,0 +1,23 @@
+services:
+  control-plane-api:
+    image: golang:1.26.1-bookworm
+    working_dir: /workspace/api
+    command: ["go", "run", "./cmd/server"]
+    environment:
+      DST_CONTROL_PLANE_LISTEN_ADDR: :8080
+      DST_CONTROL_PLANE_DATA_ROOT: /workspace/.tmp/control-plane-dev-data
+      DST_CONTROL_PLANE_EXECUTION_MODE: dry-run
+      DST_CONTROL_PLANE_WEB_STATIC_DIR: ""
+    ports:
+      - "8080:8080"
+    volumes:
+      - ..:/workspace
+
+  control-plane-web:
+    image: node:22.22.1-bookworm
+    working_dir: /workspace/web
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "4173"]
+    ports:
+      - "4173:4173"
+    volumes:
+      - ..:/workspace

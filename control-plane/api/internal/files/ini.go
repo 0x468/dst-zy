@@ -1,0 +1,81 @@
+package files
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+)
+
+type iniSections map[string]map[string]string
+
+func parseINI(path string) (iniSections, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return parseINIScanner(bufio.NewScanner(file))
+}
+
+func parseINIContents(contents string) (iniSections, error) {
+	return parseINIScanner(bufio.NewScanner(strings.NewReader(contents)))
+}
+
+func parseINIScanner(scanner *bufio.Scanner) (iniSections, error) {
+	sections := iniSections{}
+	currentSection := ""
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, ";") || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			currentSection = strings.TrimSuffix(strings.TrimPrefix(line, "["), "]")
+			if _, exists := sections[currentSection]; !exists {
+				sections[currentSection] = map[string]string{}
+			}
+			continue
+		}
+
+		key, value, found := strings.Cut(line, "=")
+		if !found {
+			return nil, fmt.Errorf("invalid ini line: %q", line)
+		}
+
+		if _, exists := sections[currentSection]; !exists {
+			sections[currentSection] = map[string]string{}
+		}
+
+		sections[currentSection][strings.TrimSpace(key)] = strings.TrimSpace(value)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return sections, nil
+}
+
+func iniValue(sections iniSections, section string, key string) string {
+	if sectionValues, exists := sections[section]; exists {
+		return sectionValues[key]
+	}
+	return ""
+}
+
+func parseBool(value string) bool {
+	return strings.EqualFold(value, "true")
+}
+
+func parseInt(value string) int {
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return 0
+	}
+	return parsed
+}
