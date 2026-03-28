@@ -2,7 +2,7 @@ package files
 
 import "github.com/gwf/dst-docker/control-plane/api/internal/models"
 
-func BuildSnapshot(cluster ClusterINIConfig, master ServerINIConfig, caves ServerINIConfig) models.ClusterConfigSnapshot {
+func BuildSnapshot(cluster ClusterINIConfig, master ServerINIConfig, caves ServerINIConfig, rawClusterINI string) models.ClusterConfigSnapshot {
 	return models.ClusterConfigSnapshot{
 		ClusterName:        cluster.Network.ClusterName,
 		ClusterDescription: cluster.Network.ClusterDescription,
@@ -18,6 +18,9 @@ func BuildSnapshot(cluster ClusterINIConfig, master ServerINIConfig, caves Serve
 			ServerPort:         caves.Network.ServerPort,
 			MasterServerPort:   caves.Steam.MasterServerPort,
 			AuthenticationPort: caves.Steam.AuthenticationPort,
+		},
+		RawFiles: &models.RawConfigFiles{
+			ClusterINI: rawClusterINI,
 		},
 	}
 }

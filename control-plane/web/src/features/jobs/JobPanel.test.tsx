@@ -40,6 +40,7 @@ describe("ClusterDetailPage lifecycle and jobs", () => {
         jobs={[
           {
             id: 11,
+            clusterId: 1,
             jobType: "start",
             status: "failed",
             stdoutExcerpt: "",

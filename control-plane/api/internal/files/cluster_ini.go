@@ -37,6 +37,19 @@ func ParseClusterINI(path string) (ClusterINIConfig, error) {
 		return ClusterINIConfig{}, err
 	}
 
+	return parseClusterINISections(sections), nil
+}
+
+func ParseClusterINIContents(contents string) (ClusterINIConfig, error) {
+	sections, err := parseINIContents(contents)
+	if err != nil {
+		return ClusterINIConfig{}, err
+	}
+
+	return parseClusterINISections(sections), nil
+}
+
+func parseClusterINISections(sections iniSections) ClusterINIConfig {
 	cfg := ClusterINIConfig{}
 	cfg.Gameplay.GameMode = iniValue(sections, "GAMEPLAY", "game_mode")
 	cfg.Gameplay.MaxPlayers = parseInt(iniValue(sections, "GAMEPLAY", "max_players"))
@@ -56,7 +69,7 @@ func ParseClusterINI(path string) (ClusterINIConfig, error) {
 	cfg.Shard.MasterPort = parseInt(iniValue(sections, "SHARD", "master_port"))
 	cfg.Shard.ClusterKey = iniValue(sections, "SHARD", "cluster_key")
 
-	return cfg, nil
+	return cfg
 }
 
 func WriteClusterINI(path string, cfg ClusterINIConfig) error {

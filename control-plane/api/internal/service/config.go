@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
 	"github.com/gwf/dst-docker/control-plane/api/internal/files"
@@ -31,6 +33,10 @@ func (s ConfigService) GetSnapshot(_ context.Context, slug string) (models.Clust
 	if err != nil {
 		return models.ClusterConfigSnapshot{}, err
 	}
+	rawClusterINI, err := os.ReadFile(clusterPath)
+	if err != nil {
+		return models.ClusterConfigSnapshot{}, err
+	}
 	masterCfg, err := files.ParseServerINI(masterPath)
 	if err != nil {
 		return models.ClusterConfigSnapshot{}, err
@@ -40,7 +46,7 @@ func (s ConfigService) GetSnapshot(_ context.Context, slug string) (models.Clust
 		return models.ClusterConfigSnapshot{}, err
 	}
 
-	return files.BuildSnapshot(clusterCfg, masterCfg, cavesCfg), nil
+	return files.BuildSnapshot(clusterCfg, masterCfg, cavesCfg, string(rawClusterINI)), nil
 }
 
 func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot models.ClusterConfigSnapshot) error {
@@ -50,7 +56,8 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 	}
 
 	clusterDir := filepath.Join(record.BaseDir, "runtime", "data", record.ClusterName)
-	clusterCfg, err := files.ParseClusterINI(filepath.Join(clusterDir, "cluster.ini"))
+	clusterINIPath := filepath.Join(clusterDir, "cluster.ini")
+	clusterCfg, err := files.ParseClusterINI(clusterINIPath)
 	if err != nil {
 		return err
 	}
@@ -63,11 +70,24 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 		return err
 	}
 
+	if snapshot.RawFiles != nil && strings.TrimSpace(snapshot.RawFiles.ClusterINI) != "" {
+		rawClusterINI := strings.TrimSpace(snapshot.RawFiles.ClusterINI) + "\n"
+		if _, err := files.ParseClusterINIContents(rawClusterINI); err != nil {
+			return err
+		}
+		if err := os.WriteFile(clusterINIPath, []byte(rawClusterINI), 0o644); err != nil {
+			return err
+		}
+	} else {
 	clusterCfg.Network.ClusterName = snapshot.ClusterName
 	clusterCfg.Network.ClusterDescription = snapshot.ClusterDescription
 	clusterCfg.Gameplay.GameMode = snapshot.GameMode
 	clusterCfg.Shard.ClusterKey = snapshot.ClusterKey
 	clusterCfg.Shard.MasterPort = snapshot.MasterPort
+		if err := files.WriteClusterINI(clusterINIPath, clusterCfg); err != nil {
+			return err
+		}
+	}
 	masterCfg.Network.ServerPort = snapshot.Master.ServerPort
 	masterCfg.Steam.MasterServerPort = snapshot.Master.MasterServerPort
 	masterCfg.Steam.AuthenticationPort = snapshot.Master.AuthenticationPort
@@ -75,9 +95,6 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 	cavesCfg.Steam.MasterServerPort = snapshot.Caves.MasterServerPort
 	cavesCfg.Steam.AuthenticationPort = snapshot.Caves.AuthenticationPort
 
-	if err := files.WriteClusterINI(filepath.Join(clusterDir, "cluster.ini"), clusterCfg); err != nil {
-		return err
-	}
 	if err := files.WriteServerINI(filepath.Join(clusterDir, "Master", "server.ini"), masterCfg); err != nil {
 		return err
 	}

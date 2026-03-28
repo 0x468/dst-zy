@@ -16,10 +16,17 @@ func parseINI(path string) (iniSections, error) {
 	}
 	defer file.Close()
 
+	return parseINIScanner(bufio.NewScanner(file))
+}
+
+func parseINIContents(contents string) (iniSections, error) {
+	return parseINIScanner(bufio.NewScanner(strings.NewReader(contents)))
+}
+
+func parseINIScanner(scanner *bufio.Scanner) (iniSections, error) {
 	sections := iniSections{}
 	currentSection := ""
 
-	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, ";") || strings.HasPrefix(line, "#") {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { ClusterConfigSnapshot } from "../../../lib/api";
 
@@ -9,6 +9,10 @@ type ClusterConfigFormProps = {
 
 export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) {
   const [draft, setDraft] = useState(snapshot);
+
+  useEffect(() => {
+    setDraft(snapshot);
+  }, [snapshot]);
 
   return (
     <form

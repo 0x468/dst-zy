@@ -10,3 +10,4 @@ data/
 docs/superpowers/plans/
 control-plane/web/node_modules/
 control-plane/web/dist/
+control-plane/web/tsconfig.tsbuildinfo

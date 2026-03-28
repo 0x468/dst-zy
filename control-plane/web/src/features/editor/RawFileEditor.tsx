@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { ClusterConfigSnapshot } from "../../lib/api";
 
@@ -9,6 +9,10 @@ type RawFileEditorProps = {
 
 export function RawFileEditor({ snapshot, onSave }: RawFileEditorProps) {
   const [clusterIni, setClusterIni] = useState(snapshot.rawFiles?.clusterIni ?? "");
+
+  useEffect(() => {
+    setClusterIni(snapshot.rawFiles?.clusterIni ?? "");
+  }, [snapshot]);
 
   return (
     <form
