@@ -23,6 +23,7 @@ export function App() {
   const [selectedSlug, setSelectedSlug] = useState<string>();
   const [snapshot, setSnapshot] = useState<ClusterConfigSnapshot>();
   const [jobs, setJobs] = useState<JobSummary[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string>();
 
   const selectedCluster = clusters.find((cluster) => cluster.slug === selectedSlug);
 
@@ -35,6 +36,7 @@ export function App() {
         return;
       }
 
+      setErrorMessage(undefined);
       setAuthenticated(true);
       await refreshClusters();
     }
@@ -49,9 +51,11 @@ export function App() {
   async function handleSignIn(username: string, password: string) {
     const ok = await signIn(username, password);
     if (!ok) {
+      setErrorMessage("Invalid username or password");
       return;
     }
 
+    setErrorMessage(undefined);
     await refreshClusters();
     setAuthenticated(true);
   }
@@ -74,8 +78,14 @@ export function App() {
   }
 
   async function handleMutateCluster(input: ClusterMutationInput) {
-    const createdCluster = await mutateCluster(input);
-    await refreshClusters(createdCluster.slug);
+    try {
+      const createdCluster = await mutateCluster(input);
+      setErrorMessage(undefined);
+      await refreshClusters(createdCluster.slug);
+    } catch (error) {
+      setErrorMessage(`Failed to ${input.mode} cluster`);
+      throw error;
+    }
   }
 
   async function handleSaveConfig(nextSnapshot: ClusterConfigSnapshot) {
@@ -83,8 +93,13 @@ export function App() {
       return;
     }
 
-    await saveClusterConfig(selectedSlug, nextSnapshot);
-    setSnapshot(await getClusterConfig(selectedSlug));
+    try {
+      await saveClusterConfig(selectedSlug, nextSnapshot);
+      setErrorMessage(undefined);
+      setSnapshot(await getClusterConfig(selectedSlug));
+    } catch (error) {
+      setErrorMessage("Failed to save config");
+    }
   }
 
   async function handleAction(action: string) {
@@ -92,10 +107,15 @@ export function App() {
       return;
     }
 
-    await runClusterAction(selectedSlug, action);
-    const nextJobs = await listJobs();
-    setJobs(filterJobsForCluster(nextJobs, selectedCluster?.id));
-    await refreshClusters(selectedSlug);
+    try {
+      await runClusterAction(selectedSlug, action);
+      setErrorMessage(undefined);
+      const nextJobs = await listJobs();
+      setJobs(filterJobsForCluster(nextJobs, selectedCluster?.id));
+      await refreshClusters(selectedSlug);
+    } catch (error) {
+      setErrorMessage(`Failed to run ${action}`);
+    }
   }
 
   useEffect(() => {
@@ -130,6 +150,7 @@ export function App() {
 
   return (
     <main>
+      {errorMessage ? <p role="alert">{errorMessage}</p> : null}
       {authenticated ? (
         <ClustersRoute
           clusters={clusters}

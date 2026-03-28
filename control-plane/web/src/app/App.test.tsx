@@ -146,6 +146,7 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "DST Control Plane" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Clusters" })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Invalid username or password");
   });
 
   it("creates a cluster from the dashboard and refreshes the selection", async () => {
@@ -304,6 +305,56 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getAllByText("stopped").length).toBeGreaterThan(0);
     });
+  });
+
+  it("shows an error banner when a lifecycle action fails", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ error: "boom" }, 500));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    await user.click(screen.getByRole("button", { name: "Stop" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to run stop");
   });
 });
 
