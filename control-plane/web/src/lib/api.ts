@@ -26,6 +26,14 @@ export type ClusterConfigSnapshot = {
   };
 };
 
+export type JobSummary = {
+  id: number;
+  jobType: string;
+  status: string;
+  stdoutExcerpt: string;
+  stderrExcerpt: string;
+};
+
 export async function signIn(username: string, password: string): Promise<boolean> {
   return username.trim() !== "" && password.trim() !== "";
 }
