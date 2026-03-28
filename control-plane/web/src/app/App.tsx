@@ -55,6 +55,11 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    setSnapshot(undefined);
+    setJobs([]);
+  }, [selectedSlug]);
+
   async function handleSignIn(username: string, password: string) {
     const ok = await signIn(username, password);
     if (!ok) {

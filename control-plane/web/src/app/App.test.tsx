@@ -316,6 +316,98 @@ describe("App", () => {
     });
   });
 
+  it("clears stale cluster details while the next cluster config is loading", async () => {
+    const user = userEvent.setup();
+    const clusterBConfig = deferred<Response>();
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+        {
+          id: 2,
+          slug: "cluster-b",
+          display_name: "Cluster B",
+          status: "stopped",
+          note: "Secondary world",
+          cluster_name: "Cluster_B",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockImplementationOnce(() => clusterBConfig.promise)
+      .mockResolvedValueOnce(jsonResponse([]));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    expect(screen.getByDisplayValue("Cluster_A")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Cluster B/ }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/clusters/cluster-b/config", expect.any(Object));
+    });
+
+    expect(screen.queryByRole("heading", { name: "Cluster B" })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Cluster_A")).not.toBeInTheDocument();
+
+    clusterBConfig.resolve(jsonResponse({
+      cluster_name: "Cluster_B",
+      cluster_description: "B co-op world",
+      game_mode: "survival",
+      cluster_key: "secret-key-b",
+      master_port: 10890,
+      master: {
+        server_port: 12000,
+        master_server_port: 28018,
+        authentication_port: 9768,
+      },
+      caves: {
+        server_port: 12001,
+        master_server_port: 28019,
+        authentication_port: 9769,
+      },
+      raw_files: {
+        cluster_ini: "[NETWORK]\ncluster_name = Cluster_B\n",
+      },
+    }));
+
+    expect(await screen.findByRole("heading", { name: "Cluster B" })).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Cluster_B")).toBeInTheDocument();
+  });
+
   it("shows an error banner when a lifecycle action fails", async () => {
     const user = userEvent.setup();
     fetchMock
@@ -422,4 +514,15 @@ function jsonResponse(payload: unknown, status = 200) {
       "Content-Type": "application/json",
     },
   });
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+
+  return { promise, resolve, reject };
 }
