@@ -69,6 +69,15 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", expect.any(Object));
   });
 
+  it("shows an error when session restore fails unexpectedly", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "boom" }, 500));
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "DST Control Plane" })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to restore session");
+  });
+
   it("loads clusters, config and jobs after sign in", async () => {
     const user = userEvent.setup();
     fetchMock

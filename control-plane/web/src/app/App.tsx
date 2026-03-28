@@ -32,14 +32,20 @@ export function App() {
     let cancelled = false;
 
     async function restoreSession() {
-      const hasSession = await getSession();
-      if (!hasSession || cancelled) {
-        return;
-      }
+      try {
+        const hasSession = await getSession();
+        if (!hasSession || cancelled) {
+          return;
+        }
 
-      setErrorMessage(undefined);
-      setAuthenticated(true);
-      await refreshClusters();
+        setErrorMessage(undefined);
+        setAuthenticated(true);
+        await refreshClusters();
+      } catch {
+        if (!cancelled) {
+          setErrorMessage("Failed to restore session");
+        }
+      }
     }
 
     void restoreSession();
