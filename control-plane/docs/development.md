@@ -53,6 +53,7 @@ docker run --rm -v "$PWD":/workspace -w /workspace/control-plane/web node:22.22.
 ```bash
 bash control-plane/tests/e2e/create-cluster.sh
 bash control-plane/tests/e2e/import-cluster.sh
+bash control-plane/tests/e2e/smoke-image.sh
 ```
 
 开发 compose 配置检查：
@@ -88,6 +89,7 @@ git diff --check
 - 独立的临时数据根目录
 - `dry-run` 执行模式
 - 固定端口 `18080` / `18081`
+- 镜像 smoke 使用固定端口 `18082`
 
 这样可以在不真正启停 DST 集群的前提下，验证控制平面的关键管理链路。
 
@@ -97,3 +99,9 @@ git diff --check
 - 受控目录问题
 - SQLite 或任务层问题
 - 健康检查等待时间不足
+
+`smoke-image.sh` 额外覆盖真实部署镜像路径，而不是 `go run` 开发路径。默认会使用本地镜像标签 `dst-control-plane:v2-check`，也可以通过环境变量覆盖：
+
+```bash
+CONTROL_PLANE_IMAGE=your-image:tag bash control-plane/tests/e2e/smoke-image.sh
+```

@@ -27,6 +27,7 @@ docker run -d \
   -p 18080:18080 \
   -v "$CONTROL_PLANE_ROOT":/workspace \
   -w /workspace/api \
+  -e GOPROXY=https://goproxy.cn,direct \
   -e DST_CONTROL_PLANE_LISTEN_ADDR=:18080 \
   -e DST_CONTROL_PLANE_DATA_ROOT="$DATA_ROOT_CONTAINER" \
   -e DST_CONTROL_PLANE_ADMIN_USERNAME=admin \
@@ -55,10 +56,10 @@ curl -fsS -b "$COOKIE_JAR" -H 'Content-Type: application/json' \
 
 grep -q '"slug":"cluster-a"' "$TMP_DIR/create.json"
 
-curl -fsS "$API_URL/api/clusters" >"$TMP_DIR/list.json"
+curl -fsS -b "$COOKIE_JAR" "$API_URL/api/clusters" >"$TMP_DIR/list.json"
 grep -q '"slug":"cluster-a"' "$TMP_DIR/list.json"
 
-curl -fsS "$API_URL/api/clusters/cluster-a/config" >"$TMP_DIR/config.json"
+curl -fsS -b "$COOKIE_JAR" "$API_URL/api/clusters/cluster-a/config" >"$TMP_DIR/config.json"
 grep -q '"cluster_name":"Cluster_A"' "$TMP_DIR/config.json"
 
 curl -fsS -b "$COOKIE_JAR" -X POST -H 'Content-Type: application/json' \
@@ -67,7 +68,7 @@ curl -fsS -b "$COOKIE_JAR" -X POST -H 'Content-Type: application/json' \
 
 grep -q '"job_type":"start"' "$TMP_DIR/action.json"
 
-curl -fsS "$API_URL/api/jobs" >"$TMP_DIR/jobs.json"
+curl -fsS -b "$COOKIE_JAR" "$API_URL/api/jobs" >"$TMP_DIR/jobs.json"
 grep -q '"status":"succeeded"' "$TMP_DIR/jobs.json"
 
 printf 'create cluster e2e passed\n'
