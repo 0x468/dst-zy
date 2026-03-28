@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/gwf/dst-docker/control-plane/api/internal/auth"
 	"github.com/gwf/dst-docker/control-plane/api/internal/http/handlers"
 	"github.com/gwf/dst-docker/control-plane/api/internal/models"
 )
@@ -47,6 +49,7 @@ func TestNewServerHandlerServesHealthAPIAndSPA(t *testing.T) {
 	}
 
 	apiReq := httptest.NewRequest(http.MethodGet, "/api/clusters", nil)
+	apiReq.AddCookie(issueServerSessionCookie(t, secret))
 	apiRec := httptest.NewRecorder()
 	handler.ServeHTTP(apiRec, apiReq)
 	if apiRec.Code != http.StatusOK {
@@ -119,4 +122,18 @@ type handlerFakeJobsService struct{}
 
 func (handlerFakeJobsService) List(_ context.Context, _ int) ([]models.JobRecord, error) {
 	return []models.JobRecord{}, nil
+}
+
+func issueServerSessionCookie(t *testing.T, secret []byte) *http.Cookie {
+	t.Helper()
+
+	token, err := auth.IssueSessionToken("admin", time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC), 2*time.Hour, secret)
+	if err != nil {
+		t.Fatalf("expected session token, got error: %v", err)
+	}
+
+	return &http.Cookie{
+		Name:  handlers.SessionCookieName,
+		Value: token,
+	}
 }

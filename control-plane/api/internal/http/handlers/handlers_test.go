@@ -82,15 +82,17 @@ func TestClusterHandlers(t *testing.T) {
 		},
 	})
 
+	sessionCookie := issueSessionCookie(t, secret)
+
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/clusters", nil)
+	req.AddCookie(sessionCookie)
 	router.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected cluster list to return 200, got %d", rec.Code)
 	}
 
-	sessionCookie := issueSessionCookie(t, secret)
 	createBody := bytes.NewBufferString(`{"mode":"create","slug":"cluster-b","display_name":"Cluster B","cluster_name":"Cluster_B","base_dir":"/srv/cluster-b"}`)
 	createReq := httptest.NewRequest(http.MethodPost, "/api/clusters", createBody)
 	createReq.AddCookie(sessionCookie)
@@ -135,15 +137,17 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 		},
 	})
 
+	sessionCookie := issueSessionCookie(t, secret)
+
 	getConfigRec := httptest.NewRecorder()
 	getConfigReq := httptest.NewRequest(http.MethodGet, "/api/clusters/cluster-a/config", nil)
+	getConfigReq.AddCookie(sessionCookie)
 	router.ServeHTTP(getConfigRec, getConfigReq)
 
 	if getConfigRec.Code != http.StatusOK {
 		t.Fatalf("expected get config to return 200, got %d", getConfigRec.Code)
 	}
 
-	sessionCookie := issueSessionCookie(t, secret)
 	savePayload, err := json.Marshal(models.ClusterConfigSnapshot{ClusterName: "Cluster_A"})
 	if err != nil {
 		t.Fatalf("expected save payload to marshal, got error: %v", err)
@@ -168,11 +172,45 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	}
 
 	jobsReq := httptest.NewRequest(http.MethodGet, "/api/jobs", nil)
+	jobsReq.AddCookie(sessionCookie)
 	jobsRec := httptest.NewRecorder()
 	router.ServeHTTP(jobsRec, jobsReq)
 
 	if jobsRec.Code != http.StatusOK {
 		t.Fatalf("expected jobs list to return 200, got %d", jobsRec.Code)
+	}
+}
+
+func TestReadHandlersRequireSession(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	router := NewRouter(Dependencies{
+		SessionSecret: secret,
+		Auth:          fakeAuthService{allow: true},
+		Clusters:      fakeClusterService{},
+		Config:        fakeConfigService{},
+		Jobs:          fakeJobsService{},
+	})
+
+	tests := []struct {
+		name string
+		path string
+	}{
+		{name: "cluster list", path: "/api/clusters"},
+		{name: "cluster config", path: "/api/clusters/cluster-a/config"},
+		{name: "jobs list", path: "/api/jobs"},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, testCase.path, nil)
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("expected %s to require session and return 401, got %d", testCase.path, rec.Code)
+			}
+		})
 	}
 }
 

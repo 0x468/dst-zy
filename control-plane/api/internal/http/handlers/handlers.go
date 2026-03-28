@@ -131,14 +131,14 @@ func NewRouter(deps Dependencies) http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 	})))
 
-	mux.HandleFunc("GET /api/clusters", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("GET /api/clusters", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		clusters, err := deps.Clusters.List(r.Context())
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, http.StatusOK, clusters)
-	})
+	})))
 
 	mux.Handle("POST /api/clusters", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req ClusterMutationRequest
@@ -168,7 +168,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		writeJSON(w, http.StatusCreated, record)
 	})))
 
-	mux.HandleFunc("GET /api/clusters/{slug}/config", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("GET /api/clusters/{slug}/config", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		snapshot, err := deps.Config.GetSnapshot(r.Context(), r.PathValue("slug"))
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -176,7 +176,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		}
 
 		writeJSON(w, http.StatusOK, snapshot)
-	})
+	})))
 
 	mux.Handle("PUT /api/clusters/{slug}/config", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var snapshot models.ClusterConfigSnapshot
@@ -209,7 +209,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		writeJSON(w, http.StatusAccepted, job)
 	})))
 
-	mux.HandleFunc("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("GET /api/jobs", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		jobs, err := deps.Jobs.List(r.Context(), 20)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -217,7 +217,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		}
 
 		writeJSON(w, http.StatusOK, jobs)
-	})
+	})))
 
 	return mux
 }
