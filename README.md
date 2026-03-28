@@ -19,6 +19,7 @@
 - 控制平面 V2 快速上手： [control-plane/docs/quickstart.md](control-plane/docs/quickstart.md)
 - 控制平面 V2 安全边界： [control-plane/docs/security.md](control-plane/docs/security.md)
 - 控制平面 V2 开发说明： [control-plane/docs/development.md](control-plane/docs/development.md)
+- 控制平面 V2 验收与回归： [control-plane/docs/verification.md](control-plane/docs/verification.md)
 
 ## 项目目标
 
@@ -226,3 +227,4 @@ Docker 端口映射的语义是：
 - [control-plane/docs/quickstart.md](control-plane/docs/quickstart.md)
 - [control-plane/docs/security.md](control-plane/docs/security.md)
 - [control-plane/docs/development.md](control-plane/docs/development.md)
+- [control-plane/docs/verification.md](control-plane/docs/verification.md)

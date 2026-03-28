@@ -82,6 +82,10 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
 
 请注意，挂载 Docker socket 代表控制平面对宿主机 Docker 拥有较高权限，这只适合当前第一阶段的单机/可信用户场景。
 
+如果你希望在真正导入自己的集群前，先确认这套控制平面“当前到底能不能用”，建议继续看：
+
+- [control-plane/docs/verification.md](verification.md)
+
 ## 创建新集群
 
 控制平面当前支持两种入口：
