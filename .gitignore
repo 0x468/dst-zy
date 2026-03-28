@@ -8,3 +8,5 @@ ugc/
 data/
 .tmp/
 docs/superpowers/plans/
+control-plane/web/node_modules/
+control-plane/web/dist/
