@@ -24,6 +24,7 @@ func TestLoginAndLogoutHandlers(t *testing.T) {
 
 	loginBody := bytes.NewBufferString(`{"username":"admin","password":"secret"}`)
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/login", loginBody)
+	loginReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	loginRec := httptest.NewRecorder()
 
 	router.ServeHTTP(loginRec, loginReq)
@@ -39,12 +40,33 @@ func TestLoginAndLogoutHandlers(t *testing.T) {
 
 	logoutReq := httptest.NewRequest(http.MethodPost, "/api/logout", nil)
 	logoutReq.AddCookie(cookies[0])
+	logoutReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	logoutRec := httptest.NewRecorder()
 
 	router.ServeHTTP(logoutRec, logoutReq)
 
 	if logoutRec.Code != http.StatusNoContent {
 		t.Fatalf("expected logout to return 204, got %d", logoutRec.Code)
+	}
+}
+
+func TestStateChangingHandlersRequireCSRFFetchHeader(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	router := NewRouter(Dependencies{
+		SessionSecret: secret,
+		Auth:          fakeAuthService{allow: true},
+	})
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewBufferString(`{"username":"admin","password":"secret"}`))
+	loginRec := httptest.NewRecorder()
+
+	router.ServeHTTP(loginRec, loginReq)
+
+	if loginRec.Code != http.StatusForbidden {
+		t.Fatalf("expected login without csrf header to return 403, got %d", loginRec.Code)
+	}
+	if !bytes.Contains(loginRec.Body.Bytes(), []byte(`"error":"missing csrf header"`)) {
+		t.Fatalf("expected csrf failure response, got %q", loginRec.Body.String())
 	}
 }
 
@@ -98,6 +120,7 @@ func TestClusterHandlers(t *testing.T) {
 	createBody := bytes.NewBufferString(`{"mode":"create","slug":"cluster-b","display_name":"Cluster B","cluster_name":"Cluster_B","base_dir":"/srv/cluster-b"}`)
 	createReq := httptest.NewRequest(http.MethodPost, "/api/clusters", createBody)
 	createReq.AddCookie(sessionCookie)
+	createReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	createRec := httptest.NewRecorder()
 	router.ServeHTTP(createRec, createReq)
 
@@ -108,6 +131,7 @@ func TestClusterHandlers(t *testing.T) {
 	importBody := bytes.NewBufferString(`{"mode":"import","slug":"cluster-c","display_name":"Cluster C","cluster_name":"Cluster_C","base_dir":"/srv/cluster-c"}`)
 	importReq := httptest.NewRequest(http.MethodPost, "/api/clusters", importBody)
 	importReq.AddCookie(sessionCookie)
+	importReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	importRec := httptest.NewRecorder()
 	router.ServeHTTP(importRec, importReq)
 
@@ -162,6 +186,7 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 
 	saveConfigReq := httptest.NewRequest(http.MethodPut, "/api/clusters/cluster-a/config", bytes.NewReader(savePayload))
 	saveConfigReq.AddCookie(sessionCookie)
+	saveConfigReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	saveConfigRec := httptest.NewRecorder()
 	router.ServeHTTP(saveConfigRec, saveConfigReq)
 
@@ -171,6 +196,7 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 
 	actionReq := httptest.NewRequest(http.MethodPost, "/api/clusters/cluster-a/actions", bytes.NewBufferString(`{"action":"start"}`))
 	actionReq.AddCookie(sessionCookie)
+	actionReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	actionRec := httptest.NewRecorder()
 	router.ServeHTTP(actionRec, actionReq)
 
@@ -262,6 +288,7 @@ func TestHandlersMapKnownErrorsToStructuredResponses(t *testing.T) {
 
 	saveConfigReq := httptest.NewRequest(http.MethodPut, "/api/clusters/cluster-a/config", bytes.NewBufferString(`{"cluster_name":"Cluster_A"}`))
 	saveConfigReq.AddCookie(sessionCookie)
+	saveConfigReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	saveConfigRec := httptest.NewRecorder()
 	router.ServeHTTP(saveConfigRec, saveConfigReq)
 	if saveConfigRec.Code != http.StatusBadRequest {
@@ -273,6 +300,7 @@ func TestHandlersMapKnownErrorsToStructuredResponses(t *testing.T) {
 
 	actionReq := httptest.NewRequest(http.MethodPost, "/api/clusters/cluster-a/actions", bytes.NewBufferString(`{"action":"explode"}`))
 	actionReq.AddCookie(sessionCookie)
+	actionReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	actionRec := httptest.NewRecorder()
 	router.ServeHTTP(actionRec, actionReq)
 	if actionRec.Code != http.StatusBadRequest {
@@ -297,6 +325,7 @@ func TestClusterMutationHandlersMapInvalidInputsToBadRequest(t *testing.T) {
 
 	createReq := httptest.NewRequest(http.MethodPost, "/api/clusters", bytes.NewBufferString(`{"mode":"create","slug":"../bad","display_name":"Bad","cluster_name":"Bad"}`))
 	createReq.AddCookie(sessionCookie)
+	createReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	createRec := httptest.NewRecorder()
 	router.ServeHTTP(createRec, createReq)
 	if createRec.Code != http.StatusBadRequest {
@@ -308,6 +337,7 @@ func TestClusterMutationHandlersMapInvalidInputsToBadRequest(t *testing.T) {
 
 	importReq := httptest.NewRequest(http.MethodPost, "/api/clusters", bytes.NewBufferString(`{"mode":"import","slug":"cluster-a","display_name":"Cluster A","cluster_name":"Cluster_A","base_dir":""}`))
 	importReq.AddCookie(sessionCookie)
+	importReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	importRec := httptest.NewRecorder()
 	router.ServeHTTP(importRec, importReq)
 	if importRec.Code != http.StatusBadRequest {
@@ -330,6 +360,7 @@ func TestLoginHandlerReturnsTooManyRequestsWhenRateLimited(t *testing.T) {
 
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewBufferString(`{"username":"admin","password":"secret"}`))
 	loginReq.RemoteAddr = "127.0.0.1:43210"
+	loginReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 	loginRec := httptest.NewRecorder()
 
 	router.ServeHTTP(loginRec, loginReq)
@@ -361,6 +392,7 @@ func TestLoginHandlerRecordsAuditEntriesForSuccessfulAndFailedAttempts(t *testin
 
 		loginReq := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewBufferString(`{"username":"admin","password":"secret"}`))
 		loginReq.RemoteAddr = "127.0.0.1:43210"
+		loginReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 		loginRec := httptest.NewRecorder()
 
 		router.ServeHTTP(loginRec, loginReq)
@@ -386,6 +418,7 @@ func TestLoginHandlerRecordsAuditEntriesForSuccessfulAndFailedAttempts(t *testin
 
 		loginReq := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewBufferString(`{"username":"admin","password":"wrong"}`))
 		loginReq.RemoteAddr = "127.0.0.1:43210"
+		loginReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
 		loginRec := httptest.NewRecorder()
 
 		router.ServeHTTP(loginRec, loginReq)

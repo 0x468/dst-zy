@@ -72,6 +72,14 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.dev.yml up
 
 如果只是本地验证 API/页面交互，可以把执行模式设成 `dry-run`，这样“启动/停止/更新/校验”只会生成任务记录，不会真正调用 `docker compose`。
 
+如果你不是通过前端页面，而是自己用 `curl` 或脚本直接调用控制平面写接口，需要额外带上：
+
+```text
+X-DST-Control-Plane-CSRF: 1
+```
+
+当前要求这个 header 的接口包括登录、退出、create/import、config save、lifecycle action。
+
 如果你要直接试跑单镜像部署，推荐用：
 
 ```bash

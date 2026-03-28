@@ -161,7 +161,11 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Recent audit" })).toBeInTheDocument();
     expect(screen.getByText("login_failed")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/login", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/login", expect.objectContaining({
+      headers: expect.objectContaining({
+        "X-DST-Control-Plane-CSRF": "1",
+      }),
+    }));
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/clusters", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/clusters/cluster-a/config", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/jobs", expect.any(Object));
@@ -265,6 +269,9 @@ describe("App", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith("/api/clusters", expect.objectContaining({
         method: "POST",
+        headers: expect.objectContaining({
+          "X-DST-Control-Plane-CSRF": "1",
+        }),
       }));
     });
   });
@@ -698,6 +705,9 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "DST Control Plane" })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/logout", expect.objectContaining({
       method: "POST",
+      headers: expect.objectContaining({
+        "X-DST-Control-Plane-CSRF": "1",
+      }),
     }));
   });
 });

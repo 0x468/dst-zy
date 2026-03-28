@@ -63,6 +63,9 @@ export class ApiError extends Error {
   }
 }
 
+const CSRF_HEADER_NAME = "X-DST-Control-Plane-CSRF";
+const CSRF_HEADER_VALUE = "1";
+
 type ClusterSummaryResponse = {
   id: number;
   slug: string;
@@ -118,6 +121,7 @@ export async function signIn(username: string, password: string): Promise<boolea
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE,
     },
     body: JSON.stringify({ username, password }),
   });
@@ -151,6 +155,9 @@ export async function signOut(): Promise<void> {
   const response = await fetch("/api/logout", {
     method: "POST",
     credentials: "include",
+    headers: {
+      [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE,
+    },
   });
 
   if (!response.ok && response.status !== 204) {
@@ -209,10 +216,12 @@ export async function mutateCluster(input: ClusterMutationInput): Promise<Cluste
 }
 
 async function request(path: string, init: RequestInit = {}) {
+  const method = (init.method ?? "GET").toUpperCase();
   const response = await fetch(path, {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...(method !== "GET" && method !== "HEAD" ? { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE } : {}),
       ...(init.headers ?? {}),
     },
     ...init,

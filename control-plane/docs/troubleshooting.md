@@ -94,7 +94,29 @@ docker logs <control-plane-container>
 - 重启服务也会清空计数
 - 这属于基础防护，不是更完整的公网级防爆破方案
 
-### 4. create/import 返回 `400`
+### 4. 写接口突然返回 `403`
+
+如果错误体类似：
+
+```json
+{"error":"missing csrf header"}
+```
+
+说明你调用的是写接口，但请求里没带：
+
+```text
+X-DST-Control-Plane-CSRF: 1
+```
+
+优先检查：
+
+- 你是不是在自己用 `curl`、脚本或第三方客户端调控制平面
+- 是否只给了 cookie，却没补这个 header
+- 前端页面是不是被你自己的反代或脚本改写掉了请求头
+
+仓库里的 e2e 脚本和前端页面都会自动带这个 header；手动调用时需要你自己补。
+
+### 5. create/import 返回 `400`
 
 这类通常不是服务坏了，而是输入被后端明确拒绝了。当前常见错误包括：
 
@@ -110,7 +132,7 @@ docker logs <control-plane-container>
 
 第一阶段控制平面故意不允许越界导入宿主机任意路径，这是安全边界，不是 bug。
 
-### 5. config save / raw save 返回 `400`
+### 6. config save / raw save 返回 `400`
 
 最常见的是：
 
@@ -124,7 +146,7 @@ docker logs <control-plane-container>
 
 现在前端会把这类错误直接显示在对应表单内部，而不是只丢到页面最上方。
 
-### 6. action 失败
+### 7. action 失败
 
 如果是 `dry-run` 模式：
 
@@ -143,7 +165,7 @@ docker logs <control-plane-container>
 
 说明请求里传了当前控制平面不支持的动作值，而不是底层 Docker 执行失败。
 
-### 7. e2e 脚本起不来
+### 8. e2e 脚本起不来
 
 create/import 脚本当前走的是容器内 `go run` 路径。优先看脚本自动打印的容器日志，常见问题包括：
 
@@ -160,7 +182,7 @@ GOPROXY=https://goproxy.cn,direct
 
 如果你在不同网络环境里仍然拉依赖失败，可以先手动确认对应镜像是否能访问代理，或者改用预构建镜像 smoke。
 
-### 8. `smoke-image.sh` 失败
+### 9. `smoke-image.sh` 失败
 
 先定位是哪一步挂了：
 
@@ -175,7 +197,7 @@ GOPROXY=https://goproxy.cn,direct
 
 这条脚本默认不覆盖 create/import 全链路，它只负责验证“真实镜像路径的最小可用性”。
 
-### 9. 想确认最近有没有登录失败或被限流
+### 10. 想确认最近有没有登录失败或被限流
 
 第一阶段现在会把登录成功、登录失败、限流拒绝写进本地 SQLite 审计表，并在控制平面 Overview 区展示最近记录。
 

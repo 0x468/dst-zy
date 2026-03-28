@@ -48,10 +48,12 @@ done
 curl -fsS "$API_URL/healthz" >/dev/null
 
 curl -fsS -c "$COOKIE_JAR" -H 'Content-Type: application/json' \
+  -H 'X-DST-Control-Plane-CSRF: 1' \
   -d '{"username":"admin","password":"secret"}' \
   "$API_URL/api/login" >/dev/null
 
 curl -fsS -b "$COOKIE_JAR" -H 'Content-Type: application/json' \
+  -H 'X-DST-Control-Plane-CSRF: 1' \
   -d '{"mode":"create","slug":"cluster-a","display_name":"Cluster A","cluster_name":"Cluster_A"}' \
   "$API_URL/api/clusters" >"$TMP_DIR/create.json"
 
@@ -64,6 +66,7 @@ curl -fsS -b "$COOKIE_JAR" "$API_URL/api/clusters/cluster-a/config" >"$TMP_DIR/c
 grep -q '"cluster_name":"Cluster_A"' "$TMP_DIR/config.json"
 
 curl -fsS -b "$COOKIE_JAR" -X POST -H 'Content-Type: application/json' \
+  -H 'X-DST-Control-Plane-CSRF: 1' \
   -d '{"action":"start"}' \
   "$API_URL/api/clusters/cluster-a/actions" >"$TMP_DIR/action.json"
 

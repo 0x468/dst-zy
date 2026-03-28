@@ -53,6 +53,7 @@ grep -q '^401$' "$TMP_DIR/unauthorized.status"
 grep -q '"error":"Unauthorized"' "$TMP_DIR/unauthorized.json"
 
 curl -fsS -c "$COOKIE_JAR" -H 'Content-Type: application/json' \
+  -H 'X-DST-Control-Plane-CSRF: 1' \
   -d '{"username":"admin","password":"secret"}' \
   "$API_URL/api/login" >"$TMP_DIR/login.json"
 grep -q '"status":"ok"' "$TMP_DIR/login.json"

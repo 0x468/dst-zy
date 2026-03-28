@@ -57,12 +57,14 @@ done
 curl -fsS "$API_URL/healthz" >/dev/null
 
 curl -fsS -c "$COOKIE_JAR" -H 'Content-Type: application/json' \
+  -H 'X-DST-Control-Plane-CSRF: 1' \
   -d '{"username":"admin","password":"secret"}' \
   "$API_URL/api/login" >/dev/null
 
 IMPORT_PAYLOAD=$(printf '{"mode":"import","slug":"imported-a","display_name":"Imported A","cluster_name":"Imported_A","base_dir":"%s"}' "$IMPORT_SOURCE_CONTAINER")
 
 curl -fsS -b "$COOKIE_JAR" -H 'Content-Type: application/json' \
+  -H 'X-DST-Control-Plane-CSRF: 1' \
   -d "$IMPORT_PAYLOAD" \
   "$API_URL/api/clusters" >"$TMP_DIR/import.json"
 
@@ -74,10 +76,12 @@ grep -q '"cluster_name":"Imported_A"' "$TMP_DIR/config.json"
 SAVE_PAYLOAD='{"cluster_name":"Imported_A","cluster_description":"Updated imported cluster","game_mode":"survival","cluster_key":"import-key","master_port":10889,"master":{"server_port":11000,"master_server_port":27018,"authentication_port":8768},"caves":{"server_port":11001,"master_server_port":27019,"authentication_port":8769}}'
 
 curl -fsS -b "$COOKIE_JAR" -X PUT -H 'Content-Type: application/json' \
+  -H 'X-DST-Control-Plane-CSRF: 1' \
   -d "$SAVE_PAYLOAD" \
   "$API_URL/api/clusters/imported-a/config" >/dev/null
 
 curl -fsS -b "$COOKIE_JAR" -X POST -H 'Content-Type: application/json' \
+  -H 'X-DST-Control-Plane-CSRF: 1' \
   -d '{"action":"stop"}' \
   "$API_URL/api/clusters/imported-a/actions" >"$TMP_DIR/action.json"
 

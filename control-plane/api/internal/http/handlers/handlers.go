@@ -81,8 +81,9 @@ type actionRequest struct {
 
 func NewRouter(deps Dependencies) http.Handler {
 	mux := http.NewServeMux()
+	withCSRF := middleware.RequireCSRFFetchHeader
 
-	mux.HandleFunc("POST /api/login", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("POST /api/login", withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req loginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request body")
@@ -128,7 +129,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		})
 		recordLoginAudit(deps.Audit, req.Username, "login_success", clientKey)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	})
+	})))
 
 	mux.HandleFunc("GET /api/session", func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(SessionCookieName)
@@ -151,7 +152,7 @@ func NewRouter(deps Dependencies) http.Handler {
 
 	protected := middleware.AuthRequired(deps.SessionSecret)
 
-	mux.Handle("POST /api/logout", protected(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	mux.Handle("POST /api/logout", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.SetCookie(w, &http.Cookie{
 			Name:     SessionCookieName,
 			Value:    "",
@@ -161,7 +162,7 @@ func NewRouter(deps Dependencies) http.Handler {
 			SameSite: http.SameSiteLaxMode,
 		})
 		w.WriteHeader(http.StatusNoContent)
-	})))
+	}))))
 
 	mux.Handle("GET /api/clusters", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		clusters, err := deps.Clusters.List(r.Context())
@@ -172,7 +173,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		writeJSON(w, http.StatusOK, clusters)
 	})))
 
-	mux.Handle("POST /api/clusters", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("POST /api/clusters", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req ClusterMutationRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request body")
@@ -198,7 +199,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		}
 
 		writeJSON(w, http.StatusCreated, record)
-	})))
+	}))))
 
 	mux.Handle("GET /api/clusters/{slug}/config", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		snapshot, err := deps.Config.GetSnapshot(r.Context(), r.PathValue("slug"))
@@ -210,7 +211,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		writeJSON(w, http.StatusOK, snapshot)
 	})))
 
-	mux.Handle("PUT /api/clusters/{slug}/config", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("PUT /api/clusters/{slug}/config", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var snapshot models.ClusterConfigSnapshot
 		if err := json.NewDecoder(r.Body).Decode(&snapshot); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request body")
@@ -223,9 +224,9 @@ func NewRouter(deps Dependencies) http.Handler {
 		}
 
 		w.WriteHeader(http.StatusNoContent)
-	})))
+	}))))
 
-	mux.Handle("POST /api/clusters/{slug}/actions", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("POST /api/clusters/{slug}/actions", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req actionRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request body")
@@ -239,7 +240,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		}
 
 		writeJSON(w, http.StatusAccepted, job)
-	})))
+	}))))
 
 	mux.Handle("GET /api/jobs", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		jobs, err := deps.Jobs.List(r.Context(), 20)
