@@ -40,22 +40,47 @@ type ClusterMutationFormProps = {
 
 function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
   const [mode, setMode] = useState<"create" | "import">("create");
+  const [errorMessage, setErrorMessage] = useState<string>();
 
   return (
     <section>
       <h2>Create or import</h2>
+      {errorMessage ? <p role="alert">{errorMessage}</p> : null}
       <form
         onSubmit={async (event) => {
           event.preventDefault();
           const form = event.currentTarget;
           const formData = new FormData(form);
+          const slug = String(formData.get("slug") ?? "").trim();
+          const displayName = String(formData.get("displayName") ?? "").trim();
+          const clusterName = String(formData.get("clusterName") ?? "").trim();
+          const baseDir = String(formData.get("baseDir") ?? "").trim();
+
+          if (slug === "") {
+            setErrorMessage("Slug is required");
+            return;
+          }
+          if (displayName === "") {
+            setErrorMessage("Display name is required");
+            return;
+          }
+          if (clusterName === "") {
+            setErrorMessage("Cluster name is required");
+            return;
+          }
+          if (mode === "import" && baseDir === "") {
+            setErrorMessage("Import path is required");
+            return;
+          }
+
           await onSubmit({
             mode,
-            slug: String(formData.get("slug") ?? ""),
-            displayName: String(formData.get("displayName") ?? ""),
-            clusterName: String(formData.get("clusterName") ?? ""),
-            baseDir: String(formData.get("baseDir") ?? ""),
+            slug,
+            displayName,
+            clusterName,
+            baseDir,
           });
+          setErrorMessage(undefined);
           form.reset();
         }}
       >
@@ -65,6 +90,7 @@ function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
             id="mutation-mode"
             value={mode}
             onChange={(event) => {
+              setErrorMessage(undefined);
               setMode(event.target.value as "create" | "import");
             }}
           >
