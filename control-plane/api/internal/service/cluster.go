@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -79,7 +80,7 @@ func (s ClusterService) Import(_ context.Context, req handlers.ClusterMutationRe
 	}
 
 	targetDataDir := filepath.Join(layout.RuntimeDir, "data", req.ClusterName)
-	if err := copyBareClusterDir(req.BaseDir, targetDataDir); err != nil {
+	if err := copyClusterDir(req.BaseDir, targetDataDir); err != nil {
 		return models.ClusterRecord{}, err
 	}
 
@@ -217,32 +218,53 @@ func defaultSnapshot(clusterName string) models.ClusterConfigSnapshot {
 	}
 }
 
-func copyBareClusterDir(src string, dst string) error {
-	dirs := []string{
-		dst,
-		filepath.Join(dst, "Master"),
-		filepath.Join(dst, "Caves"),
-	}
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return err
-		}
-	}
-
-	filesToCopy := [][2]string{
-		{filepath.Join(src, "cluster.ini"), filepath.Join(dst, "cluster.ini")},
-		{filepath.Join(src, "Master", "server.ini"), filepath.Join(dst, "Master", "server.ini")},
-		{filepath.Join(src, "Caves", "server.ini"), filepath.Join(dst, "Caves", "server.ini")},
-	}
-
-	for _, pair := range filesToCopy {
-		contents, err := os.ReadFile(pair[0])
+func copyClusterDir(src string, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(pair[1], contents, 0o644); err != nil {
+
+		relativePath, err := filepath.Rel(src, path)
+		if err != nil {
 			return err
 		}
+		if relativePath == "." {
+			return os.MkdirAll(dst, info.Mode().Perm())
+		}
+
+		targetPath := filepath.Join(dst, relativePath)
+		mode := info.Mode()
+
+		switch {
+		case mode.IsDir():
+			return os.MkdirAll(targetPath, mode.Perm())
+		case mode.IsRegular():
+			return copyRegularFile(path, targetPath, mode.Perm())
+		default:
+			return apierror.Invalid("import contains unsupported file type", nil)
+		}
+	})
+}
+
+func copyRegularFile(src string, dst string, perm os.FileMode) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+
+	targetFile, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm)
+	if err != nil {
+		return err
+	}
+	defer targetFile.Close()
+
+	if _, err := io.Copy(targetFile, sourceFile); err != nil {
+		return err
 	}
 
 	return nil

@@ -14,9 +14,9 @@ DATA_ROOT_CONTAINER="/workspace/.tmp/$(basename "$DATA_ROOT_HOST")"
 IMPORT_SOURCE="$DATA_ROOT_HOST/import-source"
 IMPORT_SOURCE_CONTAINER="$DATA_ROOT_CONTAINER/import-source"
 
+mkdir -p "$IMPORT_SOURCE"
+cp -R "$FIXTURE_DIR"/. "$IMPORT_SOURCE"/
 mkdir -p "$IMPORT_SOURCE/Master" "$IMPORT_SOURCE/Caves"
-
-cp "$FIXTURE_DIR/cluster.ini" "$IMPORT_SOURCE/cluster.ini"
 cp "$FIXTURE_DIR/server-master.ini" "$IMPORT_SOURCE/Master/server.ini"
 cp "$FIXTURE_DIR/server-caves.ini" "$IMPORT_SOURCE/Caves/server.ini"
 
@@ -69,6 +69,12 @@ curl -fsS -b "$COOKIE_JAR" -H 'Content-Type: application/json' \
   "$API_URL/api/clusters" >"$TMP_DIR/import.json"
 
 grep -q '"slug":"imported-a"' "$TMP_DIR/import.json"
+
+IMPORTED_CLUSTER_DIR="$DATA_ROOT_HOST/clusters/imported-a/runtime/data/Imported_A"
+cmp "$IMPORT_SOURCE/mods/dedicated_server_mods_setup.lua" \
+  "$IMPORTED_CLUSTER_DIR/mods/dedicated_server_mods_setup.lua"
+cmp "$IMPORT_SOURCE/Master/save/session/ABCDEF/snapshot.meta" \
+  "$IMPORTED_CLUSTER_DIR/Master/save/session/ABCDEF/snapshot.meta"
 
 curl -fsS -b "$COOKIE_JAR" "$API_URL/api/clusters/imported-a/config" >"$TMP_DIR/config.json"
 grep -q '"cluster_name":"Imported_A"' "$TMP_DIR/config.json"

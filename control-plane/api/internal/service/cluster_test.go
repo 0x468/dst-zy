@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -97,5 +98,65 @@ func TestClusterServiceImportRejectsPathOutsideRoot(t *testing.T) {
 	}
 	if !apierror.IsKind(err, apierror.KindInvalid) {
 		t.Fatalf("expected outside-root base_dir to return invalid api error, got %T %v", err, err)
+	}
+}
+
+func TestClusterServiceImportCopiesExistingClusterContentsRecursively(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	guard, err := files.NewGuard(rootDir)
+	if err != nil {
+		t.Fatalf("expected guard to initialize, got error: %v", err)
+	}
+
+	sourceDir := filepath.Join(rootDir, "legacy-cluster")
+	sourceFiles := map[string]string{
+		"cluster.ini":                               "[NETWORK]\ncluster_name = Legacy Cluster\n",
+		"Master/server.ini":                         "[NETWORK]\nserver_port = 11000\n",
+		"Caves/server.ini":                          "[NETWORK]\nserver_port = 11001\n",
+		"Master/save/session/ABCDEF/snapshot.meta":  "snapshot-data",
+		"Master/modoverrides.lua":                   "return {}",
+		"mods/dedicated_server_mods_setup.lua":      "ServerModSetup(\"workshop-362175979\")\n",
+		"mods/workshop-362175979/modinfo.lua":       "name = \"Test Mod\"\n",
+		"saveindex":                                 "slotdata",
+	}
+	for relativePath, contents := range sourceFiles {
+		targetPath := filepath.Join(sourceDir, filepath.FromSlash(relativePath))
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+			t.Fatalf("expected fixture directory to be created, got error: %v", err)
+		}
+		if err := os.WriteFile(targetPath, []byte(contents), 0o644); err != nil {
+			t.Fatalf("expected fixture file to be written, got error: %v", err)
+		}
+	}
+
+	service := NewClusterService(repo, guard, "dst-control-plane:test")
+	record, err := service.Import(context.Background(), handlers.ClusterMutationRequest{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     sourceDir,
+	})
+	if err != nil {
+		t.Fatalf("expected import to succeed, got error: %v", err)
+	}
+
+	importedRoot := filepath.Join(filepath.Dir(record.ComposeFile), "..", "runtime", "data", "Cluster_A")
+	for relativePath, contents := range sourceFiles {
+		targetPath := filepath.Join(importedRoot, filepath.FromSlash(relativePath))
+		data, err := os.ReadFile(targetPath)
+		if err != nil {
+			t.Fatalf("expected imported file %s to exist, got error: %v", relativePath, err)
+		}
+		if string(data) != contents {
+			t.Fatalf("expected imported file %s contents %q, got %q", relativePath, contents, string(data))
+		}
 	}
 }

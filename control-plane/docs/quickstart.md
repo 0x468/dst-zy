@@ -125,7 +125,7 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
 
 如果你已经有自己的存档和配置，推荐按下面的方式导入：
 
-1. 准备一个“裸 Cluster 目录”，里面至少有：
+1. 准备一个 Cluster 目录，里面至少有：
    - `cluster.ini`
    - `Master/server.ini`
    - `Caves/server.ini`
@@ -135,6 +135,8 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
    - `Caves/modoverrides.lua`
 3. 如果已经有 `cluster_token.txt`，一并带上。
 4. 通过控制平面的导入流程选择这个目录。
+
+导入时，控制平面会递归复制这个目录里的现有内容。所以如果你的源目录里已经包含存档、`saveindex`、`mods/`、世界生成配置或其他 shard 相关文件，它们也会一并被带入受控布局，而不只是复制三份 ini。
 
 第一阶段控制平面只接受受控根目录内的导入源路径，不接受越界目录。这是故意的安全边界，用来避免任意读取宿主机路径。
 
