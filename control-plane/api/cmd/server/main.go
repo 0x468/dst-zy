@@ -35,7 +35,9 @@ func main() {
 	auditService := audit.NewService(database)
 
 	deps := handlers.Dependencies{
-		SessionSecret: []byte(cfg.SessionSecret),
+		SessionSecret:       []byte(cfg.SessionSecret),
+		SessionTTL:          cfg.SessionTTL,
+		SessionCookieSecure: cfg.SessionCookieSecure,
 		Auth: service.StaticAuthService{
 			Username: cfg.AdminUsername,
 			Password: cfg.AdminPassword,

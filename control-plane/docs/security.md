@@ -43,6 +43,15 @@
 - 密钥不要提交进 Git
 - 更换密钥前预期旧会话会失效
 
+当前还支持两个相关配置：
+
+- `DST_CONTROL_PLANE_SESSION_TTL`
+  控制会话 token 与 cookie 的有效期，默认 `12h`
+- `DST_CONTROL_PLANE_SESSION_COOKIE_SECURE`
+  控制是否给 cookie 打上 `Secure`，默认 `false`
+
+如果你是 HTTPS 反代场景，推荐把 `DST_CONTROL_PLANE_SESSION_COOKIE_SECURE` 设成 `true`；如果仍然走纯 HTTP 本地开发，就不要误开它，否则浏览器不会在 HTTP 下带回这个 cookie。
+
 ### 4. 基础登录失败限流
 
 当前版本已经为 `/api/login` 增加最小限流能力，主要用于降低单机场景下的低成本爆破风险。

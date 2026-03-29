@@ -7,28 +7,32 @@ import (
 )
 
 type Config struct {
-	ListenAddr    string
-	DataRoot      string
-	SessionSecret string
-	AdminUsername string
-	AdminPassword string
-	ExecutionMode string
-	WebStaticDir  string
+	ListenAddr                string
+	DataRoot                  string
+	SessionSecret             string
+	SessionTTL                time.Duration
+	SessionCookieSecure       bool
+	AdminUsername             string
+	AdminPassword             string
+	ExecutionMode             string
+	WebStaticDir              string
 	LoginRateLimitMaxAttempts int
-	LoginRateLimitWindow time.Duration
+	LoginRateLimitWindow      time.Duration
 }
 
 func Load() Config {
 	return Config{
-		ListenAddr:    envOrDefault("DST_CONTROL_PLANE_LISTEN_ADDR", ":8080"),
-		DataRoot:      envOrDefault("DST_CONTROL_PLANE_DATA_ROOT", "/opt/dst-control-plane/data"),
-		SessionSecret: envOrDefault("DST_CONTROL_PLANE_SESSION_SECRET", "0123456789abcdef0123456789abcdef"),
-		AdminUsername: envOrDefault("DST_CONTROL_PLANE_ADMIN_USERNAME", "admin"),
-		AdminPassword: envOrDefault("DST_CONTROL_PLANE_ADMIN_PASSWORD", "admin"),
-		ExecutionMode: envOrDefault("DST_CONTROL_PLANE_EXECUTION_MODE", "compose"),
-		WebStaticDir:  envOrDefault("DST_CONTROL_PLANE_WEB_STATIC_DIR", "/opt/dst-control-plane/web"),
+		ListenAddr:                envOrDefault("DST_CONTROL_PLANE_LISTEN_ADDR", ":8080"),
+		DataRoot:                  envOrDefault("DST_CONTROL_PLANE_DATA_ROOT", "/opt/dst-control-plane/data"),
+		SessionSecret:             envOrDefault("DST_CONTROL_PLANE_SESSION_SECRET", "0123456789abcdef0123456789abcdef"),
+		SessionTTL:                envOrDefaultDuration("DST_CONTROL_PLANE_SESSION_TTL", 12*time.Hour),
+		SessionCookieSecure:       envOrDefaultBool("DST_CONTROL_PLANE_SESSION_COOKIE_SECURE", false),
+		AdminUsername:             envOrDefault("DST_CONTROL_PLANE_ADMIN_USERNAME", "admin"),
+		AdminPassword:             envOrDefault("DST_CONTROL_PLANE_ADMIN_PASSWORD", "admin"),
+		ExecutionMode:             envOrDefault("DST_CONTROL_PLANE_EXECUTION_MODE", "compose"),
+		WebStaticDir:              envOrDefault("DST_CONTROL_PLANE_WEB_STATIC_DIR", "/opt/dst-control-plane/web"),
 		LoginRateLimitMaxAttempts: envOrDefaultInt("DST_CONTROL_PLANE_LOGIN_RATE_LIMIT_MAX_ATTEMPTS", 5),
-		LoginRateLimitWindow: envOrDefaultDuration("DST_CONTROL_PLANE_LOGIN_RATE_LIMIT_WINDOW", 5*time.Minute),
+		LoginRateLimitWindow:      envOrDefaultDuration("DST_CONTROL_PLANE_LOGIN_RATE_LIMIT_WINDOW", 5*time.Minute),
 	}
 }
 
@@ -57,6 +61,18 @@ func envOrDefaultDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func envOrDefaultBool(key string, fallback bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseBool(value)
 	if err != nil {
 		return fallback
 	}

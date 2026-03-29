@@ -72,6 +72,12 @@ docker logs <control-plane-container>
 - 服务端重启后会话密钥变了
 - 请求实际上打到了另一个会话状态不同的实例
 
+如果你刚登录就发现页面始终留不住登录态，还要额外检查：
+
+- 是否把 `DST_CONTROL_PLANE_SESSION_COOKIE_SECURE=true` 开在了纯 HTTP 访问场景
+- 浏览器开发者工具里这个 cookie 是否被标成 `Secure`
+- 你实际访问控制平面的入口是不是 HTTPS
+
 ### 3. 登录直接变成 `429`
 
 如果 `/api/login` 返回：

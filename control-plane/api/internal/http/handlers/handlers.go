@@ -18,14 +18,16 @@ import (
 const SessionCookieName = middleware.SessionCookieName
 
 type Dependencies struct {
-	SessionSecret []byte
-	Auth          AuthService
-	LoginLimiter  LoginLimiter
-	Audit         AuditService
-	Clusters      ClusterService
-	Config        ConfigService
-	Runtime       RuntimeService
-	Jobs          JobsService
+	SessionSecret       []byte
+	SessionTTL          time.Duration
+	SessionCookieSecure bool
+	Auth                AuthService
+	LoginLimiter        LoginLimiter
+	Audit               AuditService
+	Clusters            ClusterService
+	Config              ConfigService
+	Runtime             RuntimeService
+	Jobs                JobsService
 }
 
 type AuthService interface {
@@ -114,18 +116,28 @@ func NewRouter(deps Dependencies) http.Handler {
 			deps.LoginLimiter.Reset(clientKey)
 		}
 
-		token, err := auth.IssueSessionToken(req.Username, time.Now().UTC(), 12*time.Hour, deps.SessionSecret)
+		sessionTTL := deps.SessionTTL
+		if sessionTTL <= 0 {
+			sessionTTL = 12 * time.Hour
+		}
+		issuedAt := time.Now().UTC()
+
+		token, err := auth.IssueSessionToken(req.Username, issuedAt, sessionTTL, deps.SessionSecret)
 		if err != nil {
 			writeMappedError(w, err)
 			return
 		}
+		expiresAt := issuedAt.Add(sessionTTL)
 
 		http.SetCookie(w, &http.Cookie{
 			Name:     SessionCookieName,
 			Value:    token,
 			Path:     "/",
 			HttpOnly: true,
+			Secure:   deps.SessionCookieSecure,
 			SameSite: http.SameSiteLaxMode,
+			Expires:  expiresAt,
+			MaxAge:   int(sessionTTL.Seconds()),
 		})
 		recordLoginAudit(deps.Audit, req.Username, "login_success", clientKey)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -158,6 +170,7 @@ func NewRouter(deps Dependencies) http.Handler {
 			Value:    "",
 			Path:     "/",
 			HttpOnly: true,
+			Secure:   deps.SessionCookieSecure,
 			MaxAge:   -1,
 			SameSite: http.SameSiteLaxMode,
 		})

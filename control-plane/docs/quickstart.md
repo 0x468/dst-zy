@@ -57,6 +57,10 @@ DST Control Plane V2 当前是第一阶段 alpha：
   首个管理员密码
 - `DST_CONTROL_PLANE_SESSION_SECRET`
   会话签名密钥，至少应使用高强度随机值
+- `DST_CONTROL_PLANE_SESSION_TTL`
+  会话 token 与 cookie 的有效期，默认 `12h`
+- `DST_CONTROL_PLANE_SESSION_COOKIE_SECURE`
+  是否给会话 cookie 打上 `Secure`，默认 `false`；在 HTTPS 反代场景建议设成 `true`
 - `DST_CONTROL_PLANE_EXECUTION_MODE`
   `dry-run` 用于开发验证，`compose` 用于真实执行
 - `DST_CONTROL_PLANE_LOGIN_RATE_LIMIT_MAX_ATTEMPTS`

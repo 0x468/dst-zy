@@ -18,8 +18,10 @@ import (
 func TestLoginAndLogoutHandlers(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
 	router := NewRouter(Dependencies{
-		SessionSecret: secret,
-		Auth:          fakeAuthService{allow: true},
+		SessionSecret:       secret,
+		SessionTTL:          90 * time.Minute,
+		SessionCookieSecure: true,
+		Auth:                fakeAuthService{allow: true},
 	})
 
 	loginBody := bytes.NewBufferString(`{"username":"admin","password":"secret"}`)
@@ -37,6 +39,18 @@ func TestLoginAndLogoutHandlers(t *testing.T) {
 	if len(cookies) == 0 {
 		t.Fatal("expected login to set a session cookie")
 	}
+	if !cookies[0].Secure {
+		t.Fatal("expected login cookie to set Secure when configured")
+	}
+	if cookies[0].MaxAge != int((90 * time.Minute).Seconds()) {
+		t.Fatalf("expected login cookie max-age to match ttl, got %d", cookies[0].MaxAge)
+	}
+	if cookies[0].Expires.IsZero() {
+		t.Fatal("expected login cookie to set explicit Expires")
+	}
+	if cookies[0].Expires.Before(time.Now().UTC().Add(89*time.Minute)) || cookies[0].Expires.After(time.Now().UTC().Add(91*time.Minute)) {
+		t.Fatalf("expected login cookie expiry to be about 90 minutes ahead, got %s", cookies[0].Expires)
+	}
 
 	logoutReq := httptest.NewRequest(http.MethodPost, "/api/logout", nil)
 	logoutReq.AddCookie(cookies[0])
@@ -47,6 +61,13 @@ func TestLoginAndLogoutHandlers(t *testing.T) {
 
 	if logoutRec.Code != http.StatusNoContent {
 		t.Fatalf("expected logout to return 204, got %d", logoutRec.Code)
+	}
+	logoutCookies := logoutRec.Result().Cookies()
+	if len(logoutCookies) == 0 {
+		t.Fatal("expected logout to clear session cookie")
+	}
+	if !logoutCookies[0].Secure {
+		t.Fatal("expected logout cookie to preserve Secure when configured")
 	}
 }
 
@@ -101,7 +122,7 @@ func TestClusterHandlers(t *testing.T) {
 			list: []models.ClusterRecord{
 				{ID: 1, Slug: "cluster-a", DisplayName: "Cluster A", ClusterName: "Cluster_A", Status: "running"},
 			},
-			created: models.ClusterRecord{ID: 2, Slug: "cluster-b", DisplayName: "Cluster B", ClusterName: "Cluster_B", Status: "stopped"},
+			created:  models.ClusterRecord{ID: 2, Slug: "cluster-b", DisplayName: "Cluster B", ClusterName: "Cluster_B", Status: "stopped"},
 			imported: models.ClusterRecord{ID: 3, Slug: "cluster-c", DisplayName: "Cluster C", ClusterName: "Cluster_C", Status: "stopped"},
 		},
 	})
@@ -267,7 +288,7 @@ func TestHandlersMapKnownErrorsToStructuredResponses(t *testing.T) {
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
 		Config: fakeConfigService{
-			getErr: sql.ErrNoRows,
+			getErr:  sql.ErrNoRows,
 			saveErr: apierror.Invalid("invalid cluster.ini", nil),
 		},
 		Runtime: fakeRuntimeService{
@@ -509,9 +530,9 @@ func (f *fakeAuditService) List(limit int) ([]models.AuditRecord, error) {
 }
 
 type fakeClusterService struct {
-	list     []models.ClusterRecord
-	created  models.ClusterRecord
-	imported models.ClusterRecord
+	list      []models.ClusterRecord
+	created   models.ClusterRecord
+	imported  models.ClusterRecord
 	createErr error
 	importErr error
 }

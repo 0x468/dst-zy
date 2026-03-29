@@ -8,6 +8,8 @@ services:
       DST_CONTROL_PLANE_DATA_ROOT: /workspace/.tmp/control-plane-dev-data
       DST_CONTROL_PLANE_EXECUTION_MODE: dry-run
       DST_CONTROL_PLANE_WEB_STATIC_DIR: ""
+      DST_CONTROL_PLANE_SESSION_TTL: 12h
+      DST_CONTROL_PLANE_SESSION_COOKIE_SECURE: "false"
     ports:
       - "8080:8080"
     volumes:
