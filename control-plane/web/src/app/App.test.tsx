@@ -457,6 +457,101 @@ describe("App", () => {
     expect(screen.queryAllByRole("alert")).toHaveLength(1);
   });
 
+  it("refreshes recent audit after saving config", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 31,
+          actor: "admin",
+          action: "login_success",
+          target_type: "auth",
+          target_id: 0,
+          summary: "client=127.0.0.1",
+          created_at: "2026-03-29T12:00:00Z",
+        },
+      ]))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "Updated description",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 32,
+          actor: "admin",
+          action: "config_save",
+          target_type: "cluster",
+          target_id: 1,
+          summary: "slug=cluster-a",
+          created_at: "2026-03-29T12:01:00Z",
+        },
+      ]));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    await user.clear(screen.getByLabelText("Cluster description"));
+    await user.type(screen.getByLabelText("Cluster description"), "Updated description");
+    await user.click(screen.getByRole("button", { name: "Save config" }));
+
+    expect(await screen.findByText("Saved config")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/audit?slug=cluster-a&limit=20", expect.any(Object));
+  });
+
   it("clears stale cluster details while the next cluster config is loading", async () => {
     const user = userEvent.setup();
     const clusterBConfig = deferred<Response>();

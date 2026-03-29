@@ -156,7 +156,12 @@ export function App() {
     try {
       await saveClusterConfig(selectedSlug, nextSnapshot);
       setErrorMessage(undefined);
-      setSnapshot(await getClusterConfig(selectedSlug));
+      const [nextConfigSnapshot, nextAudit] = await Promise.all([
+        getClusterConfig(selectedSlug),
+        listAudit(selectedSlug),
+      ]);
+      setSnapshot(nextConfigSnapshot);
+      setAudit(nextAudit);
     } catch (error) {
       if (isUnauthorizedError(error)) {
         handleAppError(error, "Failed to save config");
