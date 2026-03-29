@@ -75,4 +75,9 @@ grep -q '"job_type":"start"' "$TMP_DIR/action.json"
 curl -fsS -b "$COOKIE_JAR" "$API_URL/api/jobs" >"$TMP_DIR/jobs.json"
 grep -q '"status":"succeeded"' "$TMP_DIR/jobs.json"
 
+curl -fsS -b "$COOKIE_JAR" "$API_URL/api/audit?slug=cluster-a&limit=20" >"$TMP_DIR/audit.json"
+grep -q '"action":"cluster_create"' "$TMP_DIR/audit.json"
+grep -q '"action":"cluster_action_start"' "$TMP_DIR/audit.json"
+grep -q '"action":"login_success"' "$TMP_DIR/audit.json"
+
 printf 'create cluster e2e passed\n'

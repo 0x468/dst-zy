@@ -90,4 +90,10 @@ grep -q '"job_type":"stop"' "$TMP_DIR/action.json"
 curl -fsS -b "$COOKIE_JAR" "$API_URL/api/jobs" >"$TMP_DIR/jobs.json"
 grep -q '"status":"succeeded"' "$TMP_DIR/jobs.json"
 
+curl -fsS -b "$COOKIE_JAR" "$API_URL/api/audit?slug=imported-a&limit=20" >"$TMP_DIR/audit.json"
+grep -q '"action":"cluster_import"' "$TMP_DIR/audit.json"
+grep -q '"action":"config_save"' "$TMP_DIR/audit.json"
+grep -q '"action":"cluster_action_stop"' "$TMP_DIR/audit.json"
+grep -q '"action":"login_success"' "$TMP_DIR/audit.json"
+
 printf 'import cluster e2e passed\n'
