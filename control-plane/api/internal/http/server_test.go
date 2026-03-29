@@ -103,6 +103,10 @@ func (f handlerFakeClusterService) Import(_ context.Context, _ handlers.ClusterM
 	return models.ClusterRecord{}, nil
 }
 
+func (f handlerFakeClusterService) Delete(_ context.Context, _ string) (models.ClusterRecord, error) {
+	return models.ClusterRecord{}, nil
+}
+
 type handlerFakeConfigService struct{}
 
 func (handlerFakeConfigService) GetSnapshot(_ context.Context, _ string) (models.ClusterConfigSnapshot, error) {

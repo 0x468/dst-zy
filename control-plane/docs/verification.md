@@ -61,6 +61,7 @@ npm test
 ```bash
 bash control-plane/tests/e2e/create-cluster.sh
 bash control-plane/tests/e2e/import-cluster.sh
+bash control-plane/tests/e2e/delete-cluster.sh
 ```
 
 这两条脚本默认使用：
@@ -73,9 +74,11 @@ bash control-plane/tests/e2e/import-cluster.sh
 
 - 登录链路可用
 - `create` / `import` 两条核心 API 能走通
+- `delete-cluster.sh` 会验证停止状态集群的删除链路，包括目录移除、列表刷新和审计记录
 - 受控目录与 SQLite 数据流接线正常
 - 配置读取、保存、任务列表能闭环
 - `create-cluster.sh` 现在还会额外触发一次 `backup`，确认归档文件会实际落到 `meta/backups/`，并验证备份列表接口与下载接口都可用
+- 删除集群能力当前至少要补后端 service/handler 与前端确认流测试，确保只有 `stopped` 集群可删
 
 它们不证明：
 

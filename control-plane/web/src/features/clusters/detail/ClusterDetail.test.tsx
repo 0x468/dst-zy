@@ -88,6 +88,86 @@ describe("ClusterDetailPage", () => {
     expect(screen.getByRole("button", { name: "Backup" })).toBeInTheDocument();
   });
 
+  it("requires typing the cluster slug before deleting", async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "stopped",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          gameMode: "survival",
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+        }}
+        onSave={vi.fn()}
+        onDelete={onDelete}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Delete cluster" })).toBeDisabled();
+
+    await user.type(screen.getByLabelText("Confirm cluster slug"), "cluster-a");
+    await user.click(screen.getByRole("button", { name: "Delete cluster" }));
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides delete controls while the cluster is running", () => {
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          gameMode: "survival",
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+        }}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Confirm cluster slug")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete cluster" })).not.toBeInTheDocument();
+  });
+
   it("shows cluster metadata and status summary", () => {
     render(
       <ClusterDetailPage

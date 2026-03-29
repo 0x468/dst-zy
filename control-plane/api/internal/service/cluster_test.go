@@ -11,6 +11,7 @@ import (
 	"github.com/gwf/dst-docker/control-plane/api/internal/db"
 	"github.com/gwf/dst-docker/control-plane/api/internal/files"
 	"github.com/gwf/dst-docker/control-plane/api/internal/http/handlers"
+	"github.com/gwf/dst-docker/control-plane/api/internal/models"
 )
 
 func TestClusterServiceRejectsInvalidSlug(t *testing.T) {
@@ -158,5 +159,92 @@ func TestClusterServiceImportCopiesExistingClusterContentsRecursively(t *testing
 		if string(data) != contents {
 			t.Fatalf("expected imported file %s contents %q, got %q", relativePath, contents, string(data))
 		}
+	}
+}
+
+func TestClusterServiceDeleteRejectsRunningCluster(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	guard, err := files.NewGuard(rootDir)
+	if err != nil {
+		t.Fatalf("expected guard to initialize, got error: %v", err)
+	}
+
+	record, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "running",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster record to be created, got error: %v", err)
+	}
+	if err := os.MkdirAll(record.BaseDir, 0o755); err != nil {
+		t.Fatalf("expected cluster directory to be created, got error: %v", err)
+	}
+
+	service := NewClusterService(repo, guard, "dst-control-plane:test")
+	_, err = service.Delete(context.Background(), record.Slug)
+	if !apierror.IsKind(err, apierror.KindInvalid) {
+		t.Fatalf("expected running cluster delete to return invalid error, got %T %v", err, err)
+	}
+}
+
+func TestClusterServiceDeleteRemovesClusterDirectoryAndRecord(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	guard, err := files.NewGuard(rootDir)
+	if err != nil {
+		t.Fatalf("expected guard to initialize, got error: %v", err)
+	}
+
+	record, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "stopped",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster record to be created, got error: %v", err)
+	}
+
+	targetFile := filepath.Join(record.BaseDir, "runtime", "data", "Cluster_A", "cluster.ini")
+	if err := os.MkdirAll(filepath.Dir(targetFile), 0o755); err != nil {
+		t.Fatalf("expected cluster runtime dir to be created, got error: %v", err)
+	}
+	if err := os.WriteFile(targetFile, []byte("cluster"), 0o644); err != nil {
+		t.Fatalf("expected cluster file to be written, got error: %v", err)
+	}
+
+	service := NewClusterService(repo, guard, "dst-control-plane:test")
+	if _, err := service.Delete(context.Background(), record.Slug); err != nil {
+		t.Fatalf("expected cluster delete to succeed, got error: %v", err)
+	}
+
+	if _, err := os.Stat(record.BaseDir); !os.IsNotExist(err) {
+		t.Fatalf("expected cluster directory to be removed, got err=%v", err)
+	}
+	if _, err := repo.GetBySlug(record.Slug); err == nil {
+		t.Fatal("expected cluster record to be removed")
 	}
 }

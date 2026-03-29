@@ -51,6 +51,7 @@ type ClusterService interface {
 	List(ctx context.Context) ([]models.ClusterRecord, error)
 	Create(ctx context.Context, req ClusterMutationRequest) (models.ClusterRecord, error)
 	Import(ctx context.Context, req ClusterMutationRequest) (models.ClusterRecord, error)
+	Delete(ctx context.Context, slug string) (models.ClusterRecord, error)
 }
 
 type ConfigService interface {
@@ -227,6 +228,17 @@ func NewRouter(deps Dependencies) http.Handler {
 		}
 
 		writeJSON(w, http.StatusCreated, record)
+	}))))
+
+	mux.Handle("DELETE /api/clusters/{slug}", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		record, err := deps.Clusters.Delete(r.Context(), r.PathValue("slug"))
+		if err != nil {
+			writeMappedError(w, err)
+			return
+		}
+
+		recordClusterAudit(deps.Audit, sessionActor(r, deps.SessionSecret), "cluster_delete", record.ID, record.Slug)
+		w.WriteHeader(http.StatusNoContent)
 	}))))
 
 	mux.Handle("GET /api/clusters/{slug}/config", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

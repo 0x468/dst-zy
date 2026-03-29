@@ -240,6 +240,12 @@ export async function mutateCluster(input: ClusterMutationInput): Promise<Cluste
   return mapCluster(await response.json() as ClusterSummaryResponse);
 }
 
+export async function deleteCluster(slug: string): Promise<void> {
+  await request(`/api/clusters/${slug}`, {
+    method: "DELETE",
+  });
+}
+
 async function request(path: string, init: RequestInit = {}) {
   const method = (init.method ?? "GET").toUpperCase();
   const response = await fetch(path, {

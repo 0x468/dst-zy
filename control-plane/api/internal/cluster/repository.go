@@ -104,6 +104,11 @@ func (r *Repository) UpdateStatus(id int64, status string) error {
 	return err
 }
 
+func (r *Repository) Delete(id int64) error {
+	_, err := r.db.Exec(`DELETE FROM cluster_records WHERE id = ?`, id)
+	return err
+}
+
 type clusterScanner interface {
 	Scan(dest ...any) error
 }

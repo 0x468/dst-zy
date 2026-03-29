@@ -17,6 +17,7 @@ type ClusterDetailPageProps = {
   backups?: BackupSummary[];
   onAction?: (action: string) => void;
   onRefreshBackups?: () => Promise<void> | void;
+  onDelete?: () => Promise<void> | void;
 };
 
 export function ClusterDetailPage({
@@ -28,8 +29,10 @@ export function ClusterDetailPage({
   backups = [],
   onAction = () => {},
   onRefreshBackups = () => {},
+  onDelete = () => {},
 }: ClusterDetailPageProps) {
   const [tab, setTab] = useState<"overview" | "advanced">("overview");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   return (
     <section>
@@ -75,6 +78,25 @@ export function ClusterDetailPage({
             </div>
           </dl>
           <ClusterConfigForm snapshot={snapshot} onSave={onSave} />
+          {cluster.status === "stopped" ? (
+            <section>
+              <h2>Danger zone</h2>
+              <label htmlFor="delete-confirmation">Confirm cluster slug</label>
+              <input
+                id="delete-confirmation"
+                type="text"
+                value={deleteConfirmation}
+                onChange={(event) => setDeleteConfirmation(event.target.value)}
+              />
+              <button
+                type="button"
+                disabled={deleteConfirmation.trim() !== cluster.slug}
+                onClick={() => void onDelete()}
+              >
+                Delete cluster
+              </button>
+            </section>
+          ) : null}
           <BackupPanel clusterSlug={cluster.slug} backups={backups} onRefresh={onRefreshBackups} />
           <JobPanel jobs={jobs} />
           <AuditPanel audit={audit} clusterSlug={cluster.slug} />

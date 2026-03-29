@@ -100,6 +100,27 @@ func (s ClusterService) Import(_ context.Context, req handlers.ClusterMutationRe
 	})
 }
 
+func (s ClusterService) Delete(_ context.Context, slug string) (models.ClusterRecord, error) {
+	record, err := s.repo.GetBySlug(slug)
+	if err != nil {
+		return models.ClusterRecord{}, err
+	}
+	if record.Status != "stopped" {
+		return models.ClusterRecord{}, apierror.Invalid("cluster must be stopped before deletion", nil)
+	}
+	if err := s.guard.EnsureWithinRoot(record.BaseDir); err != nil {
+		return models.ClusterRecord{}, mapClusterMutationError(err)
+	}
+	if err := os.RemoveAll(record.BaseDir); err != nil {
+		return models.ClusterRecord{}, err
+	}
+	if err := s.repo.Delete(record.ID); err != nil {
+		return models.ClusterRecord{}, err
+	}
+
+	return record, nil
+}
+
 func (s ClusterService) prepareLayout(layout files.ManagedLayout, clusterName string) error {
 	dirs := []string{
 		layout.RootDir,

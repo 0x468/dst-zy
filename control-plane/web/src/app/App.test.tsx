@@ -284,6 +284,106 @@ describe("App", () => {
     });
   });
 
+  it("deletes a stopped cluster after confirmation and refreshes the cluster list", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "stopped",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+        {
+          id: 2,
+          slug: "cluster-b",
+          display_name: "Cluster B",
+          status: "running",
+          note: "Second world",
+          cluster_name: "Cluster_B",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 2,
+          slug: "cluster-b",
+          display_name: "Cluster B",
+          status: "running",
+          note: "Second world",
+          cluster_name: "Cluster_B",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_B",
+        cluster_description: "B co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key-b",
+        master_port: 10890,
+        master: {
+          server_port: 12000,
+          master_server_port: 28018,
+          authentication_port: 9768,
+        },
+        caves: {
+          server_port: 12001,
+          master_server_port: 28019,
+          authentication_port: 9769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_B\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    await user.type(screen.getByLabelText("Confirm cluster slug"), "cluster-a");
+    await user.click(screen.getByRole("button", { name: "Delete cluster" }));
+
+    expect(await screen.findByRole("heading", { name: "Cluster B" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/clusters/cluster-a", expect.objectContaining({
+      method: "DELETE",
+      headers: expect.objectContaining({
+        "X-DST-Control-Plane-CSRF": "1",
+      }),
+    }));
+  });
+
   it("shows create errors inside the mutation form instead of the global banner", async () => {
     const user = userEvent.setup();
     fetchMock

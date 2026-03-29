@@ -16,6 +16,7 @@ type ClustersRouteProps = {
   onSaveConfig: (snapshot: ClusterConfigSnapshot) => Promise<void> | void;
   onAction: (action: string) => Promise<void> | void;
   onRefreshBackups: () => Promise<void> | void;
+  onDeleteCluster: () => Promise<void> | void;
 };
 
 export function ClustersRoute({
@@ -32,6 +33,7 @@ export function ClustersRoute({
   onSaveConfig,
   onAction,
   onRefreshBackups,
+  onDeleteCluster,
 }: ClustersRouteProps) {
   return (
     <section>
@@ -54,6 +56,7 @@ export function ClustersRoute({
           onSave={onSaveConfig}
           onAction={onAction}
           onRefreshBackups={onRefreshBackups}
+          onDelete={onDeleteCluster}
         />
       ) : null}
     </section>

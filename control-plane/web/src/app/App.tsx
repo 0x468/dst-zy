@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import {
+  deleteCluster,
   getClusterConfig,
   getSession,
   listAudit,
@@ -155,6 +156,24 @@ export function App() {
     }
   }
 
+  async function handleDeleteCluster() {
+    if (!selectedSlug) {
+      return;
+    }
+
+    try {
+      await deleteCluster(selectedSlug);
+      setErrorMessage(undefined);
+      await refreshClusters();
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        handleAppError(error, "Failed to delete cluster");
+        return;
+      }
+      throw error;
+    }
+  }
+
   async function handleSaveConfig(nextSnapshot: ClusterConfigSnapshot) {
     if (!selectedSlug) {
       return;
@@ -274,6 +293,7 @@ export function App() {
           onSaveConfig={handleSaveConfig}
           onAction={handleAction}
           onRefreshBackups={handleRefreshBackups}
+          onDeleteCluster={handleDeleteCluster}
         />
       ) : (
         <LoginRoute onSubmit={handleSignIn} />

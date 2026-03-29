@@ -180,6 +180,19 @@ func TestClusterHandlers(t *testing.T) {
 	if len(auditService.records) != 2 || auditService.records[1].action != "cluster_import" {
 		t.Fatalf("expected import cluster to record cluster_import audit, got %+v", auditService.records)
 	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/clusters/cluster-a", nil)
+	deleteReq.AddCookie(sessionCookie)
+	deleteReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
+	deleteRec := httptest.NewRecorder()
+	router.ServeHTTP(deleteRec, deleteReq)
+
+	if deleteRec.Code != http.StatusNoContent {
+		t.Fatalf("expected delete cluster to return 204, got %d", deleteRec.Code)
+	}
+	if len(auditService.records) != 3 || auditService.records[2].action != "cluster_delete" {
+		t.Fatalf("expected delete cluster to record cluster_delete audit, got %+v", auditService.records)
+	}
 }
 
 func TestConfigAndJobsHandlers(t *testing.T) {
@@ -659,8 +672,10 @@ type fakeClusterService struct {
 	list      []models.ClusterRecord
 	created   models.ClusterRecord
 	imported  models.ClusterRecord
+	deleted   models.ClusterRecord
 	createErr error
 	importErr error
+	deleteErr error
 }
 
 func (f fakeClusterService) List(_ context.Context) ([]models.ClusterRecord, error) {
@@ -673,6 +688,10 @@ func (f fakeClusterService) Create(_ context.Context, _ ClusterMutationRequest) 
 
 func (f fakeClusterService) Import(_ context.Context, _ ClusterMutationRequest) (models.ClusterRecord, error) {
 	return f.imported, f.importErr
+}
+
+func (f fakeClusterService) Delete(_ context.Context, _ string) (models.ClusterRecord, error) {
+	return f.deleted, f.deleteErr
 }
 
 type fakeConfigService struct {
