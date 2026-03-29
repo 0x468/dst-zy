@@ -159,7 +159,8 @@ describe("App", () => {
     expect(screen.getByText("Primary world")).toBeInTheDocument();
     expect(screen.getByText("compose up failed")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recent audit" })).toBeInTheDocument();
-    expect(screen.getByText("login_failed")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Auth events" })).toBeInTheDocument();
+    expect(screen.getByText("Sign-in failed")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/login", expect.objectContaining({
       headers: expect.objectContaining({
