@@ -61,4 +61,7 @@ grep -q '"status":"ok"' "$TMP_DIR/login.json"
 curl -fsS -b "$COOKIE_JAR" "$API_URL/api/clusters" >"$TMP_DIR/clusters.json"
 grep -q '^\[\]' "$TMP_DIR/clusters.json"
 
+curl -fsS -b "$COOKIE_JAR" "$API_URL/api/audit?limit=5" >"$TMP_DIR/audit.json"
+grep -q '"action":"login_success"' "$TMP_DIR/audit.json"
+
 printf 'control plane image smoke passed\n'
