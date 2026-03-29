@@ -17,11 +17,13 @@ import (
 
 func TestLoginAndLogoutHandlers(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
+	auditService := &fakeAuditService{}
 	router := NewRouter(Dependencies{
 		SessionSecret:       secret,
 		SessionTTL:          90 * time.Minute,
 		SessionCookieSecure: true,
 		Auth:                fakeAuthService{allow: true},
+		Audit:               auditService,
 	})
 
 	loginBody := bytes.NewBufferString(`{"username":"admin","password":"secret"}`)
@@ -68,6 +70,15 @@ func TestLoginAndLogoutHandlers(t *testing.T) {
 	}
 	if !logoutCookies[0].Secure {
 		t.Fatal("expected logout cookie to preserve Secure when configured")
+	}
+	if len(auditService.records) != 2 {
+		t.Fatalf("expected login and logout to both record audit entries, got %+v", auditService.records)
+	}
+	if auditService.records[0].action != "login_success" {
+		t.Fatalf("expected first audit action login_success, got %q", auditService.records[0].action)
+	}
+	if auditService.records[1].action != "logout_success" {
+		t.Fatalf("expected second audit action logout_success, got %q", auditService.records[1].action)
 	}
 }
 

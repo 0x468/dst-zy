@@ -164,7 +164,8 @@ func NewRouter(deps Dependencies) http.Handler {
 
 	protected := middleware.AuthRequired(deps.SessionSecret)
 
-	mux.Handle("POST /api/logout", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	mux.Handle("POST /api/logout", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		recordLoginAudit(deps.Audit, sessionActor(r, deps.SessionSecret), "logout_success", loginClientKey(r))
 		http.SetCookie(w, &http.Cookie{
 			Name:     SessionCookieName,
 			Value:    "",
