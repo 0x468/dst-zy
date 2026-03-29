@@ -2,17 +2,29 @@ import type { AuditSummary } from "../../lib/api";
 
 type AuditPanelProps = {
   audit: AuditSummary[];
+  clusterSlug?: string;
 };
 
-export function AuditPanel({ audit }: AuditPanelProps) {
+export function AuditPanel({ audit, clusterSlug }: AuditPanelProps) {
+  const visibleAudit = audit.filter((record) => {
+    if (record.targetType === "auth") {
+      return true;
+    }
+    if (!clusterSlug) {
+      return true;
+    }
+
+    return record.summary.includes(`slug=${clusterSlug}`);
+  });
+
   return (
     <section>
       <h2>Recent audit</h2>
-      {audit.length === 0 ? (
+      {visibleAudit.length === 0 ? (
         <p>No audit entries yet.</p>
       ) : (
         <ul>
-          {audit.map((record) => (
+          {visibleAudit.map((record) => (
             <li key={record.id}>
               <strong>{record.action}</strong>
               <span>{record.actor}</span>

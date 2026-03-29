@@ -71,7 +71,7 @@ export function ClusterDetailPage({
           </dl>
           <ClusterConfigForm snapshot={snapshot} onSave={onSave} />
           <JobPanel jobs={jobs} />
-          <AuditPanel audit={audit} />
+          <AuditPanel audit={audit} clusterSlug={cluster.slug} />
         </>
       ) : (
         <RawFileEditor snapshot={snapshot} onSave={onSave} />
