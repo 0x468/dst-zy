@@ -16,6 +16,7 @@ export function AuditPanel({ audit }: AuditPanelProps) {
             <li key={record.id}>
               <strong>{record.action}</strong>
               <span>{record.actor}</span>
+              <time dateTime={record.createdAt}>{formatAuditTimestamp(record.createdAt)}</time>
               {record.summary ? <p>{record.summary}</p> : null}
             </li>
           ))}
@@ -23,4 +24,13 @@ export function AuditPanel({ audit }: AuditPanelProps) {
       )}
     </section>
   );
+}
+
+function formatAuditTimestamp(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toISOString().replace("T", " ").replace(".000Z", " UTC").replace("Z", " UTC");
 }
