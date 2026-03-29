@@ -3,24 +3,44 @@ import type { BackupSummary } from "../../lib/api";
 type BackupPanelProps = {
   clusterSlug: string;
   backups: BackupSummary[];
+  onRefresh?: () => Promise<void> | void;
 };
 
-export function BackupPanel({ clusterSlug, backups }: BackupPanelProps) {
+export function BackupPanel({ clusterSlug, backups, onRefresh = () => {} }: BackupPanelProps) {
+  const latestBackup = backups[0];
+  const olderBackups = backups.slice(1);
+
   return (
     <section>
       <h2>Backups</h2>
+      <button type="button" onClick={() => void onRefresh()}>Refresh backups</button>
       {backups.length === 0 ? (
         <p>No backups yet.</p>
       ) : (
-        <ul>
-          {backups.map((backup) => (
-            <li key={backup.name}>
-              <a href={buildDownloadPath(clusterSlug, backup.name)}>{backup.name}</a>
-              <time dateTime={backup.createdAt}>{formatBackupTimestamp(backup.createdAt)}</time>
-              <span>{formatBackupSize(backup.sizeBytes)}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          {latestBackup ? (
+            <p>
+              <strong>Latest backup</strong>
+              {" "}
+              <a href={buildDownloadPath(clusterSlug, latestBackup.name)}>{latestBackup.name}</a>
+              {" "}
+              <time dateTime={latestBackup.createdAt}>{formatBackupTimestamp(latestBackup.createdAt)}</time>
+              {" "}
+              <span>{formatBackupSize(latestBackup.sizeBytes)}</span>
+            </p>
+          ) : null}
+          {olderBackups.length > 0 ? (
+            <ul>
+              {olderBackups.map((backup) => (
+                <li key={backup.name}>
+                  <a href={buildDownloadPath(clusterSlug, backup.name)}>{backup.name}</a>
+                  <time dateTime={backup.createdAt}>{formatBackupTimestamp(backup.createdAt)}</time>
+                  <span>{formatBackupSize(backup.sizeBytes)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
       )}
     </section>
   );

@@ -198,6 +198,24 @@ export function App() {
     }
   }
 
+  async function handleRefreshBackups() {
+    if (!selectedSlug) {
+      return;
+    }
+
+    try {
+      const nextBackups = await listBackups(selectedSlug);
+      setBackups(nextBackups);
+      setErrorMessage(undefined);
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        handleAppError(error, "Failed to refresh backups");
+        return;
+      }
+      throw error;
+    }
+  }
+
   useEffect(() => {
     if (!authenticated || !selectedSlug || !selectedCluster) {
       return;
@@ -255,6 +273,7 @@ export function App() {
           backups={backups}
           onSaveConfig={handleSaveConfig}
           onAction={handleAction}
+          onRefreshBackups={handleRefreshBackups}
         />
       ) : (
         <LoginRoute onSubmit={handleSignIn} />

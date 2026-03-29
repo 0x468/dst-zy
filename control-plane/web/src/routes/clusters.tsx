@@ -15,6 +15,7 @@ type ClustersRouteProps = {
   backups?: BackupSummary[];
   onSaveConfig: (snapshot: ClusterConfigSnapshot) => Promise<void> | void;
   onAction: (action: string) => Promise<void> | void;
+  onRefreshBackups: () => Promise<void> | void;
 };
 
 export function ClustersRoute({
@@ -30,6 +31,7 @@ export function ClustersRoute({
   backups = [],
   onSaveConfig,
   onAction,
+  onRefreshBackups,
 }: ClustersRouteProps) {
   return (
     <section>
@@ -51,6 +53,7 @@ export function ClustersRoute({
           backups={backups}
           onSave={onSaveConfig}
           onAction={onAction}
+          onRefreshBackups={onRefreshBackups}
         />
       ) : null}
     </section>

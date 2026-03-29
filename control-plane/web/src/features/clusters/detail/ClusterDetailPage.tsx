@@ -16,6 +16,7 @@ type ClusterDetailPageProps = {
   audit?: AuditSummary[];
   backups?: BackupSummary[];
   onAction?: (action: string) => void;
+  onRefreshBackups?: () => Promise<void> | void;
 };
 
 export function ClusterDetailPage({
@@ -26,6 +27,7 @@ export function ClusterDetailPage({
   audit = [],
   backups = [],
   onAction = () => {},
+  onRefreshBackups = () => {},
 }: ClusterDetailPageProps) {
   const [tab, setTab] = useState<"overview" | "advanced">("overview");
 
@@ -73,7 +75,7 @@ export function ClusterDetailPage({
             </div>
           </dl>
           <ClusterConfigForm snapshot={snapshot} onSave={onSave} />
-          <BackupPanel clusterSlug={cluster.slug} backups={backups} />
+          <BackupPanel clusterSlug={cluster.slug} backups={backups} onRefresh={onRefreshBackups} />
           <JobPanel jobs={jobs} />
           <AuditPanel audit={audit} clusterSlug={cluster.slug} />
         </>
