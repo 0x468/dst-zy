@@ -75,6 +75,7 @@ bash control-plane/tests/e2e/import-cluster.sh
 - `create` / `import` 两条核心 API 能走通
 - 受控目录与 SQLite 数据流接线正常
 - 配置读取、保存、任务列表能闭环
+- `create-cluster.sh` 现在还会额外触发一次 `backup`，确认归档文件会实际落到 `meta/backups/`
 
 它们不证明：
 

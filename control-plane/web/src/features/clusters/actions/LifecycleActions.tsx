@@ -4,7 +4,7 @@ type LifecycleActionsProps = {
   onAction: (action: string) => Promise<void> | void;
 };
 
-const lifecycleActions = ["Start", "Stop", "Restart", "Update", "Validate"];
+const lifecycleActions = ["Start", "Stop", "Restart", "Update", "Validate", "Backup"];
 
 export function LifecycleActions({ onAction }: LifecycleActionsProps) {
   const [pending, setPending] = useState(false);

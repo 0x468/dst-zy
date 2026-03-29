@@ -104,4 +104,25 @@ describe("AuditPanel", () => {
     expect(screen.queryByText("login_success")).not.toBeInTheDocument();
     expect(screen.queryByText("cluster_action_start")).not.toBeInTheDocument();
   });
+
+  it("renders a friendly label for backup actions", () => {
+    render(
+      <AuditPanel
+        clusterSlug="cluster-a"
+        audit={[
+          {
+            id: 34,
+            actor: "admin",
+            action: "cluster_action_backup",
+            targetType: "cluster",
+            targetId: 7,
+            summary: "slug=cluster-a",
+            createdAt: "2026-03-29T12:37:56Z",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Created backup")).toBeInTheDocument();
+  });
 });

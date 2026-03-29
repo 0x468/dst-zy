@@ -253,6 +253,19 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 		t.Fatalf("expected action to record cluster_action_start audit, got %+v", auditService.records)
 	}
 
+	backupReq := httptest.NewRequest(http.MethodPost, "/api/clusters/cluster-a/actions", bytes.NewBufferString(`{"action":"backup"}`))
+	backupReq.AddCookie(sessionCookie)
+	backupReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
+	backupRec := httptest.NewRecorder()
+	router.ServeHTTP(backupRec, backupReq)
+
+	if backupRec.Code != http.StatusAccepted {
+		t.Fatalf("expected backup action to return 202, got %d", backupRec.Code)
+	}
+	if len(auditService.records) != 3 || auditService.records[2].action != "cluster_action_backup" {
+		t.Fatalf("expected backup action to record cluster_action_backup audit, got %+v", auditService.records)
+	}
+
 	jobsReq := httptest.NewRequest(http.MethodGet, "/api/jobs", nil)
 	jobsReq.AddCookie(sessionCookie)
 	jobsRec := httptest.NewRecorder()
@@ -619,11 +632,15 @@ func (f fakeConfigService) SaveSnapshot(_ context.Context, _ string, _ models.Cl
 }
 
 type fakeRuntimeService struct {
-	job    models.JobRecord
-	runErr error
+	job        models.JobRecord
+	runErr     error
+	runAction  func(ctx context.Context, slug string, action string, actor string) (models.JobRecord, error)
 }
 
-func (f fakeRuntimeService) RunAction(_ context.Context, _ string, _ string, _ string) (models.JobRecord, error) {
+func (f fakeRuntimeService) RunAction(ctx context.Context, slug string, action string, actor string) (models.JobRecord, error) {
+	if f.runAction != nil {
+		return f.runAction(ctx, slug, action, actor)
+	}
 	return f.job, f.runErr
 }
 

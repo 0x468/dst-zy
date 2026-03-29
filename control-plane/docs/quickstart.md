@@ -149,6 +149,9 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
 - `restart`
 - `update`
 - `validate`
+- `backup`
+
+其中 `backup` 不会调用 `docker compose`，而是直接把当前集群的 `runtime/data/<ClusterName>/` 打成 `.tar.gz` 归档，放到该集群目录下的 `meta/backups/`。这份归档可以直接作为后续迁移、手工保留或额外离线备份的基础材料。
 
 它们的执行边界是该集群目录下的 compose 文件，而不是直接操作 Docker API 对象。
 

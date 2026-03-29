@@ -1,10 +1,15 @@
 package service
 
 import (
+	"archive/tar"
 	"context"
+	"compress/gzip"
 	"errors"
+	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
@@ -168,6 +173,108 @@ func TestRuntimeServiceRejectsUnsupportedActionBeforeCreatingJob(t *testing.T) {
 	}
 	if len(jobRecords) != 0 {
 		t.Fatalf("expected no job to be created for unsupported action, got %d", len(jobRecords))
+	}
+}
+
+func TestRuntimeServiceBackupCreatesArchiveAndPreservesStatus(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	jobsRepo := jobs.NewService(database)
+	record, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "stopped",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster record to be created, got error: %v", err)
+	}
+
+	clusterDataDir := filepath.Join(record.BaseDir, "runtime", "data", record.ClusterName)
+	if err := os.MkdirAll(filepath.Join(clusterDataDir, "Master"), 0o755); err != nil {
+		t.Fatalf("expected cluster data directory to be created, got error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(clusterDataDir, "cluster.ini"), []byte("[NETWORK]\ncluster_name = Cluster_A\n"), 0o644); err != nil {
+		t.Fatalf("expected cluster.ini to be written, got error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(clusterDataDir, "Master", "worldgenoverride.lua"), []byte("return {}"), 0o644); err != nil {
+		t.Fatalf("expected worldgenoverride.lua to be written, got error: %v", err)
+	}
+
+	service := NewRuntimeService(repo, jobsRepo, "compose")
+
+	job, err := service.RunAction(context.Background(), record.Slug, "backup", "admin")
+	if err != nil {
+		t.Fatalf("expected backup action to succeed, got error: %v", err)
+	}
+	if job.Status != "succeeded" {
+		t.Fatalf("expected backup job status succeeded, got %q", job.Status)
+	}
+	if !strings.Contains(job.StdoutExcerpt, filepath.Join("meta", "backups")) {
+		t.Fatalf("expected backup stdout excerpt to include archive path, got %q", job.StdoutExcerpt)
+	}
+
+	archivePath := strings.TrimSpace(job.StdoutExcerpt)
+	if _, err := os.Stat(archivePath); err != nil {
+		t.Fatalf("expected backup archive to exist, got error: %v", err)
+	}
+
+	archiveFile, err := os.Open(archivePath)
+	if err != nil {
+		t.Fatalf("expected backup archive to open, got error: %v", err)
+	}
+	defer archiveFile.Close()
+
+	gzipReader, err := gzip.NewReader(archiveFile)
+	if err != nil {
+		t.Fatalf("expected gzip reader, got error: %v", err)
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+	entries := map[string]string{}
+	for {
+		header, err := tarReader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("expected tar entry, got error: %v", err)
+		}
+		if !header.FileInfo().Mode().IsRegular() {
+			continue
+		}
+
+		contents, err := io.ReadAll(tarReader)
+		if err != nil {
+			t.Fatalf("expected tar contents to read, got error: %v", err)
+		}
+		entries[header.Name] = string(contents)
+	}
+
+	if entries["Cluster_A/cluster.ini"] != "[NETWORK]\ncluster_name = Cluster_A\n" {
+		t.Fatalf("expected cluster.ini to be archived, got %+v", entries)
+	}
+	if entries["Cluster_A/Master/worldgenoverride.lua"] != "return {}" {
+		t.Fatalf("expected worldgenoverride.lua to be archived, got %+v", entries)
+	}
+
+	reloaded, err := repo.GetBySlug(record.Slug)
+	if err != nil {
+		t.Fatalf("expected cluster record to reload, got error: %v", err)
+	}
+	if reloaded.Status != "stopped" {
+		t.Fatalf("expected backup to preserve cluster status, got %q", reloaded.Status)
 	}
 }
 

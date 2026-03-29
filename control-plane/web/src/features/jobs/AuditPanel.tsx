@@ -92,6 +92,8 @@ function labelAuditAction(action: string) {
       return "Updated cluster";
     case "cluster_action_validate":
       return "Validated cluster";
+    case "cluster_action_backup":
+      return "Created backup";
     default:
       return action;
   }

@@ -48,8 +48,44 @@ describe("ClusterDetailPage", () => {
 
     expect(screen.getByRole("button", { name: "Start" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Stop" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Backup" })).toBeDisabled();
 
     resolveAction?.();
+  });
+
+  it("shows the backup action in overview controls", () => {
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          gameMode: "survival",
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+        }}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Backup" })).toBeInTheDocument();
   });
 
   it("shows cluster metadata and status summary", () => {

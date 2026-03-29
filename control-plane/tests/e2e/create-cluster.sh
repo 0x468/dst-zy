@@ -72,12 +72,26 @@ curl -fsS -b "$COOKIE_JAR" -X POST -H 'Content-Type: application/json' \
 
 grep -q '"job_type":"start"' "$TMP_DIR/action.json"
 
+curl -fsS -b "$COOKIE_JAR" -X POST -H 'Content-Type: application/json' \
+  -H 'X-DST-Control-Plane-CSRF: 1' \
+  -d '{"action":"backup"}' \
+  "$API_URL/api/clusters/cluster-a/actions" >"$TMP_DIR/backup.json"
+
+grep -q '"job_type":"backup"' "$TMP_DIR/backup.json"
+
+BACKUP_ARCHIVE="$(grep -o '/workspace[^"]*\.tar\.gz' "$TMP_DIR/backup.json" | head -n 1)"
+BACKUP_ARCHIVE_HOST="${BACKUP_ARCHIVE/#\/workspace/$CONTROL_PLANE_ROOT}"
+
+test -f "$BACKUP_ARCHIVE_HOST"
+
 curl -fsS -b "$COOKIE_JAR" "$API_URL/api/jobs" >"$TMP_DIR/jobs.json"
 grep -q '"status":"succeeded"' "$TMP_DIR/jobs.json"
+grep -q '"job_type":"backup"' "$TMP_DIR/jobs.json"
 
 curl -fsS -b "$COOKIE_JAR" "$API_URL/api/audit?slug=cluster-a&limit=20" >"$TMP_DIR/audit.json"
 grep -q '"action":"cluster_create"' "$TMP_DIR/audit.json"
 grep -q '"action":"cluster_action_start"' "$TMP_DIR/audit.json"
+grep -q '"action":"cluster_action_backup"' "$TMP_DIR/audit.json"
 grep -q '"action":"login_success"' "$TMP_DIR/audit.json"
 
 printf 'create cluster e2e passed\n'

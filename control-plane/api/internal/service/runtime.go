@@ -1,11 +1,18 @@
 package service
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
@@ -47,6 +54,24 @@ func (s RuntimeService) RunAction(_ context.Context, slug string, action string,
 	job, err := s.jobs.Create(record.ID, action, actor)
 	if err != nil {
 		return models.JobRecord{}, err
+	}
+
+	if action == "backup" {
+		archivePath, err := createBackupArchive(record)
+		if err != nil {
+			if markErr := s.jobs.MarkFinished(job.ID, "failed", "", truncateExcerpt(err.Error())); markErr != nil {
+				return models.JobRecord{}, markErr
+			}
+			failedJob, getErr := s.jobs.Get(job.ID)
+			if getErr != nil {
+				return models.JobRecord{}, getErr
+			}
+			return failedJob, err
+		}
+		if err := s.jobs.MarkFinished(job.ID, "succeeded", truncateExcerpt(archivePath), ""); err != nil {
+			return models.JobRecord{}, err
+		}
+		return s.jobs.Get(job.ID)
 	}
 
 	switch s.executionMode {
@@ -116,7 +141,7 @@ func commandForAction(runner composeCommandFactory, action string) (*exec.Cmd, e
 
 func isSupportedAction(action string) bool {
 	switch action {
-	case "start", "stop", "restart", "update", "validate":
+	case "start", "stop", "restart", "update", "validate", "backup":
 		return true
 	default:
 		return false
@@ -147,4 +172,103 @@ func truncateExcerpt(value string) string {
 		return value
 	}
 	return value[:maxExcerptLength]
+}
+
+func createBackupArchive(record models.ClusterRecord) (archivePath string, err error) {
+	sourceDir := filepath.Join(record.BaseDir, "runtime", "data", record.ClusterName)
+	backupDir := filepath.Join(record.BaseDir, "meta", "backups")
+	if err := ensureDir(backupDir); err != nil {
+		return "", err
+	}
+
+	archivePath = filepath.Join(
+		backupDir,
+		fmt.Sprintf("%s-%s.tar.gz", record.ClusterName, time.Now().UTC().Format("20060102T150405Z")),
+	)
+	if err := writeTarGzArchive(sourceDir, record.ClusterName, archivePath); err != nil {
+		return "", err
+	}
+
+	return archivePath, nil
+}
+
+func writeTarGzArchive(sourceDir string, rootName string, archivePath string) (err error) {
+	archiveFile, err := os.Create(archivePath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		closeErr := archiveFile.Close()
+		if err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			_ = os.Remove(archivePath)
+		}
+	}()
+
+	gzipWriter := gzip.NewWriter(archiveFile)
+	defer func() {
+		closeErr := gzipWriter.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
+
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer func() {
+		closeErr := tarWriter.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
+
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		relativePath, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			return err
+		}
+
+		archiveName := rootName
+		if relativePath != "." {
+			archiveName = rootName + "/" + filepath.ToSlash(relativePath)
+		}
+
+		header, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+		header.Name = archiveName
+
+		switch {
+		case info.IsDir():
+			if !strings.HasSuffix(header.Name, "/") {
+				header.Name += "/"
+			}
+			return tarWriter.WriteHeader(header)
+		case info.Mode().IsRegular():
+			if err := tarWriter.WriteHeader(header); err != nil {
+				return err
+			}
+
+			sourceFile, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer sourceFile.Close()
+
+			_, err = io.Copy(tarWriter, sourceFile)
+			return err
+		default:
+			return apierror.Invalid("backup contains unsupported file type", nil)
+		}
+	})
+}
+
+func ensureDir(path string) error {
+	return os.MkdirAll(path, 0o755)
 }
