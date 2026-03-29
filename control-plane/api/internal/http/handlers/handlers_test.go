@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -209,6 +211,16 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 			},
 		},
 		Audit: auditService,
+		Backups: fakeBackupService{
+			list: []models.BackupRecord{
+				{
+					Name:       "Cluster_A-20260329T130000Z.tar.gz",
+					SizeBytes:  512,
+					CreatedAt:  time.Date(2026, 3, 29, 13, 0, 0, 0, time.UTC),
+					ClusterSlug: "cluster-a",
+				},
+			},
+		},
 	})
 
 	sessionCookie := issueSessionCookie(t, secret)
@@ -313,6 +325,51 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	if bytes.Count(limitedAuditRec.Body.Bytes(), []byte(`"action":`)) != 1 {
 		t.Fatalf("expected limited audit list to return exactly one record, got %q", limitedAuditRec.Body.String())
 	}
+
+	backupsReq := httptest.NewRequest(http.MethodGet, "/api/clusters/cluster-a/backups", nil)
+	backupsReq.AddCookie(sessionCookie)
+	backupsRec := httptest.NewRecorder()
+	router.ServeHTTP(backupsRec, backupsReq)
+
+	if backupsRec.Code != http.StatusOK {
+		t.Fatalf("expected backups list to return 200, got %d", backupsRec.Code)
+	}
+	if !bytes.Contains(backupsRec.Body.Bytes(), []byte(`"name":"Cluster_A-20260329T130000Z.tar.gz"`)) {
+		t.Fatalf("expected backups list to include archive metadata, got %q", backupsRec.Body.String())
+	}
+}
+
+func TestBackupDownloadHandlerServesArchiveFile(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	archiveDir := t.TempDir()
+	archivePath := filepath.Join(archiveDir, "Cluster_A-20260329T130000Z.tar.gz")
+	if err := os.WriteFile(archivePath, []byte("archive-bytes"), 0o644); err != nil {
+		t.Fatalf("expected archive file to be written, got error: %v", err)
+	}
+
+	router := NewRouter(Dependencies{
+		SessionSecret: secret,
+		Auth:          fakeAuthService{allow: true},
+		Backups: fakeBackupService{
+			resolvePath: archivePath,
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/clusters/cluster-a/backups/Cluster_A-20260329T130000Z.tar.gz", nil)
+	req.AddCookie(issueSessionCookie(t, secret))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected backup download to return 200, got %d", rec.Code)
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("archive-bytes")) {
+		t.Fatalf("expected backup download body to contain archive bytes, got %q", rec.Body.String())
+	}
+	if contentDisposition := rec.Header().Get("Content-Disposition"); contentDisposition == "" {
+		t.Fatal("expected backup download to set Content-Disposition")
+	}
 }
 
 func TestReadHandlersRequireSession(t *testing.T) {
@@ -331,6 +388,7 @@ func TestReadHandlersRequireSession(t *testing.T) {
 	}{
 		{name: "cluster list", path: "/api/clusters"},
 		{name: "cluster config", path: "/api/clusters/cluster-a/config"},
+		{name: "cluster backups", path: "/api/clusters/cluster-a/backups"},
 		{name: "jobs list", path: "/api/jobs"},
 		{name: "audit list", path: "/api/audit"},
 	}
@@ -650,4 +708,19 @@ type fakeJobsService struct {
 
 func (f fakeJobsService) List(_ context.Context, _ int) ([]models.JobRecord, error) {
 	return f.list, nil
+}
+
+type fakeBackupService struct {
+	list        []models.BackupRecord
+	listErr     error
+	resolvePath string
+	resolveErr  error
+}
+
+func (f fakeBackupService) List(_ context.Context, _ string) ([]models.BackupRecord, error) {
+	return f.list, f.listErr
+}
+
+func (f fakeBackupService) ResolveArchivePath(_ context.Context, _ string, _ string) (string, error) {
+	return f.resolvePath, f.resolveErr
 }

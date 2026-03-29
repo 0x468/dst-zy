@@ -52,6 +52,7 @@ func main() {
 		Config:   service.NewConfigService(clusterRepo),
 		Runtime:  service.NewRuntimeService(clusterRepo, jobsRepo, cfg.ExecutionMode),
 		Jobs:     service.NewJobsService(jobsRepo),
+		Backups:  service.NewBackupService(clusterRepo),
 	}
 
 	mux := httpapi.NewServerHandler(deps, cfg.WebStaticDir)

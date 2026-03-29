@@ -39,6 +39,7 @@ func TestNewServerHandlerServesHealthAPIAndSPA(t *testing.T) {
 		Config:  handlerFakeConfigService{},
 		Runtime: handlerFakeRuntimeService{},
 		Jobs:    handlerFakeJobsService{},
+		Backups: handlerFakeBackupService{},
 	}, staticDir)
 
 	healthReq := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -122,6 +123,16 @@ type handlerFakeJobsService struct{}
 
 func (handlerFakeJobsService) List(_ context.Context, _ int) ([]models.JobRecord, error) {
 	return []models.JobRecord{}, nil
+}
+
+type handlerFakeBackupService struct{}
+
+func (handlerFakeBackupService) List(_ context.Context, _ string) ([]models.BackupRecord, error) {
+	return []models.BackupRecord{}, nil
+}
+
+func (handlerFakeBackupService) ResolveArchivePath(_ context.Context, _ string, _ string) (string, error) {
+	return "", nil
 }
 
 func issueServerSessionCookie(t *testing.T, secret []byte) *http.Cookie {

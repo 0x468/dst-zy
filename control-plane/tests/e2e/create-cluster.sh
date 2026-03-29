@@ -81,8 +81,16 @@ grep -q '"job_type":"backup"' "$TMP_DIR/backup.json"
 
 BACKUP_ARCHIVE="$(grep -o '/workspace[^"]*\.tar\.gz' "$TMP_DIR/backup.json" | head -n 1)"
 BACKUP_ARCHIVE_HOST="${BACKUP_ARCHIVE/#\/workspace/$CONTROL_PLANE_ROOT}"
+BACKUP_ARCHIVE_NAME="$(basename "$BACKUP_ARCHIVE")"
 
 test -f "$BACKUP_ARCHIVE_HOST"
+
+curl -fsS -b "$COOKIE_JAR" "$API_URL/api/clusters/cluster-a/backups" >"$TMP_DIR/backups.json"
+grep -q "\"name\":\"$BACKUP_ARCHIVE_NAME\"" "$TMP_DIR/backups.json"
+
+curl -fsS -b "$COOKIE_JAR" \
+  "$API_URL/api/clusters/cluster-a/backups/$BACKUP_ARCHIVE_NAME" >"$TMP_DIR/downloaded-backup.tar.gz"
+cmp "$BACKUP_ARCHIVE_HOST" "$TMP_DIR/downloaded-backup.tar.gz"
 
 curl -fsS -b "$COOKIE_JAR" "$API_URL/api/jobs" >"$TMP_DIR/jobs.json"
 grep -q '"status":"succeeded"' "$TMP_DIR/jobs.json"

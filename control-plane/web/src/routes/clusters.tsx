@@ -1,4 +1,4 @@
-import type { AuditSummary, ClusterConfigSnapshot, ClusterMutationInput, ClusterSummary, JobSummary } from "../lib/api";
+import type { AuditSummary, BackupSummary, ClusterConfigSnapshot, ClusterMutationInput, ClusterSummary, JobSummary } from "../lib/api";
 import { ClusterDetailPage } from "../features/clusters/detail/ClusterDetailPage";
 import { ClusterList } from "../features/clusters/list/ClusterList";
 
@@ -12,6 +12,7 @@ type ClustersRouteProps = {
   snapshot?: ClusterConfigSnapshot;
   jobs?: JobSummary[];
   audit?: AuditSummary[];
+  backups?: BackupSummary[];
   onSaveConfig: (snapshot: ClusterConfigSnapshot) => Promise<void> | void;
   onAction: (action: string) => Promise<void> | void;
 };
@@ -26,6 +27,7 @@ export function ClustersRoute({
   snapshot,
   jobs = [],
   audit = [],
+  backups = [],
   onSaveConfig,
   onAction,
 }: ClustersRouteProps) {
@@ -46,6 +48,7 @@ export function ClustersRoute({
           snapshot={snapshot}
           jobs={jobs}
           audit={audit}
+          backups={backups}
           onSave={onSaveConfig}
           onAction={onAction}
         />

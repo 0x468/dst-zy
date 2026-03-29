@@ -45,6 +45,13 @@ export type AuditSummary = {
   createdAt: string;
 };
 
+export type BackupSummary = {
+  name: string;
+  sizeBytes: number;
+  createdAt: string;
+  clusterSlug: string;
+};
+
 export type ClusterMutationInput = {
   mode: "create" | "import";
   slug: string;
@@ -113,6 +120,13 @@ type AuditSummaryResponse = {
   target_id: number;
   summary: string;
   created_at: string;
+};
+
+type BackupSummaryResponse = {
+  name: string;
+  size_bytes: number;
+  created_at: string;
+  cluster_slug: string;
 };
 
 export async function signIn(username: string, password: string): Promise<boolean> {
@@ -196,6 +210,11 @@ export async function listAudit(slug?: string, limit = 20): Promise<AuditSummary
 
   const response = await request(`/api/audit?${query.toString()}`);
   return mapAudit(await response.json() as AuditSummaryResponse[]);
+}
+
+export async function listBackups(slug: string): Promise<BackupSummary[]> {
+  const response = await request(`/api/clusters/${slug}/backups`);
+  return mapBackups(await response.json() as BackupSummaryResponse[]);
 }
 
 export async function runClusterAction(slug: string, action: string): Promise<JobSummary> {
@@ -308,6 +327,15 @@ function mapAudit(records: AuditSummaryResponse[]): AuditSummary[] {
     targetId: record.target_id,
     summary: record.summary,
     createdAt: record.created_at,
+  }));
+}
+
+function mapBackups(records: BackupSummaryResponse[]): BackupSummary[] {
+  return records.map((record) => ({
+    name: record.name,
+    sizeBytes: record.size_bytes,
+    createdAt: record.created_at,
+    clusterSlug: record.cluster_slug,
   }));
 }
 

@@ -9,6 +9,13 @@ describe("App", () => {
 
   beforeEach(() => {
     fetchMock.mockReset();
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      if (typeof input === "string" && input.includes("/backups")) {
+        return Promise.resolve(jsonResponse([]));
+      }
+
+      return Promise.reject(new Error(`unmocked fetch: ${String(input)}`));
+    });
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -344,6 +351,7 @@ describe("App", () => {
       }))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({
         id: 21,
         cluster_id: 1,
@@ -400,6 +408,131 @@ describe("App", () => {
     });
   });
 
+  it("refreshes backup list after running the backup action", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          name: "Cluster_A-20260329T130000Z.tar.gz",
+          size_bytes: 2048,
+          created_at: "2026-03-29T13:00:00Z",
+          cluster_slug: "cluster-a",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        id: 21,
+        cluster_id: 1,
+        job_type: "backup",
+        status: "succeeded",
+        stdout_excerpt: "/workspace/.tmp/archive.tar.gz",
+        stderr_excerpt: "",
+      }, 202))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 21,
+          cluster_id: 1,
+          job_type: "backup",
+          status: "succeeded",
+          stdout_excerpt: "/workspace/.tmp/archive.tar.gz",
+          stderr_excerpt: "",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          name: "Cluster_A-20260329T140000Z.tar.gz",
+          size_bytes: 4096,
+          created_at: "2026-03-29T14:00:00Z",
+          cluster_slug: "cluster-a",
+        },
+        {
+          name: "Cluster_A-20260329T130000Z.tar.gz",
+          size_bytes: 2048,
+          created_at: "2026-03-29T13:00:00Z",
+          cluster_slug: "cluster-a",
+        },
+      ]));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    expect(screen.getByRole("link", { name: "Cluster_A-20260329T130000Z.tar.gz" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Backup" }));
+
+    expect(await screen.findByRole("link", { name: "Cluster_A-20260329T140000Z.tar.gz" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/clusters/cluster-a/backups", expect.any(Object));
+  });
+
   it("shows config save errors inside the config form instead of the global banner", async () => {
     const user = userEvent.setup();
     fetchMock
@@ -435,6 +568,7 @@ describe("App", () => {
           cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
         },
       }))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ error: "invalid cluster.ini" }, 400));
@@ -504,6 +638,7 @@ describe("App", () => {
           created_at: "2026-03-29T12:00:00Z",
         },
       ]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(jsonResponse({
         cluster_name: "Cluster_A",
@@ -599,6 +734,7 @@ describe("App", () => {
       }))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockImplementationOnce(() => clusterBConfig.promise)
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]));
@@ -683,6 +819,7 @@ describe("App", () => {
       }))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ error: "unsupported action" }, 400));
 
     render(<App />);
@@ -740,6 +877,7 @@ describe("App", () => {
       }))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ error: "Unauthorized" }, 401));
 
     render(<App />);
@@ -789,6 +927,7 @@ describe("App", () => {
           cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
         },
       }))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));

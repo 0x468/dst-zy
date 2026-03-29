@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-import type { AuditSummary, ClusterConfigSnapshot, ClusterSummary, JobSummary } from "../../../lib/api";
+import type { AuditSummary, BackupSummary, ClusterConfigSnapshot, ClusterSummary, JobSummary } from "../../../lib/api";
+import { BackupPanel } from "../../backups/BackupPanel";
 import { LifecycleActions } from "../actions/LifecycleActions";
 import { RawFileEditor } from "../../editor/RawFileEditor";
 import { ClusterConfigForm } from "../forms/ClusterConfigForm";
@@ -13,6 +14,7 @@ type ClusterDetailPageProps = {
   onSave: (snapshot: ClusterConfigSnapshot) => void;
   jobs?: JobSummary[];
   audit?: AuditSummary[];
+  backups?: BackupSummary[];
   onAction?: (action: string) => void;
 };
 
@@ -22,6 +24,7 @@ export function ClusterDetailPage({
   onSave,
   jobs = [],
   audit = [],
+  backups = [],
   onAction = () => {},
 }: ClusterDetailPageProps) {
   const [tab, setTab] = useState<"overview" | "advanced">("overview");
@@ -70,6 +73,7 @@ export function ClusterDetailPage({
             </div>
           </dl>
           <ClusterConfigForm snapshot={snapshot} onSave={onSave} />
+          <BackupPanel clusterSlug={cluster.slug} backups={backups} />
           <JobPanel jobs={jobs} />
           <AuditPanel audit={audit} clusterSlug={cluster.slug} />
         </>

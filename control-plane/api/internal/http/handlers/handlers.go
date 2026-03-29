@@ -29,6 +29,7 @@ type Dependencies struct {
 	Config              ConfigService
 	Runtime             RuntimeService
 	Jobs                JobsService
+	Backups             BackupService
 }
 
 type AuthService interface {
@@ -63,6 +64,11 @@ type RuntimeService interface {
 
 type JobsService interface {
 	List(ctx context.Context, limit int) ([]models.JobRecord, error)
+}
+
+type BackupService interface {
+	List(ctx context.Context, slug string) ([]models.BackupRecord, error)
+	ResolveArchivePath(ctx context.Context, slug string, name string) (string, error)
 }
 
 type ClusterMutationRequest struct {
@@ -248,6 +254,37 @@ func NewRouter(deps Dependencies) http.Handler {
 		recordClusterAudit(deps.Audit, sessionActor(r, deps.SessionSecret), "config_save", 0, r.PathValue("slug"))
 		w.WriteHeader(http.StatusNoContent)
 	}))))
+
+	mux.Handle("GET /api/clusters/{slug}/backups", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if deps.Backups == nil {
+			writeJSON(w, http.StatusOK, []models.BackupRecord{})
+			return
+		}
+
+		backups, err := deps.Backups.List(r.Context(), r.PathValue("slug"))
+		if err != nil {
+			writeMappedError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, backups)
+	})))
+
+	mux.Handle("GET /api/clusters/{slug}/backups/{name}", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if deps.Backups == nil {
+			writeError(w, http.StatusNotFound, "backup not found")
+			return
+		}
+
+		archivePath, err := deps.Backups.ResolveArchivePath(r.Context(), r.PathValue("slug"), r.PathValue("name"))
+		if err != nil {
+			writeMappedError(w, err)
+			return
+		}
+
+		w.Header().Set("Content-Disposition", `attachment; filename="`+r.PathValue("name")+`"`)
+		http.ServeFile(w, r, archivePath)
+	})))
 
 	mux.Handle("POST /api/clusters/{slug}/actions", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req actionRequest
