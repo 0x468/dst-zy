@@ -170,7 +170,7 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/clusters", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/clusters/cluster-a/config", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/jobs", expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(6, "/api/audit", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(6, "/api/audit?slug=cluster-a", expect.any(Object));
   });
 
   it("stays on the login form when credentials are rejected", async () => {

@@ -276,7 +276,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		writeJSON(w, http.StatusOK, jobs)
 	})))
 
-	mux.Handle("GET /api/audit", protected(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	mux.Handle("GET /api/audit", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if deps.Audit == nil {
 			writeJSON(w, http.StatusOK, []models.AuditRecord{})
 			return
@@ -288,7 +288,7 @@ func NewRouter(deps Dependencies) http.Handler {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, records)
+		writeJSON(w, http.StatusOK, filterAuditRecords(records, r.URL.Query().Get("slug")))
 	})))
 
 	return mux
@@ -365,4 +365,19 @@ func sessionActor(r *http.Request, secret []byte) string {
 	}
 
 	return session.Username
+}
+
+func filterAuditRecords(records []models.AuditRecord, slug string) []models.AuditRecord {
+	if slug == "" {
+		return records
+	}
+
+	filtered := make([]models.AuditRecord, 0, len(records))
+	for _, record := range records {
+		if record.TargetType == "auth" || record.Summary == "slug="+slug {
+			filtered = append(filtered, record)
+		}
+	}
+
+	return filtered
 }

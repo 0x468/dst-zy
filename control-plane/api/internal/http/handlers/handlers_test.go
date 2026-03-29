@@ -185,6 +185,8 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	auditService := &fakeAuditService{
 		list: []models.AuditRecord{
 			{ID: 21, Actor: "admin", Action: "login_success", Summary: "client=127.0.0.1"},
+			{ID: 22, Actor: "admin", Action: "cluster_action_start", TargetType: "cluster", Summary: "slug=cluster-a"},
+			{ID: 23, Actor: "admin", Action: "cluster_action_stop", TargetType: "cluster", Summary: "slug=cluster-b"},
 		},
 	}
 	router := NewRouter(Dependencies{
@@ -270,6 +272,21 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	}
 	if !bytes.Contains(auditRec.Body.Bytes(), []byte(`"action":"login_success"`)) {
 		t.Fatalf("expected audit list to include login_success entry, got %q", auditRec.Body.String())
+	}
+
+	filteredAuditReq := httptest.NewRequest(http.MethodGet, "/api/audit?slug=cluster-a", nil)
+	filteredAuditReq.AddCookie(sessionCookie)
+	filteredAuditRec := httptest.NewRecorder()
+	router.ServeHTTP(filteredAuditRec, filteredAuditReq)
+
+	if filteredAuditRec.Code != http.StatusOK {
+		t.Fatalf("expected filtered audit list to return 200, got %d", filteredAuditRec.Code)
+	}
+	if !bytes.Contains(filteredAuditRec.Body.Bytes(), []byte(`"action":"cluster_action_start"`)) {
+		t.Fatalf("expected filtered audit list to include cluster-a entry, got %q", filteredAuditRec.Body.String())
+	}
+	if bytes.Contains(filteredAuditRec.Body.Bytes(), []byte(`"action":"cluster_action_stop"`)) {
+		t.Fatalf("expected filtered audit list to exclude other cluster entry, got %q", filteredAuditRec.Body.String())
 	}
 }
 

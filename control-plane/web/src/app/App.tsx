@@ -200,7 +200,7 @@ export function App() {
         const [nextSnapshot, nextJobs, nextAudit] = await Promise.all([
           getClusterConfig(activeSlug),
           listJobs(),
-          listAudit(),
+          listAudit(activeSlug),
         ]);
 
         if (cancelled) {
