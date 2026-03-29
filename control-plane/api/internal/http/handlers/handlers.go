@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
@@ -282,7 +283,7 @@ func NewRouter(deps Dependencies) http.Handler {
 			return
 		}
 
-		records, err := deps.Audit.List(50)
+		records, err := deps.Audit.List(auditLimit(r.URL.Query().Get("limit")))
 		if err != nil {
 			writeMappedError(w, err)
 			return
@@ -380,4 +381,20 @@ func filterAuditRecords(records []models.AuditRecord, slug string) []models.Audi
 	}
 
 	return filtered
+}
+
+func auditLimit(raw string) int {
+	if raw == "" {
+		return 50
+	}
+
+	parsed, err := strconv.Atoi(raw)
+	if err != nil || parsed <= 0 {
+		return 50
+	}
+	if parsed > 100 {
+		return 100
+	}
+
+	return parsed
 }

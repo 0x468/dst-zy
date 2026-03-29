@@ -288,6 +288,18 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	if bytes.Contains(filteredAuditRec.Body.Bytes(), []byte(`"action":"cluster_action_stop"`)) {
 		t.Fatalf("expected filtered audit list to exclude other cluster entry, got %q", filteredAuditRec.Body.String())
 	}
+
+	limitedAuditReq := httptest.NewRequest(http.MethodGet, "/api/audit?limit=1", nil)
+	limitedAuditReq.AddCookie(sessionCookie)
+	limitedAuditRec := httptest.NewRecorder()
+	router.ServeHTTP(limitedAuditRec, limitedAuditReq)
+
+	if limitedAuditRec.Code != http.StatusOK {
+		t.Fatalf("expected limited audit list to return 200, got %d", limitedAuditRec.Code)
+	}
+	if bytes.Count(limitedAuditRec.Body.Bytes(), []byte(`"action":`)) != 1 {
+		t.Fatalf("expected limited audit list to return exactly one record, got %q", limitedAuditRec.Body.String())
+	}
 }
 
 func TestReadHandlersRequireSession(t *testing.T) {

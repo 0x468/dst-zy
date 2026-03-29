@@ -187,8 +187,14 @@ export async function listJobs(): Promise<JobSummary[]> {
   return mapJobs(await response.json() as JobSummaryResponse[]);
 }
 
-export async function listAudit(slug?: string): Promise<AuditSummary[]> {
-  const response = await request(slug ? `/api/audit?slug=${encodeURIComponent(slug)}` : "/api/audit");
+export async function listAudit(slug?: string, limit = 20): Promise<AuditSummary[]> {
+  const query = new URLSearchParams();
+  if (slug) {
+    query.set("slug", slug);
+  }
+  query.set("limit", String(limit));
+
+  const response = await request(`/api/audit?${query.toString()}`);
   return mapAudit(await response.json() as AuditSummaryResponse[]);
 }
 
