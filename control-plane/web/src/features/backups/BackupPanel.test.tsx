@@ -66,4 +66,43 @@ describe("BackupPanel", () => {
     await user.click(screen.getByRole("button", { name: "Refresh backups" }));
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
+
+  it("disables refresh while a refresh request is in flight", async () => {
+    const user = userEvent.setup();
+    let resolveRefresh: (() => void) | undefined;
+    const onRefresh = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+      resolveRefresh = resolve;
+    }));
+
+    render(
+      <BackupPanel
+        clusterSlug="cluster-a"
+        backups={[]}
+        onRefresh={onRefresh}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Refresh backups" }));
+
+    expect(screen.getByRole("button", { name: "Refresh backups" })).toBeDisabled();
+
+    resolveRefresh?.();
+  });
+
+  it("shows a local error when refresh fails", async () => {
+    const user = userEvent.setup();
+    const onRefresh = vi.fn().mockRejectedValue(new Error("backup index unavailable"));
+
+    render(
+      <BackupPanel
+        clusterSlug="cluster-a"
+        backups={[]}
+        onRefresh={onRefresh}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Refresh backups" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("backup index unavailable");
+  });
 });

@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { BackupSummary } from "../../lib/api";
 
 type BackupPanelProps = {
@@ -7,13 +9,32 @@ type BackupPanelProps = {
 };
 
 export function BackupPanel({ clusterSlug, backups, onRefresh = () => {} }: BackupPanelProps) {
+  const [pending, setPending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>();
   const latestBackup = backups[0];
   const olderBackups = backups.slice(1);
 
   return (
     <section>
       <h2>Backups</h2>
-      <button type="button" onClick={() => void onRefresh()}>Refresh backups</button>
+      {errorMessage ? <p role="alert">{errorMessage}</p> : null}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={async () => {
+          setPending(true);
+          try {
+            await onRefresh();
+            setErrorMessage(undefined);
+          } catch (error) {
+            setErrorMessage(getErrorMessage(error, "Failed to refresh backups"));
+          } finally {
+            setPending(false);
+          }
+        }}
+      >
+        Refresh backups
+      </button>
       {backups.length === 0 ? (
         <p>No backups yet.</p>
       ) : (
@@ -61,4 +82,12 @@ function formatBackupTimestamp(value: string) {
 
 function formatBackupSize(value: number) {
   return `${value} B`;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim() !== "") {
+    return error.message;
+  }
+
+  return fallback;
 }

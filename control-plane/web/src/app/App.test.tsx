@@ -600,6 +600,64 @@ describe("App", () => {
     expect(await screen.findByRole("link", { name: "Cluster_A-20260329T140000Z.tar.gz" })).toBeInTheDocument();
   });
 
+  it("keeps backup refresh failures local to the backup panel", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ error: "backup index unavailable" }, 500));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    await user.click(screen.getByRole("button", { name: "Refresh backups" }));
+
+    const backupSection = screen.getByRole("heading", { name: "Backups" }).closest("section");
+    if (!backupSection) {
+      throw new Error("expected backups section");
+    }
+
+    expect(await within(backupSection).findByRole("alert")).toHaveTextContent("backup index unavailable");
+    expect(screen.queryAllByRole("alert")).toHaveLength(1);
+  });
+
   it("shows config save errors inside the config form instead of the global banner", async () => {
     const user = userEvent.setup();
     fetchMock
