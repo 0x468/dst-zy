@@ -220,6 +220,14 @@ sqlite3 app.db "select id, actor, action, summary, created_at from audit_records
 - `login_success`
 - `login_failed`
 - `login_rate_limited`
+- `cluster_create`
+- `cluster_import`
+- `config_save`
+- `cluster_action_start`
+- `cluster_action_stop`
+- `cluster_action_restart`
+- `cluster_action_update`
+- `cluster_action_validate`
 
 注意：
 

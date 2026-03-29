@@ -211,6 +211,13 @@ func NewRouter(deps Dependencies) http.Handler {
 			return
 		}
 
+		switch req.Mode {
+		case "create":
+			recordClusterAudit(deps.Audit, sessionActor(r, deps.SessionSecret), "cluster_create", record.ID, req.Slug)
+		case "import":
+			recordClusterAudit(deps.Audit, sessionActor(r, deps.SessionSecret), "cluster_import", record.ID, req.Slug)
+		}
+
 		writeJSON(w, http.StatusCreated, record)
 	}))))
 
@@ -236,6 +243,7 @@ func NewRouter(deps Dependencies) http.Handler {
 			return
 		}
 
+		recordClusterAudit(deps.Audit, sessionActor(r, deps.SessionSecret), "config_save", 0, r.PathValue("slug"))
 		w.WriteHeader(http.StatusNoContent)
 	}))))
 
@@ -246,12 +254,14 @@ func NewRouter(deps Dependencies) http.Handler {
 			return
 		}
 
-		job, err := deps.Runtime.RunAction(r.Context(), r.PathValue("slug"), req.Action, "admin")
+		actor := sessionActor(r, deps.SessionSecret)
+		job, err := deps.Runtime.RunAction(r.Context(), r.PathValue("slug"), req.Action, actor)
 		if err != nil {
 			writeMappedError(w, err)
 			return
 		}
 
+		recordClusterAudit(deps.Audit, actor, "cluster_action_"+req.Action, job.ClusterID, r.PathValue("slug"))
 		writeJSON(w, http.StatusAccepted, job)
 	}))))
 
@@ -328,4 +338,30 @@ func recordLoginAudit(auditService AuditService, username string, action string,
 	}
 
 	_, _ = auditService.Record(actor, action, "auth", 0, "client="+clientKey)
+}
+
+func recordClusterAudit(auditService AuditService, actor string, action string, targetID int64, slug string) {
+	if auditService == nil {
+		return
+	}
+
+	if actor == "" {
+		actor = "unknown"
+	}
+
+	_, _ = auditService.Record(actor, action, "cluster", targetID, "slug="+slug)
+}
+
+func sessionActor(r *http.Request, secret []byte) string {
+	cookie, err := r.Cookie(SessionCookieName)
+	if err != nil || cookie.Value == "" {
+		return "unknown"
+	}
+
+	session, err := auth.ParseSessionToken(cookie.Value, time.Now().UTC(), secret)
+	if err != nil || session.Username == "" {
+		return "unknown"
+	}
+
+	return session.Username
 }

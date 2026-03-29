@@ -115,9 +115,11 @@ func TestSessionHandler(t *testing.T) {
 
 func TestClusterHandlers(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
+	auditService := &fakeAuditService{}
 	router := NewRouter(Dependencies{
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
+		Audit:         auditService,
 		Clusters: fakeClusterService{
 			list: []models.ClusterRecord{
 				{ID: 1, Slug: "cluster-a", DisplayName: "Cluster A", ClusterName: "Cluster_A", Status: "running"},
@@ -148,6 +150,9 @@ func TestClusterHandlers(t *testing.T) {
 	if createRec.Code != http.StatusCreated {
 		t.Fatalf("expected create cluster to return 201, got %d", createRec.Code)
 	}
+	if len(auditService.records) != 1 || auditService.records[0].action != "cluster_create" {
+		t.Fatalf("expected create cluster to record cluster_create audit, got %+v", auditService.records)
+	}
 
 	importBody := bytes.NewBufferString(`{"mode":"import","slug":"cluster-c","display_name":"Cluster C","cluster_name":"Cluster_C","base_dir":"/srv/cluster-c"}`)
 	importReq := httptest.NewRequest(http.MethodPost, "/api/clusters", importBody)
@@ -159,10 +164,18 @@ func TestClusterHandlers(t *testing.T) {
 	if importRec.Code != http.StatusCreated {
 		t.Fatalf("expected import cluster to return 201, got %d", importRec.Code)
 	}
+	if len(auditService.records) != 2 || auditService.records[1].action != "cluster_import" {
+		t.Fatalf("expected import cluster to record cluster_import audit, got %+v", auditService.records)
+	}
 }
 
 func TestConfigAndJobsHandlers(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
+	auditService := &fakeAuditService{
+		list: []models.AuditRecord{
+			{ID: 21, Actor: "admin", Action: "login_success", Summary: "client=127.0.0.1"},
+		},
+	}
 	router := NewRouter(Dependencies{
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
@@ -182,11 +195,7 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 				{ID: 10, JobType: "start", Status: "running"},
 			},
 		},
-		Audit: &fakeAuditService{
-			list: []models.AuditRecord{
-				{ID: 21, Actor: "admin", Action: "login_success", Summary: "client=127.0.0.1"},
-			},
-		},
+		Audit: auditService,
 	})
 
 	sessionCookie := issueSessionCookie(t, secret)
@@ -214,6 +223,9 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	if saveConfigRec.Code != http.StatusNoContent {
 		t.Fatalf("expected save config to return 204, got %d", saveConfigRec.Code)
 	}
+	if len(auditService.records) != 1 || auditService.records[0].action != "config_save" {
+		t.Fatalf("expected save config to record config_save audit, got %+v", auditService.records)
+	}
 
 	actionReq := httptest.NewRequest(http.MethodPost, "/api/clusters/cluster-a/actions", bytes.NewBufferString(`{"action":"start"}`))
 	actionReq.AddCookie(sessionCookie)
@@ -223,6 +235,9 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 
 	if actionRec.Code != http.StatusAccepted {
 		t.Fatalf("expected lifecycle action to return 202, got %d", actionRec.Code)
+	}
+	if len(auditService.records) != 2 || auditService.records[1].action != "cluster_action_start" {
+		t.Fatalf("expected action to record cluster_action_start audit, got %+v", auditService.records)
 	}
 
 	jobsReq := httptest.NewRequest(http.MethodGet, "/api/jobs", nil)
