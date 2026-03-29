@@ -232,6 +232,8 @@ sqlite3 app.db "select id, actor, action, summary, created_at from audit_records
 
 注意：
 
+- 页面里的 `Recent audit` 现在会把认证事件和当前集群事件分开显示
+- 当你在某个集群详情页里查看时，请求会优先按当前 cluster slug 收窄
 - 页面里展示的是最近记录的简化视图，底层 SQLite 仍然是真实数据源
 - `summary` 里当前主要记录客户端地址线索，方便排查单机场景问题
 - 更完整的审计展示和筛选能力仍属于后续增强项
