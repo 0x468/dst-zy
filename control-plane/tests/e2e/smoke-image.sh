@@ -2,6 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "$SCRIPT_DIR/lib.sh"
 CONTROL_PLANE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TMP_DIR="$(mktemp -d /tmp/dst-control-plane-image-smoke.XXXXXX)"
 SERVER_NAME="dst-control-plane-e2e-image"
@@ -19,7 +21,8 @@ cleanup() {
     docker logs "$SERVER_NAME" >&2 || true
   fi
   docker rm -f "$SERVER_NAME" >/dev/null 2>&1 || true
-  rm -rf "$TMP_DIR" "$DATA_ROOT_HOST"
+  safe_rm_tree "$TMP_DIR"
+  safe_rm_tree "$DATA_ROOT_HOST"
   exit "$status"
 }
 trap cleanup EXIT
