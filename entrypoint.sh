@@ -412,8 +412,12 @@ prepare_legacy_server_mod_fallbacks() {
   log_info "server mods: querying Steam metadata for missing ids ${missing_ids[*]}"
   fetch_steam_published_file_details "$metadata_json" "${missing_ids[@]}" || status=$?
   if [ "$status" -ne 0 ]; then
+    log_error "server mods: Steam metadata query failed; continuing without legacy fallback (status=$status)"
+    for mod_id in "${missing_ids[@]}"; do
+      log_server_mod_status 'legacy-fallback-query-failed' "$mod_id" "status=$status"
+    done
     rm -rf "$tmp_dir"
-    return "$status"
+    return 0
   fi
 
   while IFS= read -r line; do
