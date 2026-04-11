@@ -40,16 +40,14 @@ export function ClustersRoute({
   return (
     <section className="console-shell">
       <aside className="console-sidebar" aria-label="Cluster navigation">
-        <nav className="console-sidebar__nav" aria-label="Cluster navigation">
-          <Panel className="console-sidebar__panel">
-            <ClusterList
-              clusters={clusters}
-              selectedSlug={selectedSlug}
-              onSelect={onSelectCluster}
-              onMutate={onMutateCluster}
-            />
-          </Panel>
-        </nav>
+        <Panel className="console-sidebar__panel">
+          <ClusterList
+            clusters={clusters}
+            selectedSlug={selectedSlug}
+            onSelect={onSelectCluster}
+            onMutate={onMutateCluster}
+          />
+        </Panel>
         <Panel tone="subtle">
           <div className="console-toolbar">
             <button type="button" onClick={() => void onSignOut()}>Sign out</button>

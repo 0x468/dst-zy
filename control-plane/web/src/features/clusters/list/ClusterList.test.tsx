@@ -1,11 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { ClusterList } from "./ClusterList";
 
 describe("ClusterList", () => {
-  it("renders cluster navigation items with badge, slug, and selected state", () => {
+  it("renders cluster navigation items with badge, slug, and single-selection semantics", () => {
     render(
       <ClusterList
         clusters={[
@@ -18,13 +18,36 @@ describe("ClusterList", () => {
       />,
     );
 
+    const navigation = screen.getByRole("navigation", { name: "Cluster navigation" });
     expect(screen.getByRole("heading", { name: "Cluster management" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Alpha Cluster/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /Beta Cluster/i })).toHaveAttribute("aria-pressed", "false");
+    expect(within(navigation).queryByRole("heading", { name: "Cluster management" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Alpha Cluster/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Beta Cluster/i })).not.toBeChecked();
     expect(screen.getByText("alpha")).toBeInTheDocument();
     expect(screen.getByText("beta")).toBeInTheDocument();
     expect(screen.getByText("running")).toHaveClass("status-badge");
     expect(screen.getByText("stopped")).toHaveClass("status-badge");
+  });
+
+  it("selects a cluster through the navigation control", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+
+    render(
+      <ClusterList
+        clusters={[
+          { id: 1, slug: "alpha", displayName: "Alpha Cluster", status: "running" },
+          { id: 2, slug: "beta", displayName: "Beta Cluster", status: "stopped" },
+        ]}
+        selectedSlug="alpha"
+        onMutate={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
+
+    await user.click(screen.getByRole("radio", { name: /Beta Cluster/i }));
+
+    expect(onSelect).toHaveBeenCalledWith("beta");
   });
 
   it("disables the mutation submit button while a request is in flight", async () => {

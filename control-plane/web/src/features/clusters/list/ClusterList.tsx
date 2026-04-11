@@ -13,27 +13,31 @@ type ClusterListProps = {
 export function ClusterList({ clusters, selectedSlug, onSelect, onMutate }: ClusterListProps) {
   return (
     <>
-      <section className="cluster-nav" aria-labelledby="cluster-nav-heading">
+      <nav className="cluster-nav" aria-label="Cluster navigation">
         <h2 id="cluster-nav-heading">Clusters</h2>
         <ul className="cluster-nav__list">
           {clusters.map((cluster) => (
             <li key={cluster.id} className="cluster-nav__item">
-              <button
-                className="cluster-nav__button"
-                type="button"
-                aria-pressed={selectedSlug === cluster.slug}
-                onClick={() => onSelect(cluster.slug)}
-              >
-                <strong className="cluster-nav__display-name">{cluster.displayName}</strong>
-                <span className="cluster-nav__meta">
-                  <span className="cluster-nav__slug">{cluster.slug}</span>
-                  <StatusBadge status={cluster.status} />
+              <label className="cluster-nav__choice">
+                <input
+                  className="cluster-nav__radio"
+                  type="radio"
+                  name="selected-cluster"
+                  checked={selectedSlug === cluster.slug}
+                  onChange={() => onSelect(cluster.slug)}
+                />
+                <span className="cluster-nav__button">
+                  <strong className="cluster-nav__display-name">{cluster.displayName}</strong>
+                  <span className="cluster-nav__meta">
+                    <span className="cluster-nav__slug">{cluster.slug}</span>
+                    <StatusBadge status={cluster.status} />
+                  </span>
                 </span>
-              </button>
+              </label>
             </li>
           ))}
         </ul>
-      </section>
+      </nav>
       <section className="cluster-management" aria-labelledby="cluster-management-heading">
         <h2 id="cluster-management-heading">Cluster management</h2>
         <p className="cluster-management__copy">Create a new cluster or import one from an existing path.</p>
