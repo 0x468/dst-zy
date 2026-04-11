@@ -301,6 +301,13 @@ describe("ClusterDetailPage", () => {
     expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "Advanced" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Directly edit raw cluster.ini content.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Advanced" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Backup" })).toBeInTheDocument();
   });
 
   it("allows editing form values and saving", async () => {

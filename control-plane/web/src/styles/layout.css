@@ -1,6 +1,8 @@
 .app-root {
   min-height: 100vh;
   padding: var(--space-6);
+  max-width: 1380px;
+  margin: 0 auto;
 }
 
 .app-error {
@@ -107,6 +109,7 @@
   margin: 0;
   font-size: clamp(2rem, 4vw, 2.8rem);
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .cluster-detail__hero-meta {
@@ -118,6 +121,7 @@
 .cluster-detail__hero-slug {
   color: var(--color-text-muted);
   font-size: 0.88rem;
+  overflow-wrap: anywhere;
 }
 
 .cluster-detail__tablist {
@@ -154,6 +158,24 @@
   grid-column: 1 / -1;
 }
 
+@media (max-width: 1200px) {
+  .console-shell {
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  }
+
+  .cluster-detail__overview-main {
+    grid-template-columns: 1fr;
+  }
+
+  .cluster-detail__records-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cluster-detail__records-grid > :last-child {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 960px) {
   .app-root {
     padding: var(--space-4);
@@ -174,13 +196,25 @@
     justify-items: start;
   }
 
-  .cluster-detail__hero-main,
-  .cluster-detail__overview-main,
-  .cluster-detail__records-grid {
+  .cluster-detail__hero-main {
     grid-template-columns: 1fr;
   }
+}
 
-  .cluster-detail__records-grid > :last-child {
-    grid-column: auto;
+@media (max-width: 720px) {
+  .app-root {
+    padding: var(--space-3);
+  }
+
+  .cluster-detail__hero {
+    padding: var(--space-4);
+  }
+
+  .cluster-detail__hero-main h1 {
+    font-size: clamp(1.5rem, 8vw, 2.1rem);
+  }
+
+  .cluster-detail__summary-grid {
+    grid-template-columns: 1fr;
   }
 }

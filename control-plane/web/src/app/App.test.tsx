@@ -38,6 +38,7 @@ describe("App", () => {
   });
 
   it("restores an existing session on first load", async () => {
+    const user = userEvent.setup();
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ authenticated: true, username: "admin" }))
       .mockResolvedValueOnce(jsonResponse([
@@ -81,6 +82,14 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Cluster management" })).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Cluster A" })).toBeInTheDocument();
+    const clusterManagementSection = screen.getByRole("heading", { name: "Cluster management" }).closest("section");
+    if (!clusterManagementSection) {
+      throw new Error("expected cluster management section");
+    }
+    expect(within(clusterManagementSection).getByRole("button", { name: "Create cluster" })).toBeInTheDocument();
+    await user.selectOptions(within(clusterManagementSection).getByLabelText("Mode"), "import");
+    expect(within(clusterManagementSection).getByRole("button", { name: "Import cluster" })).toBeInTheDocument();
+    expect(within(clusterManagementSection).getByLabelText("Import path")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", expect.any(Object));
   });
 

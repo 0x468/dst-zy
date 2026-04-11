@@ -238,3 +238,20 @@ Docker 端口映射的语义是：
 - [control-plane/docs/development.md](control-plane/docs/development.md)
 - [control-plane/docs/verification.md](control-plane/docs/verification.md)
 - [control-plane/docs/troubleshooting.md](control-plane/docs/troubleshooting.md)
+
+### Control Plane UI 本地验证
+
+如果你在 `control-plane/web` 下迭代前端 UI，可在本地执行：
+
+```bash
+cd control-plane/web
+npm test
+npm run build
+```
+
+如果只想快速回归核心界面测试，可执行：
+
+```bash
+cd control-plane/web
+npm test -- src/app/App.test.tsx src/features/clusters/detail/ClusterDetail.test.tsx src/features/clusters/list/ClusterList.test.tsx
+```

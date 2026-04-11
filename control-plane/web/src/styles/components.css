@@ -132,11 +132,13 @@
   justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .cluster-nav__slug {
   color: var(--color-text-muted);
   font-size: 0.84rem;
+  overflow-wrap: anywhere;
 }
 
 .cluster-management {
@@ -155,6 +157,10 @@
 .cluster-management__form {
   display: grid;
   gap: var(--space-3);
+}
+
+.cluster-management__form > div {
+  min-width: 0;
 }
 
 .console-sidebar__panel {
@@ -236,6 +242,7 @@
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--color-brand-ink);
+  overflow-wrap: anywhere;
 }
 
 .cluster-detail__summary-value .status-badge {
@@ -384,6 +391,7 @@
   justify-content: space-between;
   align-items: start;
   gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .record-panel__excerpt {
@@ -423,4 +431,48 @@
   padding: var(--space-4);
   background: linear-gradient(135deg, color-mix(in srgb, var(--color-brand) 14%, #fff), var(--color-surface));
   border-color: color-mix(in srgb, var(--color-brand) 32%, #fff);
+}
+
+@media (max-width: 900px) {
+  .panel {
+    padding: var(--space-4);
+  }
+
+  .cluster-config-form__meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .advanced-editor textarea {
+    min-height: 17rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .panel {
+    padding: var(--space-3);
+  }
+
+  .cluster-detail__tablist {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cluster-detail__tab {
+    width: 100%;
+  }
+
+  .lifecycle-actions__grid,
+  .cluster-config-form__meta {
+    grid-template-columns: 1fr;
+  }
+
+  .cluster-config-form__actions,
+  .advanced-editor__actions {
+    justify-content: stretch;
+  }
+
+  .cluster-config-form__actions button,
+  .advanced-editor__actions button {
+    width: 100%;
+  }
 }

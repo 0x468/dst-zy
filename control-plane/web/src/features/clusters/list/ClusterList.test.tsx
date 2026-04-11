@@ -50,6 +50,34 @@ describe("ClusterList", () => {
     expect(onSelect).toHaveBeenCalledWith("beta");
   });
 
+  it("keeps create/import controls reachable after selecting a loaded cluster", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ClusterList
+        clusters={[
+          { id: 1, slug: "alpha", displayName: "Alpha Cluster", status: "running" },
+          { id: 2, slug: "beta", displayName: "Beta Cluster", status: "stopped" },
+        ]}
+        selectedSlug="alpha"
+        onMutate={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("radio", { name: /Beta Cluster/i }));
+
+    const clusterManagementSection = screen.getByRole("heading", { name: "Cluster management" }).closest("section");
+    if (!clusterManagementSection) {
+      throw new Error("expected cluster management section");
+    }
+
+    expect(within(clusterManagementSection).getByRole("button", { name: "Create cluster" })).toBeInTheDocument();
+    await user.selectOptions(within(clusterManagementSection).getByLabelText("Mode"), "import");
+    expect(within(clusterManagementSection).getByRole("button", { name: "Import cluster" })).toBeInTheDocument();
+    expect(within(clusterManagementSection).getByLabelText("Import path")).toBeInTheDocument();
+  });
+
   it("disables the mutation submit button while a request is in flight", async () => {
     const user = userEvent.setup();
     let resolveMutation: (() => void) | undefined;
