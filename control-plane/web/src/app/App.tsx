@@ -276,8 +276,8 @@ export function App() {
   }, [authenticated, selectedCluster, selectedSlug]);
 
   return (
-    <main>
-      {errorMessage ? <p role="alert">{errorMessage}</p> : null}
+    <div className="app-root">
+      {errorMessage ? <p role="alert" className="app-error">{errorMessage}</p> : null}
       {authenticated ? (
         <ClustersRoute
           clusters={clusters}
@@ -298,7 +298,7 @@ export function App() {
       ) : (
         <LoginRoute onSubmit={handleSignIn} />
       )}
-    </main>
+    </div>
   );
 }
 

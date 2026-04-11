@@ -1,4 +1,6 @@
 import type { AuditSummary, BackupSummary, ClusterConfigSnapshot, ClusterMutationInput, ClusterSummary, JobSummary } from "../lib/api";
+import { Panel } from "../components/ui/Panel";
+import { StatusBadge } from "../components/ui/StatusBadge";
 import { ClusterDetailPage } from "../features/clusters/detail/ClusterDetailPage";
 import { ClusterList } from "../features/clusters/list/ClusterList";
 
@@ -36,29 +38,47 @@ export function ClustersRoute({
   onDeleteCluster,
 }: ClustersRouteProps) {
   return (
-    <section>
-      <header>
-        <button type="button" onClick={() => void onSignOut()}>Sign out</button>
-      </header>
-      <ClusterList
-        clusters={clusters}
-        selectedSlug={selectedSlug}
-        onSelect={onSelectCluster}
-        onMutate={onMutateCluster}
-      />
-      {detailCluster && snapshot ? (
-        <ClusterDetailPage
-          cluster={detailCluster}
-          snapshot={snapshot}
-          jobs={jobs}
-          audit={audit}
-          backups={backups}
-          onSave={onSaveConfig}
-          onAction={onAction}
-          onRefreshBackups={onRefreshBackups}
-          onDelete={onDeleteCluster}
-        />
-      ) : null}
+    <section className="console-shell">
+      <aside className="console-sidebar" aria-label="Cluster navigation">
+        <nav aria-label="Cluster navigation">
+          <Panel>
+            <ClusterList
+              clusters={clusters}
+              selectedSlug={selectedSlug}
+              onSelect={onSelectCluster}
+              onMutate={onMutateCluster}
+            />
+          </Panel>
+        </nav>
+        <Panel tone="subtle">
+          <div className="console-toolbar">
+            <button type="button" onClick={() => void onSignOut()}>Sign out</button>
+          </div>
+        </Panel>
+      </aside>
+      <main className="console-main">
+        {detailCluster && snapshot ? (
+          <Panel
+            actions={<StatusBadge status={detailCluster.status} />}
+          >
+            <ClusterDetailPage
+              cluster={detailCluster}
+              snapshot={snapshot}
+              jobs={jobs}
+              audit={audit}
+              backups={backups}
+              onSave={onSaveConfig}
+              onAction={onAction}
+              onRefreshBackups={onRefreshBackups}
+              onDelete={onDeleteCluster}
+            />
+          </Panel>
+        ) : (
+          <Panel title="Select a cluster">
+            <p>Pick a cluster from the navigation to inspect details and run actions.</p>
+          </Panel>
+        )}
+      </main>
     </section>
   );
 }

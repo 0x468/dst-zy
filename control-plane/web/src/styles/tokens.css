@@ -1,0 +1,25 @@
+:root {
+  color-scheme: light;
+  --font-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --font-heading: "Space Grotesk", "Avenir Next", sans-serif;
+  --color-bg: #f3f4f6;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-border: #dbe3ef;
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
+  --color-brand: #0f766e;
+  --color-brand-ink: #134e4a;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
+  --shadow-card: 0 18px 48px -28px rgb(15 23 42 / 35%);
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+}

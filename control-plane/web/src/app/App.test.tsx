@@ -29,6 +29,8 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "DST Control Plane" })).toBeInTheDocument();
+    expect(screen.getByText("Operate dedicated clusters with a single control surface.")).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Sign in to DST Control Plane" })).toBeInTheDocument();
     expect(screen.getByLabelText("Username")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
@@ -73,6 +75,8 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Clusters" })).toBeInTheDocument();
+    expect(await screen.findByRole("navigation", { name: "Cluster navigation" })).toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Cluster A" })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", expect.any(Object));
   });
