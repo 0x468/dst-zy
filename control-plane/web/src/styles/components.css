@@ -191,11 +191,21 @@
 
 .cluster-detail__summary-card {
   display: grid;
-  gap: var(--space-2);
   background: color-mix(in srgb, var(--color-surface-muted) 74%, #fff);
   border: 1px solid color-mix(in srgb, var(--color-border) 82%, #fff);
   border-radius: var(--radius-md);
   padding: var(--space-4);
+}
+
+.cluster-detail__summary-list {
+  margin: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.cluster-detail__summary-row {
+  display: grid;
+  gap: var(--space-2);
 }
 
 .cluster-detail__hero-tag {
@@ -222,6 +232,7 @@
 }
 
 .cluster-detail__summary-value {
+  margin: 0;
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--color-brand-ink);
@@ -229,11 +240,6 @@
 
 .cluster-detail__summary-value .status-badge {
   font-size: 0.78rem;
-}
-
-.cluster-detail__summary-detail {
-  margin: 0;
-  color: var(--color-text-muted);
 }
 
 .cluster-detail__danger-panel {

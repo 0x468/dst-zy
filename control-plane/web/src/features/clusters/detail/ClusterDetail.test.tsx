@@ -245,8 +245,62 @@ describe("ClusterDetailPage", () => {
     expect(within(overviewPanel as HTMLElement).getByText("survival")).toBeInTheDocument();
     expect(within(overviewPanel as HTMLElement).getByText("Master shard")).toBeInTheDocument();
     expect(within(overviewPanel as HTMLElement).getByText("Caves shard")).toBeInTheDocument();
+    expect(within(overviewPanel as HTMLElement).getByText("Cluster status").tagName).toBe("DT");
+    expect(within(overviewPanel as HTMLElement).getByText("Master shard").tagName).toBe("DT");
+    expect(within(overviewPanel as HTMLElement).getByText("11000").tagName).toBe("DD");
+    expect(within(overviewPanel as HTMLElement).getByText("11001").tagName).toBe("DD");
     expect(screen.getByRole("heading", { name: "Danger zone" })).toBeInTheDocument();
     expect(screen.getByText("Type cluster-a to unlock deletion.")).toBeInTheDocument();
+  });
+
+  it("uses a pressed button view switch instead of tab semantics", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          gameMode: "survival",
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+          rawFiles: {
+            clusterIni: "cluster_name = Cluster_A",
+          },
+        }}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tabpanel")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Advanced" })).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
+
+    expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Advanced" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Directly edit raw cluster.ini content.")).toBeInTheDocument();
   });
 
   it("allows editing form values and saving", async () => {
@@ -416,7 +470,7 @@ describe("ClusterDetailPage", () => {
       />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
 
     const rawEditor = screen.getByLabelText("cluster.ini");
     await user.clear(rawEditor);
@@ -469,7 +523,7 @@ describe("ClusterDetailPage", () => {
       />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
 
     expect(screen.getByText("Directly edit raw cluster.ini content.")).toBeInTheDocument();
   });
@@ -515,7 +569,7 @@ describe("ClusterDetailPage", () => {
       />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
     await user.click(screen.getByRole("button", { name: "Save raw file" }));
 
     expect(screen.getByRole("button", { name: "Save raw file" })).toBeDisabled();
@@ -561,7 +615,7 @@ describe("ClusterDetailPage", () => {
       />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
     await user.click(screen.getByRole("button", { name: "Save raw file" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("invalid cluster.ini");

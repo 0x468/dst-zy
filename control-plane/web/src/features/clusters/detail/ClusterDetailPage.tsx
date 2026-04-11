@@ -37,24 +37,28 @@ export function ClusterDetailPage({
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const overviewCards = [
     {
-      label: "Cluster status",
-      value: <StatusBadge status={cluster.status} />,
-      detail: `slug/${cluster.slug}`,
+      rows: [
+        { label: "Cluster status", value: <StatusBadge status={cluster.status} /> },
+        { label: "Identifier", value: `slug/${cluster.slug}` },
+      ],
     },
     {
-      label: "Game mode",
-      value: snapshot.gameMode,
-      detail: snapshot.clusterName,
+      rows: [
+        { label: "Game mode", value: snapshot.gameMode },
+        { label: "Cluster name", value: snapshot.clusterName },
+      ],
     },
     {
-      label: "Master shard",
-      value: String(snapshot.master.serverPort),
-      detail: `Steam ${snapshot.master.masterServerPort} / Auth ${snapshot.master.authenticationPort}`,
+      rows: [
+        { label: "Master shard", value: String(snapshot.master.serverPort) },
+        { label: "Master routing", value: `Steam ${snapshot.master.masterServerPort} / Auth ${snapshot.master.authenticationPort}` },
+      ],
     },
     {
-      label: "Caves shard",
-      value: String(snapshot.caves.serverPort),
-      detail: `Steam ${snapshot.caves.masterServerPort} / Auth ${snapshot.caves.authenticationPort}`,
+      rows: [
+        { label: "Caves shard", value: String(snapshot.caves.serverPort) },
+        { label: "Caves routing", value: `Steam ${snapshot.caves.masterServerPort} / Auth ${snapshot.caves.authenticationPort}` },
+      ],
     },
   ];
 
@@ -76,48 +80,42 @@ export function ClusterDetailPage({
         </div>
       </header>
 
-      <nav className="cluster-detail__tablist" aria-label="Cluster detail tabs" role="tablist">
+      <div className="cluster-detail__tablist" role="group" aria-label="Cluster detail views">
         <button
-          id="cluster-detail-tab-overview"
           type="button"
-          role="tab"
           className={`cluster-detail__tab${tab === "overview" ? " cluster-detail__tab--active" : ""}`}
-          aria-selected={tab === "overview"}
-          aria-controls="cluster-detail-panel-overview"
+          aria-pressed={tab === "overview"}
           onClick={() => setTab("overview")}
         >
           Overview
         </button>
         <button
-          id="cluster-detail-tab-advanced"
           type="button"
-          role="tab"
           className={`cluster-detail__tab${tab === "advanced" ? " cluster-detail__tab--active" : ""}`}
-          aria-selected={tab === "advanced"}
-          aria-controls="cluster-detail-panel-advanced"
+          aria-pressed={tab === "advanced"}
           onClick={() => setTab("advanced")}
         >
           Advanced
         </button>
-      </nav>
+      </div>
 
       {tab === "overview" ? (
-        <div
-          id="cluster-detail-panel-overview"
-          role="tabpanel"
-          aria-labelledby="cluster-detail-tab-overview"
-          className="cluster-detail__workspace"
-        >
+        <div className="cluster-detail__workspace">
           <Panel title="Overview" eyebrow="Workspace status" className="cluster-detail__overview-panel">
             <p className="cluster-detail__overview-copy">
               Track live runtime state, shard lanes, and core routing before you trigger operational actions.
             </p>
             <div className="cluster-detail__summary-grid">
               {overviewCards.map((card) => (
-                <article key={card.label} className="cluster-detail__summary-card">
-                  <p className="cluster-detail__summary-label">{card.label}</p>
-                  <div className="cluster-detail__summary-value">{card.value}</div>
-                  <p className="cluster-detail__summary-detail">{card.detail}</p>
+                <article key={card.rows[0].label} className="cluster-detail__summary-card">
+                  <dl className="cluster-detail__summary-list">
+                    {card.rows.map((row) => (
+                      <div key={row.label} className="cluster-detail__summary-row">
+                        <dt className="cluster-detail__summary-label">{row.label}</dt>
+                        <dd className="cluster-detail__summary-value">{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
                 </article>
               ))}
             </div>
@@ -152,12 +150,7 @@ export function ClusterDetailPage({
           </div>
         </div>
       ) : (
-        <div
-          id="cluster-detail-panel-advanced"
-          role="tabpanel"
-          aria-labelledby="cluster-detail-tab-advanced"
-          className="cluster-detail__workspace"
-        >
+        <div className="cluster-detail__workspace">
           <RawFileEditor snapshot={snapshot} onSave={onSave} />
         </div>
       )}
