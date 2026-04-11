@@ -67,3 +67,89 @@
   background: color-mix(in srgb, var(--color-brand) 15%, #fff);
   border-color: color-mix(in srgb, var(--color-brand) 30%, #fff);
 }
+
+.login-form-card {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.login-form-card__copy {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.login-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.login-form__field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.cluster-nav {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.cluster-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.cluster-nav__button {
+  width: 100%;
+  display: grid;
+  gap: var(--space-2);
+  text-align: left;
+  background: color-mix(in srgb, var(--color-surface-muted) 70%, #fff);
+  border-color: transparent;
+}
+
+.cluster-nav__button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--color-brand) 45%, #fff);
+  background: color-mix(in srgb, var(--color-brand) 14%, #fff);
+}
+
+.cluster-nav__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cluster-nav__slug {
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+}
+
+.cluster-management {
+  display: grid;
+  gap: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+}
+
+.cluster-management__copy {
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.cluster-management__form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.console-sidebar__nav {
+  min-width: 0;
+}
+
+.console-sidebar__panel {
+  display: grid;
+  gap: var(--space-4);
+}

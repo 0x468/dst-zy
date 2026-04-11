@@ -40,8 +40,8 @@ export function ClustersRoute({
   return (
     <section className="console-shell">
       <aside className="console-sidebar" aria-label="Cluster navigation">
-        <nav aria-label="Cluster navigation">
-          <Panel>
+        <nav className="console-sidebar__nav" aria-label="Cluster navigation">
+          <Panel className="console-sidebar__panel">
             <ClusterList
               clusters={clusters}
               selectedSlug={selectedSlug}

@@ -5,6 +5,28 @@ import { describe, expect, it, vi } from "vitest";
 import { ClusterList } from "./ClusterList";
 
 describe("ClusterList", () => {
+  it("renders cluster navigation items with badge, slug, and selected state", () => {
+    render(
+      <ClusterList
+        clusters={[
+          { id: 1, slug: "alpha", displayName: "Alpha Cluster", status: "running" },
+          { id: 2, slug: "beta", displayName: "Beta Cluster", status: "stopped" },
+        ]}
+        selectedSlug="alpha"
+        onMutate={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Cluster management" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Alpha Cluster/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Beta Cluster/i })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("alpha")).toBeInTheDocument();
+    expect(screen.getByText("beta")).toBeInTheDocument();
+    expect(screen.getByText("running")).toHaveClass("status-badge");
+    expect(screen.getByText("stopped")).toHaveClass("status-badge");
+  });
+
   it("disables the mutation submit button while a request is in flight", async () => {
     const user = userEvent.setup();
     let resolveMutation: (() => void) | undefined;

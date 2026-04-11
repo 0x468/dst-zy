@@ -5,6 +5,14 @@ import { describe, expect, it, vi } from "vitest";
 import { LoginForm } from "./LoginForm";
 
 describe("LoginForm", () => {
+  it("renders a titled sign-in card with guidance copy", () => {
+    render(<LoginForm onSubmit={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByText("Use your local control-plane account to manage clusters.")).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Sign in to DST Control Plane" })).toBeInTheDocument();
+  });
+
   it("disables the submit button while sign in is in flight", async () => {
     const user = userEvent.setup();
     let resolveSubmit: (() => void) | undefined;

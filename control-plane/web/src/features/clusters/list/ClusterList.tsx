@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { StatusBadge } from "../../../components/ui/StatusBadge";
 import type { ClusterMutationInput, ClusterSummary } from "../../../lib/api";
 
 type ClusterListProps = {
@@ -12,24 +13,32 @@ type ClusterListProps = {
 export function ClusterList({ clusters, selectedSlug, onSelect, onMutate }: ClusterListProps) {
   return (
     <>
-      <section>
-        <h2>Clusters</h2>
-        <ul>
+      <section className="cluster-nav" aria-labelledby="cluster-nav-heading">
+        <h2 id="cluster-nav-heading">Clusters</h2>
+        <ul className="cluster-nav__list">
           {clusters.map((cluster) => (
-            <li key={cluster.id}>
+            <li key={cluster.id} className="cluster-nav__item">
               <button
+                className="cluster-nav__button"
                 type="button"
                 aria-pressed={selectedSlug === cluster.slug}
                 onClick={() => onSelect(cluster.slug)}
               >
-                <strong>{cluster.displayName}</strong>
-                <span>{cluster.status}</span>
+                <strong className="cluster-nav__display-name">{cluster.displayName}</strong>
+                <span className="cluster-nav__meta">
+                  <span className="cluster-nav__slug">{cluster.slug}</span>
+                  <StatusBadge status={cluster.status} />
+                </span>
               </button>
             </li>
           ))}
         </ul>
       </section>
-      <ClusterMutationForm onSubmit={onMutate} />
+      <section className="cluster-management" aria-labelledby="cluster-management-heading">
+        <h2 id="cluster-management-heading">Cluster management</h2>
+        <p className="cluster-management__copy">Create a new cluster or import one from an existing path.</p>
+        <ClusterMutationForm onSubmit={onMutate} />
+      </section>
     </>
   );
 }
@@ -44,10 +53,10 @@ function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
   const [pending, setPending] = useState(false);
 
   return (
-    <section>
-      <h2>Create or import</h2>
+    <>
       {errorMessage ? <p role="alert">{errorMessage}</p> : null}
       <form
+        className="cluster-management__form"
         onSubmit={async (event) => {
           event.preventDefault();
           const form = event.currentTarget;
@@ -127,7 +136,7 @@ function ClusterMutationForm({ onSubmit }: ClusterMutationFormProps) {
         ) : null}
         <button type="submit" disabled={pending}>{mode === "create" ? "Create cluster" : "Import cluster"}</button>
       </form>
-    </section>
+    </>
   );
 }
 
