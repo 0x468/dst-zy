@@ -7,17 +7,17 @@ type LoginRouteProps = {
 
 export function LoginRoute({ onSubmit }: LoginRouteProps) {
   return (
-    <section className="login-shell">
+    <main className="login-shell">
       <header className="login-shell__hero">
         <p className="login-shell__eyebrow">DST server operations</p>
         <h1>DST Control Plane</h1>
         <p>Operate dedicated clusters with a single control surface.</p>
       </header>
       <Panel title="Sign in" tone="subtle">
-        <section role="form" aria-label="Sign in to DST Control Plane" className="login-shell__auth">
+        <div className="login-shell__auth">
           <LoginForm onSubmit={onSubmit} />
-        </section>
+        </div>
       </Panel>
-    </section>
+    </main>
   );
 }

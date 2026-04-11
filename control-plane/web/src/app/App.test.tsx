@@ -28,6 +28,7 @@ describe("App", () => {
 
     render(<App />);
 
+    expect(screen.getByRole("main")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "DST Control Plane" })).toBeInTheDocument();
     expect(screen.getByText("Operate dedicated clusters with a single control surface.")).toBeInTheDocument();
     expect(screen.getByRole("form", { name: "Sign in to DST Control Plane" })).toBeInTheDocument();

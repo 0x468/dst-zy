@@ -9,6 +9,7 @@ export function LoginForm({ onSubmit }: LoginFormProps) {
 
   return (
     <form
+      aria-label="Sign in to DST Control Plane"
       onSubmit={async (event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);

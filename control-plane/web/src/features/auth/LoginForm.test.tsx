@@ -14,6 +14,7 @@ describe("LoginForm", () => {
 
     render(<LoginForm onSubmit={onSubmit} />);
 
+    expect(screen.getByRole("form", { name: "Sign in to DST Control Plane" })).toBeInTheDocument();
     await user.type(screen.getByLabelText("Username"), "admin");
     await user.type(screen.getByLabelText("Password"), "secret");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
