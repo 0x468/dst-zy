@@ -61,6 +61,8 @@
 - `timeout 300s docker run --rm -e DST_UPDATE_MODE=never -e DST_SERVER_MODS_UPDATE_MODE=prewarm -v "$PWD/.tmp/e2e/dst:/opt/dst" -v "$PWD/.tmp/legacy-fallback-reuse/steam-state:/steam-state" -v "$PWD/.tmp/legacy-fallback-reuse/ugc:/ugc" -v "$PWD/.tmp/legacy-fallback-reuse/data:/data" dst-docker:v1`：在复用已安装 DST、本轮只验证 mod fallback 的场景中，预热阶段依旧明确打印 `ODPF failed entirely: 16` 和 `Staging library folder not found`；但随后 entrypoint 会查询 Steam metadata，并把 `362175979`、`661253977` 下载为本地 fallback。最终 `/opt/dst/mods/workshop-362175979` 与 `/opt/dst/mods/workshop-661253977` 都出现 `.dst-docker-legacy-fallback` 标记，且目录中的 `images/`、`scripts/` 已从反斜杠名称成功归一化。
 - 同一轮 `legacy-fallback-reuse` 验证中，`Master/server_log.txt` 与 `Caves/server_log.txt` 都明确出现 `modoverrides.lua enabling workshop-661253977`、`modoverrides.lua enabling workshop-362175979`、`Registering Mod workshop-661253977`、`Registering Mod workshop-362175979`，说明这两个 legacy mod 已被双分片实际加载，而不是只停留在文件落盘层面。
 - 同一轮验证在约 2 分钟后由 `docker stop` 主动结束，退出状态是 `137`；停止前 Master/Caves 已完成 shard 互联、portal 校验，并未复现早先“本地 mods 目录一加入就出现缺失资源/洞穴贴图异常”的崩法。
+- `docker compose --env-file .env.verify -f /home/gwf/dst-test/docker-compose.yml logs --since 2026-04-11T13:18:35`：对一个真实的旧世界迁移样本做“只带 Cluster、不带旧 `ugc`”验证时，`DST_SERVER_MODS_UPDATE_MODE=prewarm` 已足以让多数 mod 完成冷缓存预热，但 `workshop-3353852416` 的 Linux 新缓存仍缺少 `anim/t1.zip`。同一 mod 在旧 Windows `ugc` 缓存里则存在该文件，且两边目录差异最终只剩这一项。
+- 在同一样本上，把旧缓存中的 `anim/t1.zip` 补回新环境后，后续日志不再出现 `Could not find an asset matching anim/t1.zip`；Master/Caves 继续完成 `Online Server Started`、`Loading world`、`World ... is now connected`、`secondary shard LUA is now ready!`，最终停在 `Sim paused`（因为该样本 `pause_when_empty = true`）。这说明当时的重启根因并不是镜像、Debian/Ubuntu、supervisord 或端口模型，而是某个第三方 mod 的“干净下载缓存”缺失了旧环境中仍然依赖的资源文件。
 - `bash tests/slow/test-real-steamcmd-update-modes.sh`：真实慢回归中，`update` 首次运行会先命中一次 `Missing configuration`，随后由现有 helper 自动重试并继续完成真实安装；同一套挂载目录上的后续 `validate` 也能启动并进入完整校验流程，脚本最终输出 `slow steamcmd update/validate regression passed under ...`。这说明当前仓库不仅有 fake smoke 覆盖模式分支，也已经有一条可手动触发的真实 SteamCMD 慢回归。
 
 ## 外部资料旁证
@@ -80,4 +82,5 @@
 - “首次冷缓存 mod 预热” 的本地模式分支现在已有 smoke 覆盖；真正还需要长期观察的，是 Steam/Workshop 在线服务在高延迟、限流或元数据异常场景下的表现。
 - 虽然构建期预热已经消除了运行时首次 36MB bootstrap，但 `/steam-state` 中的缓存和日志是否还能进一步减少后续 `app_update` 的清单流量，仍属于性能观察项，不再阻塞当前 V1 的功能闭环。
 - `362175979` 与 `661253977` 现在已经能通过本地 legacy fallback 正常加载，但 DST 自带的 `/ugc` 下载链路仍持续报 `ODPF failed entirely: 16`；也就是说，我们解决的是“可运行性”，不是“DST 官方下载链路已恢复正常”。
+- 对“已有旧世界、但不带旧 `ugc` 做迁徙”这条路径，现在可以更准确地下定义：它对多数 mod 是可行的，但不保证对所有第三方 mod 都是绝对无损。至少在 `workshop-3353852416` 这个真实样本上，冷缓存下载结果比旧 Windows 缓存少了 `anim/t1.zip`，从而直接导致 shard 启动时 Lua 侧缺资源并退出。
 - 社区里关于 `steamclient.so` 的替换方案目前仍只视作上游波动时的应急 workaround，仓库默认行为不主动改写这一层二进制。

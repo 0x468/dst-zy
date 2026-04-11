@@ -25,6 +25,35 @@
 
 也就是说，真正必须准备的是 Cluster 配置和存档本身。
 
+但需要补一条现实边界：
+
+- “不带 `ugc/` 也能迁移”不等于“任何第三方 mod 都能 100% 无损重建缓存”
+- 如果某个 mod 当前 Workshop 干净下载包本身就缺文件，而你的旧机器缓存里刚好残留了这些旧文件，那么旧世界会继续能跑，新的冷缓存环境却可能在首启时报错
+
+因此，对“已有大量 mod、而且旧环境已经稳定运行”的世界，最稳妥的做法仍然是把旧 `ugc/` 一起迁走；如果你故意不带 `ugc/`，建议至少保留一份旧缓存作为回滚或补文件来源。
+
+如果你确实要把旧 `ugc` 一起迁过来，宿主机目录通常应保留成下面这种结构：
+
+```text
+./ugc/content/322330/<workshop-id>/...
+```
+
+例如：
+
+```text
+./ugc/content/322330/3353852416/anim/t1.zip
+./ugc/content/322330/378160973/modinfo.lua
+```
+
+也就是说，通常不是把 mod 文件直接塞进 `data/<cluster>/mods/`。对 Workshop server mod 来说：
+
+- `data/<cluster>/mods/dedicated_server_mods_setup.lua`
+  负责声明“要下载哪些 mod”
+- `data/<cluster>/Master/modoverrides.lua` 与 `Caves/modoverrides.lua`
+  负责声明“启用哪些 mod、各自配置是什么”
+- `ugc/content/322330/<workshop-id>/...`
+  才是旧机器上已经下载好的 Workshop 缓存本体
+
 ## 迁移时必须有的文件
 
 在 `data/<你的集群目录名>/` 下，至少需要：
@@ -45,6 +74,7 @@
 - 没有 `ugc` 缓存可以
 - 没有 `dst/mods` 缓存也可以
 - 但如果世界依赖 mods，却没有 `dedicated_server_mods_setup.lua`，镜像就不知道要去下载哪些 mod
+- 如果你追求“尽量无损”的迁移结果，而且旧机器已经有一份可工作的 `ugc`，建议优先把它也带上
 
 ## `cluster_token.txt` 和 `cluster_key` 不是一回事
 
@@ -159,11 +189,14 @@ ports:
 4. 如果原世界用了 mods，补齐：
    - `mods/dedicated_server_mods_setup.lua`
    - 两个 shard 的 `modoverrides.lua`
-5. 在 compose 里设置：
+5. 如果你手头已经有旧机器的 `ugc/`，优先一并复制过来
+6. 在 compose 里设置：
    - `DST_CLUSTER_NAME=<你的集群目录名>`
-6. 按你的真实 `server.ini` 端口修改 compose 的右侧目标端口
-7. 选择你想暴露的宿主机端口，填写 compose 左侧端口
-8. 启动容器
+7. 建议首次先用：
+   - `DST_SERVER_MODS_UPDATE_MODE=prewarm`
+8. 按你的真实 `server.ini` 端口修改 compose 的右侧目标端口
+9. 选择你想暴露的宿主机端口，填写 compose 左侧端口
+10. 启动容器
 
 ## 首次迁移启动时会发生什么
 
@@ -178,9 +211,20 @@ ports:
 因此：
 
 - 没有 `dst/` 缓存，不是问题
-- 没有 `ugc/` 缓存，不是问题
+- 没有 `ugc/` 缓存，通常不是问题
 - 没有 `steam-state/` 缓存，不是问题
 - 缺少 Cluster 核心配置文件，才会真正阻塞启动
+
+如果首启失败，而且日志里出现类似下面的模式：
+
+- `error calling LoadPrefabFile in mod workshop-...`
+- `Could not find an asset matching anim/...`
+
+那通常说明问题已经不在镜像主流程，而在某个具体 mod 的当前下载结果。此时应优先：
+
+1. 检查旧机器 `ugc` 中对应 mod 目录是否比新环境多文件
+2. 临时把旧 `ugc` 整体带过来，或至少补齐缺失文件
+3. 再决定是否继续追查该 mod 的上游发布问题
 
 ## 关于仓库里的辅助脚本
 
@@ -196,7 +240,7 @@ ports:
 ## 常见误区
 
 - 误区 1：没有 `ugc/` 就不能迁移
-  不对。`ugc/` 只是缓存目录，可以后续自动生成。
+  不对。`ugc/` 只是缓存目录，通常可以后续自动生成；但对少数第三方 mod，旧 `ugc` 仍然可能是更稳妥的迁移输入。
 - 误区 2：没有 `dst/` 就不能迁移
   不对。镜像默认 `install-only`，首次会自动安装 DST 本体。
 - 误区 3：只要有 `modoverrides.lua` 就能自动下载 mod

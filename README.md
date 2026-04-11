@@ -160,6 +160,13 @@ Docker 端口映射的语义是：
 
 这两者不是一回事。即使你没有现成的 `ugc/` 或 `dst/mods/` 缓存，只要 `dedicated_server_mods_setup.lua` 存在，镜像也可以在首次启动时自动去下载所需 mod。
 
+但这里要区分“通常可行”和“绝对无损”：
+
+- 对大多数世界，缺少 `ugc/` 缓存并不会阻止迁移
+- 但个别第三方 mod 可能依赖旧缓存里残留的文件，干净重新下载后反而缺资源
+
+因此，如果你的旧世界已经在别处稳定运行，而且 mod 很多，最稳妥的迁移方式仍然是把原有 `ugc/` 一并带过来；如果不带，建议优先使用 `DST_SERVER_MODS_UPDATE_MODE=prewarm`，并在首启失败时先检查 shard 日志里是否有具体 mod 的缺文件报错。相关实证见 [docs/migrate-existing-cluster.md](/mnt/d/dst/docker/docs/migrate-existing-cluster.md) 与 [docs/verification.md](/mnt/d/dst/docker/docs/verification.md)。
+
 ## 更新模式
 
 `DST_UPDATE_MODE` 支持：
@@ -209,6 +216,7 @@ Docker 端口映射的语义是：
 - 已验证 `steam-state`、`dst`、`ugc`、`data` 的目录职责
 - 已验证 SteamCMD 首次约 36MB bootstrap 已前移到构建阶段
 - 已验证 legacy mod fallback、结构化 mod 状态日志与 slow regression 路径
+- 已确认“无 `ugc` 迁徙”对多数场景可行，但对少数第三方 mod 仍受上游发布质量影响，不保证绝对无损
 
 ## 其他说明
 
