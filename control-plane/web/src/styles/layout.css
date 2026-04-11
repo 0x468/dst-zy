@@ -191,13 +191,13 @@
     grid-template-columns: 1fr;
   }
 
-  .cluster-detail__hero-main,
-  .cluster-detail__hero-meta {
-    justify-items: start;
+  .cluster-detail__hero-main {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .cluster-detail__hero-main {
-    grid-template-columns: 1fr;
+  .cluster-detail__hero-meta {
+    justify-items: start;
   }
 }
 

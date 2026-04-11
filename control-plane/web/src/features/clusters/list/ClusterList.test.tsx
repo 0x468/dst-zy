@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -52,20 +53,29 @@ describe("ClusterList", () => {
 
   it("keeps create/import controls reachable after selecting a loaded cluster", async () => {
     const user = userEvent.setup();
+    const onMutate = vi.fn();
 
-    render(
-      <ClusterList
-        clusters={[
-          { id: 1, slug: "alpha", displayName: "Alpha Cluster", status: "running" },
-          { id: 2, slug: "beta", displayName: "Beta Cluster", status: "stopped" },
-        ]}
-        selectedSlug="alpha"
-        onMutate={vi.fn()}
-        onSelect={vi.fn()}
-      />,
-    );
+    function StatefulClusterList() {
+      const [selectedSlug, setSelectedSlug] = useState("alpha");
+
+      return (
+        <ClusterList
+          clusters={[
+            { id: 1, slug: "alpha", displayName: "Alpha Cluster", status: "running" },
+            { id: 2, slug: "beta", displayName: "Beta Cluster", status: "stopped" },
+          ]}
+          selectedSlug={selectedSlug}
+          onMutate={onMutate}
+          onSelect={setSelectedSlug}
+        />
+      );
+    }
+
+    render(<StatefulClusterList />);
 
     await user.click(screen.getByRole("radio", { name: /Beta Cluster/i }));
+    expect(screen.getByRole("radio", { name: /Beta Cluster/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Alpha Cluster/i })).not.toBeChecked();
 
     const clusterManagementSection = screen.getByRole("heading", { name: "Cluster management" }).closest("section");
     if (!clusterManagementSection) {
