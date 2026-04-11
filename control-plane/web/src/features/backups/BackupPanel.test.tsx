@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -35,7 +35,7 @@ describe("BackupPanel", () => {
     expect(screen.getByText("No backups yet.")).toBeInTheDocument();
   });
 
-  it("shows the latest backup summary and allows manual refresh", async () => {
+  it("highlights the latest backup separately from backup history and allows manual refresh", async () => {
     const user = userEvent.setup();
     const onRefresh = vi.fn();
 
@@ -60,8 +60,12 @@ describe("BackupPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Latest backup")).toBeInTheDocument();
-    expect(screen.getByText("Cluster_A-20260329T140000Z.tar.gz")).toBeInTheDocument();
+    const latestBackup = screen.getByRole("region", { name: "Latest backup" });
+    const backupHistory = screen.getByRole("list", { name: "Backup history" });
+
+    expect(within(latestBackup).getByText("Cluster_A-20260329T140000Z.tar.gz")).toBeInTheDocument();
+    expect(within(backupHistory).queryByText("Cluster_A-20260329T140000Z.tar.gz")).not.toBeInTheDocument();
+    expect(within(backupHistory).getByText("Cluster_A-20260329T130000Z.tar.gz")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Refresh backups" }));
     expect(onRefresh).toHaveBeenCalledTimes(1);

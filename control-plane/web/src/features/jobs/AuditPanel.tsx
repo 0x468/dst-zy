@@ -1,3 +1,4 @@
+import { Panel } from "../../components/ui/Panel";
 import type { AuditSummary } from "../../lib/api";
 
 type AuditPanelProps = {
@@ -20,17 +21,16 @@ export function AuditPanel({ audit, clusterSlug }: AuditPanelProps) {
   const clusterAudit = visibleAudit.filter((record) => record.targetType !== "auth");
 
   return (
-    <section>
-      <h2>Recent audit</h2>
+    <Panel title="Recent audit" eyebrow="Event stream" className="audit-panel">
       {visibleAudit.length === 0 ? (
-        <p>No audit entries yet.</p>
+        <p className="record-panel__empty">No audit entries yet.</p>
       ) : (
         <>
           {authAudit.length > 0 ? <AuditGroup title="Auth events" audit={authAudit} /> : null}
           {clusterAudit.length > 0 ? <AuditGroup title="Cluster events" audit={clusterAudit} /> : null}
         </>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -40,21 +40,32 @@ type AuditGroupProps = {
 };
 
 function AuditGroup({ title, audit }: AuditGroupProps) {
+  const streamLabel = `${title} stream`;
+
   return (
-    <section>
-      <h3>{title}</h3>
-      <ul>
+    <section className="audit-panel__group">
+      <div className="audit-panel__group-header">
+        <h3>{title}</h3>
+        <span>{formatEventCount(audit.length)}</span>
+      </div>
+      <ul className="audit-panel__stream" aria-label={streamLabel}>
         {audit.map((record) => (
-          <li key={record.id}>
-            <strong>{labelAuditAction(record.action)}</strong>
-            <span>{record.actor}</span>
+          <li key={record.id} className="audit-panel__item">
+            <div className="record-panel__summary">
+              <strong>{labelAuditAction(record.action)}</strong>
+              <span>{record.actor}</span>
+            </div>
             <time dateTime={record.createdAt}>{formatAuditTimestamp(record.createdAt)}</time>
-            {record.summary ? <p>{record.summary}</p> : null}
+            {record.summary ? <p className="record-panel__excerpt">{record.summary}</p> : null}
           </li>
         ))}
       </ul>
     </section>
   );
+}
+
+function formatEventCount(count: number) {
+  return count === 1 ? "1 event" : `${count} events`;
 }
 
 function formatAuditTimestamp(value: string) {

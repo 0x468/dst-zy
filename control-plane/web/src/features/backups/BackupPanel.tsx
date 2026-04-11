@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { Panel } from "../../components/ui/Panel";
 import type { BackupSummary } from "../../lib/api";
 
 type BackupPanelProps = {
@@ -15,55 +16,69 @@ export function BackupPanel({ clusterSlug, backups, onRefresh = () => {} }: Back
   const olderBackups = backups.slice(1);
 
   return (
-    <section>
-      <h2>Backups</h2>
+    <Panel
+      title="Backups"
+      eyebrow="Recovery points"
+      className="backup-panel"
+      actions={(
+        <button
+          type="button"
+          disabled={pending}
+          onClick={async () => {
+            setPending(true);
+            try {
+              await onRefresh();
+              setErrorMessage(undefined);
+            } catch (error) {
+              setErrorMessage(getErrorMessage(error, "Failed to refresh backups"));
+            } finally {
+              setPending(false);
+            }
+          }}
+        >
+          Refresh backups
+        </button>
+      )}
+    >
       {errorMessage ? <p role="alert">{errorMessage}</p> : null}
-      <button
-        type="button"
-        disabled={pending}
-        onClick={async () => {
-          setPending(true);
-          try {
-            await onRefresh();
-            setErrorMessage(undefined);
-          } catch (error) {
-            setErrorMessage(getErrorMessage(error, "Failed to refresh backups"));
-          } finally {
-            setPending(false);
-          }
-        }}
-      >
-        Refresh backups
-      </button>
       {backups.length === 0 ? (
-        <p>No backups yet.</p>
+        <p className="record-panel__empty">No backups yet.</p>
       ) : (
         <>
           {latestBackup ? (
-            <p>
-              <strong>Latest backup</strong>
-              {" "}
-              <a href={buildDownloadPath(clusterSlug, latestBackup.name)}>{latestBackup.name}</a>
-              {" "}
-              <time dateTime={latestBackup.createdAt}>{formatBackupTimestamp(latestBackup.createdAt)}</time>
-              {" "}
-              <span>{formatBackupSize(latestBackup.sizeBytes)}</span>
-            </p>
+            <section className="backup-panel__latest" aria-label="Latest backup">
+              <p className="backup-panel__label">Latest backup</p>
+              <BackupRecord clusterSlug={clusterSlug} backup={latestBackup} emphasized />
+            </section>
           ) : null}
           {olderBackups.length > 0 ? (
-            <ul>
+            <ul className="backup-panel__history" aria-label="Backup history">
               {olderBackups.map((backup) => (
                 <li key={backup.name}>
-                  <a href={buildDownloadPath(clusterSlug, backup.name)}>{backup.name}</a>
-                  <time dateTime={backup.createdAt}>{formatBackupTimestamp(backup.createdAt)}</time>
-                  <span>{formatBackupSize(backup.sizeBytes)}</span>
+                  <BackupRecord clusterSlug={clusterSlug} backup={backup} />
                 </li>
               ))}
             </ul>
           ) : null}
         </>
       )}
-    </section>
+    </Panel>
+  );
+}
+
+type BackupRecordProps = {
+  clusterSlug: string;
+  backup: BackupSummary;
+  emphasized?: boolean;
+};
+
+function BackupRecord({ clusterSlug, backup, emphasized = false }: BackupRecordProps) {
+  return (
+    <div className={`backup-panel__record${emphasized ? " backup-panel__record--emphasized" : ""}`}>
+      <a href={buildDownloadPath(clusterSlug, backup.name)}>{backup.name}</a>
+      <time dateTime={backup.createdAt}>{formatBackupTimestamp(backup.createdAt)}</time>
+      <span>{formatBackupSize(backup.sizeBytes)}</span>
+    </div>
   );
 }
 

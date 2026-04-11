@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { AuditPanel } from "./AuditPanel";
@@ -103,6 +103,40 @@ describe("AuditPanel", () => {
     expect(screen.getByText("Started cluster")).toBeInTheDocument();
     expect(screen.queryByText("login_success")).not.toBeInTheDocument();
     expect(screen.queryByText("cluster_action_start")).not.toBeInTheDocument();
+  });
+
+  it("renders grouped event streams with named sections", () => {
+    render(
+      <AuditPanel
+        clusterSlug="cluster-a"
+        audit={[
+          {
+            id: 31,
+            actor: "admin",
+            action: "cluster_action_start",
+            targetType: "cluster",
+            targetId: 7,
+            summary: "slug=cluster-a",
+            createdAt: "2026-03-29T12:34:56Z",
+          },
+          {
+            id: 33,
+            actor: "admin",
+            action: "login_success",
+            targetType: "auth",
+            targetId: 0,
+            summary: "client=127.0.0.1",
+            createdAt: "2026-03-29T12:36:56Z",
+          },
+        ]}
+      />,
+    );
+
+    const authStream = screen.getByRole("list", { name: "Auth events stream" });
+    const clusterStream = screen.getByRole("list", { name: "Cluster events stream" });
+
+    expect(within(authStream).getByText("Signed in")).toBeInTheDocument();
+    expect(within(clusterStream).getByText("Started cluster")).toBeInTheDocument();
   });
 
   it("renders a friendly label for backup actions", () => {
