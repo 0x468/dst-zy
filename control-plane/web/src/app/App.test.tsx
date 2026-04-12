@@ -78,16 +78,16 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "Clusters" })).toBeInTheDocument();
     const navigation = await screen.findByRole("navigation", { name: "Cluster navigation" });
-    expect(within(navigation).queryByRole("heading", { name: "Cluster management" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Cluster management" })).toBeInTheDocument();
+    expect(within(navigation).queryByRole("heading", { name: "Create cluster" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Create cluster" })).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Cluster A" })).toBeInTheDocument();
-    const clusterManagementSection = screen.getByRole("heading", { name: "Cluster management" }).closest("section");
+    const clusterManagementSection = screen.getByRole("heading", { name: "Create cluster" }).closest("section");
     if (!clusterManagementSection) {
       throw new Error("expected cluster management section");
     }
-    expect(within(clusterManagementSection).getByRole("button", { name: "Create cluster" })).toBeInTheDocument();
-    await user.selectOptions(within(clusterManagementSection).getByLabelText("Mode"), "import");
+    expect(within(clusterManagementSection).getByRole("heading", { name: "Basics" })).toBeInTheDocument();
+    await user.click(within(clusterManagementSection).getByRole("button", { name: "Open import form" }));
     expect(within(clusterManagementSection).getByRole("button", { name: "Import cluster" })).toBeInTheDocument();
     expect(within(clusterManagementSection).getByLabelText("Import path")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", expect.any(Object));
@@ -287,6 +287,11 @@ describe("App", () => {
     await user.type(screen.getByLabelText("Slug"), "cluster-b");
     await user.type(screen.getByLabelText("Display name"), "Cluster B");
     await user.type(screen.getByLabelText("Cluster name"), "Cluster_B");
+    await user.click(screen.getByRole("button", { name: "Next: Network" }));
+    await user.click(screen.getByRole("button", { name: "Next: Authentication" }));
+    await user.type(screen.getByLabelText("Cluster token"), "token-b");
+    await user.type(screen.getByLabelText("Cluster key"), "key-b");
+    await user.click(screen.getByRole("button", { name: "Next: Review" }));
     await user.click(screen.getByRole("button", { name: "Create cluster" }));
 
     expect(await screen.findByRole("heading", { name: "Cluster B" })).toBeInTheDocument();
@@ -419,9 +424,14 @@ describe("App", () => {
     await user.type(screen.getByLabelText("Slug"), "../bad");
     await user.type(screen.getByLabelText("Display name"), "Bad Cluster");
     await user.type(screen.getByLabelText("Cluster name"), "Bad_Cluster");
+    await user.click(screen.getByRole("button", { name: "Next: Network" }));
+    await user.click(screen.getByRole("button", { name: "Next: Authentication" }));
+    await user.type(screen.getByLabelText("Cluster token"), "token-bad");
+    await user.type(screen.getByLabelText("Cluster key"), "key-bad");
+    await user.click(screen.getByRole("button", { name: "Next: Review" }));
     await user.click(screen.getByRole("button", { name: "Create cluster" }));
 
-    const mutationSection = screen.getByRole("heading", { name: "Cluster management" }).closest("section");
+    const mutationSection = screen.getByRole("heading", { name: "Create cluster" }).closest("section");
     if (!mutationSection) {
       throw new Error("expected mutation section");
     }

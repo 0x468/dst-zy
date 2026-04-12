@@ -57,6 +57,18 @@ export type ClusterMutationInput = {
   slug: string;
   displayName: string;
   clusterName: string;
+  clusterDescription?: string;
+  gameMode?: string;
+  maxPlayers?: number;
+  clusterToken?: string;
+  clusterKey?: string;
+  intent?: string;
+  timeZone?: string;
+  masterHostPort?: number;
+  cavesHostPort?: number;
+  steamHostPort?: number;
+  cavesSteamHostPort?: number;
+  autoStart?: boolean;
   baseDir?: string;
 };
 
@@ -233,6 +245,18 @@ export async function mutateCluster(input: ClusterMutationInput): Promise<Cluste
       slug: input.slug,
       display_name: input.displayName,
       cluster_name: input.clusterName,
+      cluster_description: input.clusterDescription ?? "",
+      game_mode: input.gameMode ?? "",
+      max_players: input.maxPlayers ?? 0,
+      cluster_token: input.clusterToken ?? "",
+      cluster_key: input.clusterKey ?? "",
+      intent: input.intent ?? "",
+      time_zone: input.timeZone ?? "",
+      master_host_port: input.masterHostPort ?? 0,
+      caves_host_port: input.cavesHostPort ?? 0,
+      steam_host_port: input.steamHostPort ?? 0,
+      caves_steam_host_port: input.cavesSteamHostPort ?? 0,
+      auto_start: input.autoStart ?? false,
       base_dir: input.baseDir ?? "",
     }),
   });

@@ -63,6 +63,10 @@
   gap: var(--space-4);
 }
 
+.console-sidebar .cluster-management {
+  margin-top: var(--space-2);
+}
+
 .console-main {
   display: grid;
   gap: var(--space-4);
@@ -189,6 +193,10 @@
 
   .console-shell {
     grid-template-columns: 1fr;
+  }
+
+  .console-sidebar .cluster-management {
+    margin-top: 0;
   }
 
   .cluster-detail__hero-main {

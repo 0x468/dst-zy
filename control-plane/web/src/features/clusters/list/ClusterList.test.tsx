@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -20,8 +19,8 @@ describe("ClusterList", () => {
     );
 
     const navigation = screen.getByRole("navigation", { name: "Cluster navigation" });
-    expect(screen.getByRole("heading", { name: "Cluster management" })).toBeInTheDocument();
-    expect(within(navigation).queryByRole("heading", { name: "Cluster management" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Create cluster" })).toBeInTheDocument();
+    expect(within(navigation).queryByRole("heading", { name: "Create cluster" })).not.toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /Alpha Cluster/i })).toBeChecked();
     expect(screen.getByRole("radio", { name: /Beta Cluster/i })).not.toBeChecked();
     expect(screen.getByText("alpha")).toBeInTheDocument();
@@ -51,69 +50,31 @@ describe("ClusterList", () => {
     expect(onSelect).toHaveBeenCalledWith("beta");
   });
 
-  it("keeps create/import controls reachable after selecting a loaded cluster", async () => {
+  it("keeps wizard as the primary create entry and import as secondary", async () => {
     const user = userEvent.setup();
     const onMutate = vi.fn();
 
-    function StatefulClusterList() {
-      const [selectedSlug, setSelectedSlug] = useState("alpha");
-
-      return (
-        <ClusterList
-          clusters={[
-            { id: 1, slug: "alpha", displayName: "Alpha Cluster", status: "running" },
-            { id: 2, slug: "beta", displayName: "Beta Cluster", status: "stopped" },
-          ]}
-          selectedSlug={selectedSlug}
-          onMutate={onMutate}
-          onSelect={setSelectedSlug}
-        />
-      );
-    }
-
-    render(<StatefulClusterList />);
-
-    await user.click(screen.getByRole("radio", { name: /Beta Cluster/i }));
-    expect(screen.getByRole("radio", { name: /Beta Cluster/i })).toBeChecked();
-    expect(screen.getByRole("radio", { name: /Alpha Cluster/i })).not.toBeChecked();
-
-    const clusterManagementSection = screen.getByRole("heading", { name: "Cluster management" }).closest("section");
-    if (!clusterManagementSection) {
-      throw new Error("expected cluster management section");
-    }
-
-    expect(within(clusterManagementSection).getByRole("button", { name: "Create cluster" })).toBeInTheDocument();
-    await user.selectOptions(within(clusterManagementSection).getByLabelText("Mode"), "import");
-    expect(within(clusterManagementSection).getByRole("button", { name: "Import cluster" })).toBeInTheDocument();
-    expect(within(clusterManagementSection).getByLabelText("Import path")).toBeInTheDocument();
-  });
-
-  it("disables the mutation submit button while a request is in flight", async () => {
-    const user = userEvent.setup();
-    let resolveMutation: (() => void) | undefined;
-    const onMutate = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
-      resolveMutation = resolve;
-    }));
-
     render(
       <ClusterList
-        clusters={[]}
+        clusters={[
+          { id: 1, slug: "alpha", displayName: "Alpha Cluster", status: "running" },
+          { id: 2, slug: "beta", displayName: "Beta Cluster", status: "stopped" },
+        ]}
+        selectedSlug="alpha"
         onMutate={onMutate}
         onSelect={vi.fn()}
       />,
     );
 
-    await user.type(screen.getByLabelText("Slug"), "cluster-a");
-    await user.type(screen.getByLabelText("Display name"), "Cluster A");
-    await user.type(screen.getByLabelText("Cluster name"), "Cluster_A");
-    await user.click(screen.getByRole("button", { name: "Create cluster" }));
+    expect(screen.getByRole("heading", { name: "Basics" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next: Network" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open import form" })).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: "Create cluster" })).toBeDisabled();
-
-    resolveMutation?.();
+    await user.click(screen.getByRole("button", { name: "Open import form" }));
+    expect(screen.getByRole("button", { name: "Import cluster" })).toBeInTheDocument();
   });
 
-  it("shows a validation error when create is missing required fields", async () => {
+  it("submits import requests from the secondary entry", async () => {
     const user = userEvent.setup();
     const onMutate = vi.fn();
 
@@ -125,10 +86,20 @@ describe("ClusterList", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Create cluster" }));
+    await user.click(screen.getByRole("button", { name: "Open import form" }));
+    await user.type(screen.getByLabelText("Import slug"), "legacy-cluster");
+    await user.type(screen.getByLabelText("Import display name"), "Legacy Cluster");
+    await user.type(screen.getByLabelText("Import cluster name"), "Legacy_Cluster");
+    await user.type(screen.getByLabelText("Import path"), "/srv/legacy-cluster");
+    await user.click(screen.getByRole("button", { name: "Import cluster" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Slug is required");
-    expect(onMutate).not.toHaveBeenCalled();
+    expect(onMutate).toHaveBeenCalledWith({
+      mode: "import",
+      slug: "legacy-cluster",
+      displayName: "Legacy Cluster",
+      clusterName: "Legacy_Cluster",
+      baseDir: "/srv/legacy-cluster",
+    });
   });
 
   it("requires an import path when import mode is selected", async () => {
@@ -143,10 +114,10 @@ describe("ClusterList", () => {
       />,
     );
 
-    await user.selectOptions(screen.getByLabelText("Mode"), "import");
-    await user.type(screen.getByLabelText("Slug"), "cluster-a");
-    await user.type(screen.getByLabelText("Display name"), "Cluster A");
-    await user.type(screen.getByLabelText("Cluster name"), "Cluster_A");
+    await user.click(screen.getByRole("button", { name: "Open import form" }));
+    await user.type(screen.getByLabelText("Import slug"), "cluster-a");
+    await user.type(screen.getByLabelText("Import display name"), "Cluster A");
+    await user.type(screen.getByLabelText("Import cluster name"), "Cluster_A");
     await user.click(screen.getByRole("button", { name: "Import cluster" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("Import path is required");
@@ -165,10 +136,12 @@ describe("ClusterList", () => {
       />,
     );
 
-    await user.type(screen.getByLabelText("Slug"), "cluster-a");
-    await user.type(screen.getByLabelText("Display name"), "Cluster A");
-    await user.type(screen.getByLabelText("Cluster name"), "Cluster_A");
-    await user.click(screen.getByRole("button", { name: "Create cluster" }));
+    await user.click(screen.getByRole("button", { name: "Open import form" }));
+    await user.type(screen.getByLabelText("Import slug"), "cluster-a");
+    await user.type(screen.getByLabelText("Import display name"), "Cluster A");
+    await user.type(screen.getByLabelText("Import cluster name"), "Cluster_A");
+    await user.type(screen.getByLabelText("Import path"), "/srv/cluster-a");
+    await user.click(screen.getByRole("button", { name: "Import cluster" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("request failed");
   });

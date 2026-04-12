@@ -143,7 +143,7 @@
 
 .cluster-management {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-4);
   border-top: 1px solid var(--color-border);
   padding-top: var(--space-4);
 }
@@ -161,6 +161,152 @@
 
 .cluster-management__form > div {
   min-width: 0;
+}
+
+.cluster-wizard {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-brand) 20%, #fff);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--color-brand) 12%, transparent), transparent 40%),
+    color-mix(in srgb, var(--color-surface-muted) 82%, #fff);
+}
+
+.cluster-wizard__header {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.cluster-wizard__header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.cluster-wizard__copy {
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.cluster-wizard__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cluster-wizard__step {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, #fff);
+  background: color-mix(in srgb, var(--color-surface) 65%, #fff);
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 0.3rem 0.55rem;
+}
+
+.cluster-wizard__step--active {
+  background: color-mix(in srgb, var(--color-brand) 14%, #fff);
+  border-color: color-mix(in srgb, var(--color-brand) 34%, #fff);
+  color: var(--color-brand-ink);
+}
+
+.cluster-wizard__panel {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.cluster-wizard__panel h4 {
+  margin: 0;
+}
+
+.cluster-wizard__grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cluster-wizard__field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.cluster-wizard__checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.cluster-wizard__checkbox input {
+  margin: 0;
+}
+
+.cluster-wizard__review {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.cluster-wizard__review > div {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface) 76%, #fff);
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, #fff);
+}
+
+.cluster-wizard__review dt {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+}
+
+.cluster-wizard__review dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.cluster-wizard__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.cluster-import {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, #fff);
+  background: color-mix(in srgb, var(--color-surface-muted) 78%, #fff);
+}
+
+.cluster-import__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cluster-import__header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.cluster-import__copy {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
 }
 
 .console-sidebar__panel {
@@ -438,6 +584,10 @@
     padding: var(--space-4);
   }
 
+  .cluster-wizard__grid {
+    grid-template-columns: 1fr;
+  }
+
   .cluster-config-form__meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -462,7 +612,22 @@
   }
 
   .lifecycle-actions__grid,
-  .cluster-config-form__meta {
+  .cluster-config-form__meta,
+  .cluster-wizard__steps {
+    grid-template-columns: 1fr;
+  }
+
+  .cluster-wizard {
+    padding: var(--space-3);
+  }
+
+  .cluster-import__header,
+  .cluster-wizard__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cluster-wizard__review > div {
     grid-template-columns: 1fr;
   }
 
