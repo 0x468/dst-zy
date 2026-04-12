@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -170,7 +171,9 @@ func (s BackupService) Restore(ctx context.Context, slug string, name string) er
 
 	if err := s.rename(restoredClusterDir, targetClusterDir); err != nil {
 		if rollbackClusterDir != "" {
-			_ = s.rename(rollbackClusterDir, targetClusterDir)
+			if rollbackErr := s.rename(rollbackClusterDir, targetClusterDir); rollbackErr != nil {
+				return errors.Join(err, rollbackErr)
+			}
 		}
 		return err
 	}
@@ -252,7 +255,7 @@ func extractTarGzArchive(ctx context.Context, archivePath string, destinationRoo
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(targetFile, tarReader); err != nil {
+			if err := copyWithContext(ctx, targetFile, tarReader); err != nil {
 				targetFile.Close()
 				return err
 			}
@@ -261,6 +264,29 @@ func extractTarGzArchive(ctx context.Context, archivePath string, destinationRoo
 			}
 		default:
 			return apierror.Invalid("backup archive contains unsupported file type", nil)
+		}
+	}
+}
+
+func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader) error {
+	buffer := make([]byte, 32*1024)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		n, readErr := src.Read(buffer)
+		if n > 0 {
+			if _, err := dst.Write(buffer[:n]); err != nil {
+				return err
+			}
+		}
+
+		if readErr != nil {
+			if readErr == io.EOF {
+				return nil
+			}
+			return readErr
 		}
 	}
 }

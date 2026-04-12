@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -331,4 +333,45 @@ func TestBackupServiceRestoreHonorsCanceledContext(t *testing.T) {
 	if string(restored) != "old-state" {
 		t.Fatalf("expected original contents after canceled restore, got %q", string(restored))
 	}
+}
+
+func TestCopyWithContextStopsWhenCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	reader := &cancelAfterFirstReadReader{
+		cancel:  cancel,
+		chunks:  [][]byte{[]byte("first-"), []byte("second")},
+		current: 0,
+	}
+
+	var target bytes.Buffer
+	err := copyWithContext(ctx, &target, reader)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled error, got %T %v", err, err)
+	}
+	if target.String() != "first-" {
+		t.Fatalf("expected only first chunk to be written before cancel, got %q", target.String())
+	}
+}
+
+type cancelAfterFirstReadReader struct {
+	cancel  context.CancelFunc
+	chunks  [][]byte
+	current int
+}
+
+func (r *cancelAfterFirstReadReader) Read(p []byte) (int, error) {
+	if r.current >= len(r.chunks) {
+		return 0, os.ErrClosed
+	}
+
+	chunk := r.chunks[r.current]
+	copy(p, chunk)
+	r.current++
+	if r.current == 1 {
+		r.cancel()
+	}
+	if r.current >= len(r.chunks) {
+		return len(chunk), io.EOF
+	}
+	return len(chunk), nil
 }
