@@ -310,4 +310,32 @@ func TestConfigServiceStructuredSavePersistsHighFrequencyFields(t *testing.T) {
 	if strings.TrimSpace(string(clusterToken)) != "updated-token" {
 		t.Fatalf("expected cluster token to persist, got %q", strings.TrimSpace(string(clusterToken)))
 	}
+
+	writtenMasterCfg, err := files.ParseServerINI(filepath.Join(clusterDir, "Master", "server.ini"))
+	if err != nil {
+		t.Fatalf("expected updated master server.ini to parse, got error: %v", err)
+	}
+	if writtenMasterCfg.Network.ServerPort != 12000 {
+		t.Fatalf("expected master server_port to persist, got %d", writtenMasterCfg.Network.ServerPort)
+	}
+	if writtenMasterCfg.Steam.MasterServerPort != 28018 {
+		t.Fatalf("expected master master_server_port to persist, got %d", writtenMasterCfg.Steam.MasterServerPort)
+	}
+	if writtenMasterCfg.Steam.AuthenticationPort != 9868 {
+		t.Fatalf("expected master authentication_port to persist, got %d", writtenMasterCfg.Steam.AuthenticationPort)
+	}
+
+	writtenCavesCfg, err := files.ParseServerINI(filepath.Join(clusterDir, "Caves", "server.ini"))
+	if err != nil {
+		t.Fatalf("expected updated caves server.ini to parse, got error: %v", err)
+	}
+	if writtenCavesCfg.Network.ServerPort != 12001 {
+		t.Fatalf("expected caves server_port to persist, got %d", writtenCavesCfg.Network.ServerPort)
+	}
+	if writtenCavesCfg.Steam.MasterServerPort != 28019 {
+		t.Fatalf("expected caves master_server_port to persist, got %d", writtenCavesCfg.Steam.MasterServerPort)
+	}
+	if writtenCavesCfg.Steam.AuthenticationPort != 9869 {
+		t.Fatalf("expected caves authentication_port to persist, got %d", writtenCavesCfg.Steam.AuthenticationPort)
+	}
 }

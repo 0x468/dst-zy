@@ -535,6 +535,90 @@ describe("ClusterDetailPage", () => {
     );
   });
 
+  it("allows editing runtime ports and saving", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+          masterHostPort: 11000,
+          cavesHostPort: 11001,
+          masterSteamHostPort: 27018,
+          cavesSteamHostPort: 27019,
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          clusterPassword: "friends-only",
+          clusterToken: "token-a",
+          gameMode: "survival",
+          pvp: true,
+          pauseWhenEmpty: true,
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+        }}
+        onSave={onSave}
+      />,
+    );
+
+    const clusterBusPortInput = screen.getByLabelText("Cluster bus port");
+    const masterShardPortInput = screen.getByLabelText("Master shard port");
+    const cavesShardPortInput = screen.getByLabelText("Caves shard port");
+    const masterSteamPortInput = screen.getByLabelText("Master Steam port");
+    const cavesSteamPortInput = screen.getByLabelText("Caves Steam port");
+    const masterAuthPortInput = screen.getByLabelText("Master auth port");
+    const cavesAuthPortInput = screen.getByLabelText("Caves auth port");
+
+    await user.clear(clusterBusPortInput);
+    await user.type(clusterBusPortInput, "10999");
+    await user.clear(masterShardPortInput);
+    await user.type(masterShardPortInput, "12000");
+    await user.clear(cavesShardPortInput);
+    await user.type(cavesShardPortInput, "12001");
+    await user.clear(masterSteamPortInput);
+    await user.type(masterSteamPortInput, "28018");
+    await user.clear(cavesSteamPortInput);
+    await user.type(cavesSteamPortInput, "28019");
+    await user.clear(masterAuthPortInput);
+    await user.type(masterAuthPortInput, "9868");
+    await user.clear(cavesAuthPortInput);
+    await user.type(cavesAuthPortInput, "9869");
+    await user.click(screen.getByRole("button", { name: "Save ports" }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        masterPort: 10999,
+        master: expect.objectContaining({
+          serverPort: 12000,
+          masterServerPort: 28018,
+          authenticationPort: 9868,
+        }),
+        caves: expect.objectContaining({
+          serverPort: 12001,
+          masterServerPort: 28019,
+          authenticationPort: 9869,
+        }),
+      }),
+    );
+  });
+
   it("disables the config save button while saving", async () => {
     const user = userEvent.setup();
     let resolveSave: (() => void) | undefined;
