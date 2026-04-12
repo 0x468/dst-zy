@@ -2,7 +2,7 @@ package models
 
 const (
 	StandardClosureDefaultMasterShardID = "1"
-	StandardClosureDefaultCavesShardID  = "2"
+	StandardClosureDefaultCavesShardID  = "95247852"
 )
 
 type ShardConfigSnapshot struct {

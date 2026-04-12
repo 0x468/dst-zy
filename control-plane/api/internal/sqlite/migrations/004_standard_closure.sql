@@ -8,3 +8,7 @@ CREATE TABLE IF NOT EXISTS cluster_runtime_metadata (
   master_steam_host_port INTEGER NOT NULL DEFAULT 27018,
   caves_steam_host_port INTEGER NOT NULL DEFAULT 27019
 );
+
+INSERT OR IGNORE INTO cluster_runtime_metadata (cluster_id)
+SELECT id
+FROM cluster_records;

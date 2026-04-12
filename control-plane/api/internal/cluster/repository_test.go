@@ -212,8 +212,8 @@ func TestDefaultManagedSnapshotProvidesPlayableMasterAndCavesDefaults(t *testing
 	if snapshot.Master.ID == "" || snapshot.Caves.ID == "" {
 		t.Fatalf("expected shard IDs to be non-empty, got master=%q caves=%q", snapshot.Master.ID, snapshot.Caves.ID)
 	}
-	if snapshot.Master.ID != "1" || snapshot.Caves.ID != "2" {
-		t.Fatalf("expected canonical shard IDs 1/2, got %q/%q", snapshot.Master.ID, snapshot.Caves.ID)
+	if snapshot.Master.ID != "1" || snapshot.Caves.ID != "95247852" {
+		t.Fatalf("expected canonical shard IDs 1/95247852, got %q/%q", snapshot.Master.ID, snapshot.Caves.ID)
 	}
 	if snapshot.Master.MasterServerPort == snapshot.Caves.MasterServerPort {
 		t.Fatalf("expected distinct steam ports for master/caves, got both=%d", snapshot.Master.MasterServerPort)

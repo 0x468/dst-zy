@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/gwf/dst-docker/control-plane/api/internal/sqlite/migrations"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func Open(path string) (*sql.DB, error) {
@@ -15,7 +15,7 @@ func Open(path string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	database, err := sql.Open("sqlite3", path)
+	database, err := sql.Open("sqlite3", fmt.Sprintf("%s?_foreign_keys=on", path))
 	if err != nil {
 		return nil, err
 	}
