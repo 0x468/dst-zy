@@ -2,17 +2,26 @@ import { useState } from "react";
 
 import { CreateClusterWizard } from "../create/CreateClusterWizard";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
-import type { ClusterMutationInput, ClusterSummary } from "../../../lib/api";
+import type { ClusterMutationInput, ClusterSummary, JobSummary } from "../../../lib/api";
 
 type ClusterListProps = {
   clusters: ClusterSummary[];
+  jobs?: JobSummary[];
   selectedSlug?: string;
   onSelect: (slug: string) => void;
   onCreate: (input: ClusterMutationInput) => Promise<void> | void;
   onImport: (input: ClusterMutationInput) => Promise<void> | void;
 };
 
-export function ClusterList({ clusters, selectedSlug, onSelect, onCreate, onImport }: ClusterListProps) {
+export function ClusterList({ clusters, jobs = [], selectedSlug, onSelect, onCreate, onImport }: ClusterListProps) {
+  const latestJobs = new Map<number, JobSummary>();
+  for (const job of jobs) {
+    const current = latestJobs.get(job.clusterId);
+    if (!current || isJobNewer(job, current)) {
+      latestJobs.set(job.clusterId, job);
+    }
+  }
+
   return (
     <>
       <nav className="cluster-nav" aria-label="Cluster navigation">
@@ -33,6 +42,14 @@ export function ClusterList({ clusters, selectedSlug, onSelect, onCreate, onImpo
                   <span className="cluster-nav__meta">
                     <span className="cluster-nav__slug">{cluster.slug}</span>
                     <StatusBadge status={cluster.status} />
+                  </span>
+                  <span className="cluster-nav__summary">
+                    <span className="cluster-nav__summary-line">
+                      {formatLatestAction(latestJobs.get(cluster.id))}
+                    </span>
+                    <span className="cluster-nav__summary-line">
+                      {formatUpdatedAt(cluster.updatedAt)}
+                    </span>
                   </span>
                 </span>
               </label>
@@ -160,6 +177,56 @@ function ImportClusterForm({ onSubmit }: ImportClusterFormProps) {
       ) : null}
     </section>
   );
+}
+
+function formatLatestAction(job?: JobSummary) {
+  if (!job) {
+    return "No recent actions";
+  }
+
+  return `${toSentenceCase(job.jobType)} ${job.status}`;
+}
+
+function formatUpdatedAt(value?: string) {
+  if (!value) {
+    return "Updated time unavailable";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Updated time unavailable";
+  }
+
+  return `Updated ${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+function toSentenceCase(value: string) {
+  if (value.trim() === "") {
+    return "Unknown action";
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function isJobNewer(candidate: JobSummary, current: JobSummary) {
+  const candidateTime = getJobTimestamp(candidate);
+  const currentTime = getJobTimestamp(current);
+
+  if (candidateTime === currentTime) {
+    return candidate.id > current.id;
+  }
+
+  return candidateTime > currentTime;
+}
+
+function getJobTimestamp(job: JobSummary) {
+  const value = job.finishedAt ?? job.startedAt;
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 function getErrorMessage(error: unknown, fallback: string) {

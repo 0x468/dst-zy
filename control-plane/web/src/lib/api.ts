@@ -9,6 +9,7 @@ export type ClusterSummary = {
   cavesHostPort?: number;
   masterSteamHostPort?: number;
   cavesSteamHostPort?: number;
+  updatedAt?: string;
 };
 
 export type ShardSnapshot = {
@@ -22,6 +23,13 @@ export type ClusterConfigSnapshot = {
   clusterDescription: string;
   gameMode: string;
   clusterKey: string;
+  maxPlayers?: number;
+  clusterIntention?: string;
+  pvp?: boolean;
+  pauseWhenEmpty?: boolean;
+  shardEnabled?: boolean;
+  bindIP?: string;
+  masterIP?: string;
   masterPort: number;
   master: ShardSnapshot;
   caves: ShardSnapshot;
@@ -37,6 +45,8 @@ export type JobSummary = {
   status: string;
   stdoutExcerpt: string;
   stderrExcerpt: string;
+  startedAt?: string;
+  finishedAt?: string;
 };
 
 export type ClusterLogSource = "jobs" | "master" | "caves";
@@ -123,6 +133,7 @@ type ClusterSummaryResponse = {
   caves_host_port?: number;
   master_steam_host_port?: number;
   caves_steam_host_port?: number;
+  updated_at?: string;
 };
 
 type ClusterConfigSnapshotResponse = {
@@ -130,6 +141,13 @@ type ClusterConfigSnapshotResponse = {
   cluster_description: string;
   game_mode: string;
   cluster_key: string;
+  max_players?: number;
+  cluster_intention?: string;
+  pvp?: boolean;
+  pause_when_empty?: boolean;
+  shard_enabled?: boolean;
+  bind_ip?: string;
+  master_ip?: string;
   master_port: number;
   master: {
     server_port: number;
@@ -153,6 +171,8 @@ type JobSummaryResponse = {
   status: string;
   stdout_excerpt: string;
   stderr_excerpt: string;
+  started_at?: string;
+  finished_at?: string;
 };
 
 type ClusterLogEntryResponse = {
@@ -382,6 +402,7 @@ function mapCluster(cluster: ClusterSummaryResponse): ClusterSummary {
     cavesHostPort: cluster.caves_host_port ?? 0,
     masterSteamHostPort: cluster.master_steam_host_port ?? 0,
     cavesSteamHostPort: cluster.caves_steam_host_port ?? 0,
+    updatedAt: cluster.updated_at ?? "",
   };
 }
 
@@ -391,6 +412,13 @@ function mapSnapshot(snapshot: ClusterConfigSnapshotResponse): ClusterConfigSnap
     clusterDescription: snapshot.cluster_description,
     gameMode: snapshot.game_mode,
     clusterKey: snapshot.cluster_key,
+    maxPlayers: snapshot.max_players,
+    clusterIntention: snapshot.cluster_intention ?? "",
+    pvp: snapshot.pvp,
+    pauseWhenEmpty: snapshot.pause_when_empty,
+    shardEnabled: snapshot.shard_enabled,
+    bindIP: snapshot.bind_ip ?? "",
+    masterIP: snapshot.master_ip ?? "",
     masterPort: snapshot.master_port,
     master: {
       serverPort: snapshot.master.server_port,
@@ -472,6 +500,13 @@ function encodeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapshotR
     cluster_description: snapshot.clusterDescription,
     game_mode: snapshot.gameMode,
     cluster_key: snapshot.clusterKey,
+    max_players: snapshot.maxPlayers,
+    cluster_intention: snapshot.clusterIntention,
+    pvp: snapshot.pvp,
+    pause_when_empty: snapshot.pauseWhenEmpty,
+    shard_enabled: snapshot.shardEnabled,
+    bind_ip: snapshot.bindIP,
+    master_ip: snapshot.masterIP,
     master_port: snapshot.masterPort,
     master: {
       server_port: snapshot.master.serverPort,
@@ -501,6 +536,8 @@ function mapJob(job: JobSummaryResponse): JobSummary {
     status: job.status,
     stdoutExcerpt: job.stdout_excerpt,
     stderrExcerpt: job.stderr_excerpt,
+    startedAt: job.started_at,
+    finishedAt: job.finished_at,
   };
 }
 

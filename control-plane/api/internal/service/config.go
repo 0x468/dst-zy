@@ -80,11 +80,13 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 			return err
 		}
 	} else {
-	clusterCfg.Network.ClusterName = snapshot.ClusterName
-	clusterCfg.Network.ClusterDescription = snapshot.ClusterDescription
-	clusterCfg.Gameplay.GameMode = snapshot.GameMode
-	clusterCfg.Shard.ClusterKey = snapshot.ClusterKey
-	clusterCfg.Shard.MasterPort = snapshot.MasterPort
+		clusterCfg.Network.ClusterName = snapshot.ClusterName
+		clusterCfg.Network.ClusterDescription = snapshot.ClusterDescription
+		clusterCfg.Network.ClusterIntention = snapshot.ClusterIntention
+		clusterCfg.Gameplay.GameMode = snapshot.GameMode
+		clusterCfg.Gameplay.MaxPlayers = snapshot.MaxPlayers
+		clusterCfg.Shard.ClusterKey = snapshot.ClusterKey
+		clusterCfg.Shard.MasterPort = snapshot.MasterPort
 		if err := files.WriteClusterINI(clusterINIPath, clusterCfg); err != nil {
 			return err
 		}

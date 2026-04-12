@@ -47,6 +47,7 @@ export function ClustersRoute({
         <Panel className="console-sidebar__panel">
           <ClusterList
             clusters={clusters}
+            jobs={jobs}
             selectedSlug={selectedSlug}
             onSelect={onSelectCluster}
             onCreate={onCreateCluster}
@@ -68,7 +69,7 @@ export function ClustersRoute({
               key={detailCluster.slug}
               cluster={detailCluster}
               snapshot={snapshot}
-              jobs={jobs}
+              jobs={jobs.filter((job) => job.clusterId === detailCluster.id)}
               audit={audit}
               backups={backups}
               onSave={onSaveConfig}

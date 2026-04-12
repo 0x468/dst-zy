@@ -141,6 +141,17 @@
   overflow-wrap: anywhere;
 }
 
+.cluster-nav__summary {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.cluster-nav__summary-line {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .cluster-management {
   display: grid;
   gap: var(--space-4);

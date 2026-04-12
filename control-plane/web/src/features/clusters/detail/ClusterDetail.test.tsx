@@ -74,6 +74,8 @@ describe("ClusterDetailPage", () => {
           clusterName: "Cluster_A",
           clusterDescription: "A co-op world",
           gameMode: "survival",
+          maxPlayers: 6,
+          clusterIntention: "cooperative",
           clusterKey: "secret-key",
           masterPort: 10889,
           master: {
@@ -315,6 +317,8 @@ describe("ClusterDetailPage", () => {
     expect(screen.getByText("Primary world")).toBeInTheDocument();
     expect(screen.getByText("running")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Cluster_A")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("6")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("secret-key")).toBeInTheDocument();
   });
 
   it("renders overview summary cards and stopped danger zone guidance", () => {
@@ -332,6 +336,8 @@ describe("ClusterDetailPage", () => {
           clusterName: "Cluster_A",
           clusterDescription: "A co-op world",
           gameMode: "survival",
+          maxPlayers: 6,
+          clusterIntention: "cooperative",
           clusterKey: "secret-key",
           masterPort: 10889,
           master: {
@@ -457,13 +463,27 @@ describe("ClusterDetailPage", () => {
     );
 
     const descriptionInput = screen.getByLabelText("Cluster description");
+    const gameModeInput = screen.getByLabelText("Game mode");
+    const maxPlayersInput = screen.getByLabelText("Max players");
+    const clusterKeyInput = screen.getByLabelText("Cluster key");
+    const intentionInput = screen.getByLabelText("Cluster intention");
     await user.clear(descriptionInput);
     await user.type(descriptionInput, "Updated description");
+    await user.selectOptions(gameModeInput, "endless");
+    await user.clear(maxPlayersInput);
+    await user.type(maxPlayersInput, "12");
+    await user.clear(clusterKeyInput);
+    await user.type(clusterKeyInput, "updated-secret-key");
+    await user.selectOptions(intentionInput, "social");
     await user.click(screen.getByRole("button", { name: "Save config" }));
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         clusterDescription: "Updated description",
+        gameMode: "endless",
+        maxPlayers: 12,
+        clusterKey: "updated-secret-key",
+        clusterIntention: "social",
       }),
     );
   });

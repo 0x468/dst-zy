@@ -68,7 +68,6 @@ export function App() {
 
   useEffect(() => {
     setSnapshot(undefined);
-    setJobs([]);
     setAudit([]);
     setBackups([]);
   }, [selectedSlug]);
@@ -223,7 +222,7 @@ export function App() {
       await runClusterAction(selectedSlug, action);
       setErrorMessage(undefined);
       const nextJobs = await listJobs();
-      setJobs(filterJobsForCluster(nextJobs, selectedCluster?.id));
+      setJobs(nextJobs);
       await refreshClusters(selectedSlug);
     } catch (error) {
       if (isUnauthorizedError(error)) {
@@ -265,7 +264,7 @@ export function App() {
         listAudit(selectedSlug),
         listBackups(selectedSlug),
       ]);
-      setJobs(filterJobsForCluster(nextJobs, selectedCluster?.id));
+      setJobs(nextJobs);
       setAudit(nextAudit);
       setBackups(nextBackups);
       await refreshClusters(selectedSlug);
@@ -284,7 +283,6 @@ export function App() {
     }
 
     const activeSlug = selectedSlug;
-    const activeClusterID = selectedCluster.id;
     let cancelled = false;
 
     async function loadClusterDetails() {
@@ -301,7 +299,7 @@ export function App() {
         }
 
         setSnapshot(nextSnapshot);
-        setJobs(filterJobsForCluster(nextJobs, activeClusterID));
+        setJobs(nextJobs);
         setAudit(nextAudit);
         setBackups(nextBackups);
       } catch (error) {
@@ -345,14 +343,6 @@ export function App() {
       )}
     </div>
   );
-}
-
-function filterJobsForCluster(jobs: JobSummary[], clusterID?: number) {
-  if (!clusterID) {
-    return [];
-  }
-
-  return jobs.filter((job) => job.clusterId === clusterID);
 }
 
 function getErrorMessage(error: unknown, fallback: string) {

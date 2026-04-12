@@ -73,6 +73,7 @@ describe("App", () => {
           status: "running",
           note: "Primary world",
           cluster_name: "Cluster_A",
+          updated_at: "2026-03-29T14:00:00Z",
         },
       ]))
       .mockResolvedValueOnce(jsonResponse({
@@ -151,6 +152,7 @@ describe("App", () => {
           status: "running",
           note: "Primary world",
           cluster_name: "Cluster_A",
+          updated_at: "2026-03-29T14:00:00Z",
         },
       ]))
       .mockResolvedValueOnce(jsonResponse({
@@ -181,6 +183,7 @@ describe("App", () => {
           status: "failed",
           stdout_excerpt: "",
           stderr_excerpt: "compose up failed",
+          started_at: "2026-03-29T13:55:00Z",
         },
       ]))
       .mockResolvedValueOnce(jsonResponse([
@@ -204,6 +207,8 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Clusters" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Cluster A" })).toBeInTheDocument();
     expect(screen.getByText("Primary world")).toBeInTheDocument();
+    expect(screen.getByText("Start failed")).toBeInTheDocument();
+    expect(screen.getByText("Updated 2026-03-29 14:00 UTC")).toBeInTheDocument();
     expect(screen.getByText("compose up failed")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recent audit" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Auth events" })).toBeInTheDocument();

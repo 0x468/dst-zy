@@ -9,12 +9,17 @@ type ClusterConfigFormProps = {
 };
 
 export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) {
-  const [draft, setDraft] = useState(snapshot);
+  const [draft, setDraft] = useState(() => normalizeSnapshot(snapshot));
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
+  const gameModeOptions = withCurrentOption(["survival", "endless", "wilderness", "relaxed"], draft.gameMode);
+  const clusterIntentionOptions = withCurrentOption(
+    ["", "cooperative", "social", "competitive", "madness"],
+    draft.clusterIntention ?? "",
+  );
 
   useEffect(() => {
-    setDraft(snapshot);
+    setDraft(normalizeSnapshot(snapshot));
     setErrorMessage(undefined);
   }, [snapshot]);
 
@@ -43,7 +48,11 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
         <div className="cluster-config-form__meta">
           <div className="cluster-config-form__meta-item">
             <span>Game mode</span>
-            <strong>{snapshot.gameMode}</strong>
+            <strong>{draft.gameMode}</strong>
+          </div>
+          <div className="cluster-config-form__meta-item">
+            <span>Max players</span>
+            <strong>{draft.maxPlayers ?? 0}</strong>
           </div>
           <div className="cluster-config-form__meta-item">
             <span>Master port</span>
@@ -55,6 +64,44 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
           </div>
         </div>
         <div className="cluster-config-form__grid">
+          <div className="cluster-config-form__field">
+            <label htmlFor="game-mode">Game mode</label>
+            <select
+              id="game-mode"
+              value={draft.gameMode}
+              disabled={pending}
+              onChange={(event) => {
+                setDraft({ ...draft, gameMode: event.target.value });
+              }}
+            >
+              {gameModeOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="cluster-config-form__field">
+            <label htmlFor="max-players">Max players</label>
+            <input
+              id="max-players"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={draft.maxPlayers ?? ""}
+              disabled={pending}
+              onChange={(event) => {
+                const value = event.target.value.trim();
+                if (value === "") {
+                  setDraft({ ...draft, maxPlayers: undefined });
+                  return;
+                }
+                if (!/^\d+$/.test(value)) {
+                  return;
+                }
+                setDraft({ ...draft, maxPlayers: Number(value) });
+              }}
+            />
+          </div>
+
           <div className="cluster-config-form__field">
             <label htmlFor="cluster-name">Cluster name</label>
             <input
@@ -79,6 +126,36 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
               }}
             />
           </div>
+
+          <div className="cluster-config-form__field">
+            <label htmlFor="cluster-key">Cluster key</label>
+            <input
+              id="cluster-key"
+              value={draft.clusterKey}
+              disabled={pending}
+              onChange={(event) => {
+                setDraft({ ...draft, clusterKey: event.target.value });
+              }}
+            />
+          </div>
+
+          <div className="cluster-config-form__field">
+            <label htmlFor="cluster-intention">Cluster intention</label>
+            <select
+              id="cluster-intention"
+              value={draft.clusterIntention ?? ""}
+              disabled={pending}
+              onChange={(event) => {
+                setDraft({ ...draft, clusterIntention: event.target.value });
+              }}
+            >
+              {clusterIntentionOptions.map((option) => (
+                <option key={option || "unset"} value={option}>
+                  {option === "" ? "unset" : option}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="cluster-config-form__actions">
@@ -95,4 +172,20 @@ function getErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function normalizeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapshot {
+  return {
+    ...snapshot,
+    maxPlayers: snapshot.maxPlayers ?? 6,
+    clusterIntention: snapshot.clusterIntention ?? "",
+  };
+}
+
+function withCurrentOption(options: string[], current: string) {
+  if (current.trim() === "" || options.includes(current)) {
+    return options;
+  }
+
+  return [current, ...options];
 }
