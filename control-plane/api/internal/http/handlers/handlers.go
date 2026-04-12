@@ -73,11 +73,23 @@ type BackupService interface {
 }
 
 type ClusterMutationRequest struct {
-	Mode        string `json:"mode"`
-	Slug        string `json:"slug"`
-	DisplayName string `json:"display_name"`
-	ClusterName string `json:"cluster_name"`
-	BaseDir     string `json:"base_dir"`
+	Mode               string `json:"mode"`
+	Slug               string `json:"slug"`
+	DisplayName        string `json:"display_name"`
+	ClusterName        string `json:"cluster_name"`
+	ClusterDescription string `json:"cluster_description"`
+	GameMode           string `json:"game_mode"`
+	MaxPlayers         int    `json:"max_players"`
+	ClusterToken       string `json:"cluster_token"`
+	ClusterKey         string `json:"cluster_key"`
+	Intent             string `json:"intent"`
+	TimeZone           string `json:"time_zone"`
+	MasterHostPort     int    `json:"master_host_port"`
+	CavesHostPort      int    `json:"caves_host_port"`
+	SteamHostPort      int    `json:"steam_host_port"`
+	CavesSteamHostPort int    `json:"caves_steam_host_port"`
+	AutoStart          bool   `json:"auto_start"`
+	BaseDir            string `json:"base_dir"`
 }
 
 type loginRequest struct {

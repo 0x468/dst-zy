@@ -35,4 +35,22 @@ func TestGenerateComposeYAMLAndEnv(t *testing.T) {
 	if !strings.Contains(envFile, "DST_UPDATE_MODE=install-only") {
 		t.Fatalf("expected env file to include update mode, got %q", envFile)
 	}
+	if !strings.Contains(envFile, "DST_SERVER_MODS_UPDATE_MODE=runtime") {
+		t.Fatalf("expected env file to include server mods update mode, got %q", envFile)
+	}
+	if !strings.Contains(envFile, "DST_MASTER_HOST_PORT=11000") {
+		t.Fatalf("expected env file to include master host port, got %q", envFile)
+	}
+	if !strings.Contains(envFile, "DST_CAVES_HOST_PORT=11001") {
+		t.Fatalf("expected env file to include caves host port, got %q", envFile)
+	}
+	if !strings.Contains(envFile, "DST_STEAM_HOST_PORT=27018") {
+		t.Fatalf("expected env file to include steam host port, got %q", envFile)
+	}
+	if !strings.Contains(envFile, "DST_CAVES_STEAM_HOST_PORT=27019") {
+		t.Fatalf("expected env file to include caves steam host port, got %q", envFile)
+	}
+	if !strings.Contains(envFile, "TZ=Asia/Shanghai") {
+		t.Fatalf("expected env file to include timezone, got %q", envFile)
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
@@ -34,30 +35,45 @@ func (s ClusterService) Create(_ context.Context, req handlers.ClusterMutationRe
 	if err != nil {
 		return models.ClusterRecord{}, mapClusterMutationError(err)
 	}
+	if err := validateManagedPorts(req); err != nil {
+		return models.ClusterRecord{}, err
+	}
 
 	layout := files.BuildManagedLayout(clusterDir)
 	if err := s.prepareLayout(layout, req.ClusterName); err != nil {
 		return models.ClusterRecord{}, err
 	}
 
-	snapshot := defaultSnapshot(req.ClusterName)
-	if err := s.writeSnapshot(layout, req.ClusterName, snapshot); err != nil {
+	snapshot := snapshotFromCreateRequest(req)
+	if err := s.writeSnapshot(layout, req.ClusterName, req.ClusterToken, snapshot); err != nil {
 		return models.ClusterRecord{}, err
 	}
 
-	composePath, envPath, err := s.writeComposeArtifacts(layout, req.ClusterName)
+	composePath, envPath, err := s.writeComposeArtifacts(layout, req)
 	if err != nil {
 		return models.ClusterRecord{}, err
 	}
 
+	timeZone := req.TimeZone
+	if timeZone == "" {
+		timeZone = models.StandardClosureDefaultTimeZone
+	}
+
 	return s.repo.Create(models.ClusterRecord{
-		Slug:        req.Slug,
-		DisplayName: req.DisplayName,
-		ClusterName: req.ClusterName,
-		BaseDir:     clusterDir,
-		ComposeFile: composePath,
-		EnvFile:     envPath,
-		Status:      "stopped",
+		Slug:                 req.Slug,
+		DisplayName:          req.DisplayName,
+		ClusterName:          req.ClusterName,
+		BaseDir:              clusterDir,
+		ComposeFile:          composePath,
+		EnvFile:              envPath,
+		Status:               "stopped",
+		UpdateMode:           models.StandardClosureDefaultUpdateMode,
+		ServerModsUpdateMode: models.StandardClosureDefaultServerModsUpdateMode,
+		TimeZone:             timeZone,
+		MasterHostPort:       req.MasterHostPort,
+		CavesHostPort:        req.CavesHostPort,
+		MasterSteamHostPort:  req.SteamHostPort,
+		CavesSteamHostPort:   req.CavesSteamHostPort,
 	})
 }
 
@@ -84,7 +100,7 @@ func (s ClusterService) Import(_ context.Context, req handlers.ClusterMutationRe
 		return models.ClusterRecord{}, err
 	}
 
-	composePath, envPath, err := s.writeComposeArtifacts(layout, req.ClusterName)
+	composePath, envPath, err := s.writeComposeArtifacts(layout, req)
 	if err != nil {
 		return models.ClusterRecord{}, err
 	}
@@ -144,40 +160,40 @@ func (s ClusterService) prepareLayout(layout files.ManagedLayout, clusterName st
 	return nil
 }
 
-func (s ClusterService) writeSnapshot(layout files.ManagedLayout, clusterName string, snapshot models.ClusterConfigSnapshot) error {
+func (s ClusterService) writeSnapshot(layout files.ManagedLayout, clusterName string, clusterToken string, snapshot models.ClusterConfigSnapshot) error {
 	clusterDir := filepath.Join(layout.RuntimeDir, "data", clusterName)
 
 	clusterCfg := files.ClusterINIConfig{}
 	clusterCfg.Gameplay.GameMode = snapshot.GameMode
-	clusterCfg.Gameplay.MaxPlayers = 6
-	clusterCfg.Gameplay.PVP = false
-	clusterCfg.Gameplay.PauseWhenEmpty = true
+	clusterCfg.Gameplay.MaxPlayers = snapshot.MaxPlayers
+	clusterCfg.Gameplay.PVP = snapshot.PVP
+	clusterCfg.Gameplay.PauseWhenEmpty = snapshot.PauseWhenEmpty
 	clusterCfg.Network.ClusterName = snapshot.ClusterName
 	clusterCfg.Network.ClusterDescription = snapshot.ClusterDescription
 	clusterCfg.Network.ClusterPassword = ""
-	clusterCfg.Network.ClusterIntention = "cooperative"
+	clusterCfg.Network.ClusterIntention = snapshot.ClusterIntention
 	clusterCfg.Misc.ConsoleEnabled = true
-	clusterCfg.Shard.ShardEnabled = true
-	clusterCfg.Shard.BindIP = "0.0.0.0"
-	clusterCfg.Shard.MasterIP = "127.0.0.1"
+	clusterCfg.Shard.ShardEnabled = snapshot.ShardEnabled
+	clusterCfg.Shard.BindIP = snapshot.BindIP
+	clusterCfg.Shard.MasterIP = snapshot.MasterIP
 	clusterCfg.Shard.MasterPort = snapshot.MasterPort
 	clusterCfg.Shard.ClusterKey = snapshot.ClusterKey
 
 	masterCfg := files.ServerINIConfig{}
 	masterCfg.Network.ServerPort = snapshot.Master.ServerPort
-	masterCfg.Shard.IsMaster = true
-	masterCfg.Shard.Name = "Master"
-	masterCfg.Shard.ID = "1"
-	masterCfg.Account.EncodeUserPath = true
+	masterCfg.Shard.IsMaster = snapshot.Master.IsMaster
+	masterCfg.Shard.Name = snapshot.Master.Name
+	masterCfg.Shard.ID = snapshot.Master.ID
+	masterCfg.Account.EncodeUserPath = snapshot.Master.EncodeUserPath
 	masterCfg.Steam.MasterServerPort = snapshot.Master.MasterServerPort
 	masterCfg.Steam.AuthenticationPort = snapshot.Master.AuthenticationPort
 
 	cavesCfg := files.ServerINIConfig{}
 	cavesCfg.Network.ServerPort = snapshot.Caves.ServerPort
-	cavesCfg.Shard.IsMaster = false
-	cavesCfg.Shard.Name = "Caves"
-	cavesCfg.Shard.ID = "95247852"
-	cavesCfg.Account.EncodeUserPath = true
+	cavesCfg.Shard.IsMaster = snapshot.Caves.IsMaster
+	cavesCfg.Shard.Name = snapshot.Caves.Name
+	cavesCfg.Shard.ID = snapshot.Caves.ID
+	cavesCfg.Account.EncodeUserPath = snapshot.Caves.EncodeUserPath
 	cavesCfg.Steam.MasterServerPort = snapshot.Caves.MasterServerPort
 	cavesCfg.Steam.AuthenticationPort = snapshot.Caves.AuthenticationPort
 
@@ -190,21 +206,45 @@ func (s ClusterService) writeSnapshot(layout files.ManagedLayout, clusterName st
 	if err := files.WriteServerINI(filepath.Join(clusterDir, "Caves", "server.ini"), cavesCfg); err != nil {
 		return err
 	}
+	if err := os.WriteFile(filepath.Join(clusterDir, "cluster_token.txt"), []byte(strings.TrimSpace(clusterToken)+"\n"), 0o644); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (s ClusterService) writeComposeArtifacts(layout files.ManagedLayout, clusterName string) (string, string, error) {
+func (s ClusterService) writeComposeArtifacts(layout files.ManagedLayout, req handlers.ClusterMutationRequest) (string, string, error) {
+	timeZone := req.TimeZone
+	if strings.TrimSpace(timeZone) == "" {
+		timeZone = models.StandardClosureDefaultTimeZone
+	}
+	masterHostPort := req.MasterHostPort
+	if masterHostPort == 0 {
+		masterHostPort = models.StandardClosureDefaultMasterHostPort
+	}
+	cavesHostPort := req.CavesHostPort
+	if cavesHostPort == 0 {
+		cavesHostPort = models.StandardClosureDefaultCavesHostPort
+	}
+	steamHostPort := req.SteamHostPort
+	if steamHostPort == 0 {
+		steamHostPort = models.StandardClosureDefaultMasterSteamHostPort
+	}
+	cavesSteamHostPort := req.CavesSteamHostPort
+	if cavesSteamHostPort == 0 {
+		cavesSteamHostPort = models.StandardClosureDefaultCavesSteamHostPort
+	}
+
 	input := runtime.ComposeTemplateInput{
 		Image:                s.image,
-		ClusterName:          clusterName,
-		UpdateMode:           "install-only",
-		ServerModsUpdateMode: "runtime",
-		TimeZone:             "Asia/Shanghai",
-		MasterHostPort:       11000,
-		CavesHostPort:        11001,
-		SteamHostPort:        27018,
-		CavesSteamHostPort:   27019,
+		ClusterName:          req.ClusterName,
+		UpdateMode:           models.StandardClosureDefaultUpdateMode,
+		ServerModsUpdateMode: models.StandardClosureDefaultServerModsUpdateMode,
+		TimeZone:             timeZone,
+		MasterHostPort:       masterHostPort,
+		CavesHostPort:        cavesHostPort,
+		SteamHostPort:        steamHostPort,
+		CavesSteamHostPort:   cavesSteamHostPort,
 	}
 
 	composePath := filepath.Join(layout.ComposeDir, "docker-compose.yml")
@@ -219,24 +259,39 @@ func (s ClusterService) writeComposeArtifacts(layout files.ManagedLayout, cluste
 	return composePath, envPath, nil
 }
 
-func defaultSnapshot(clusterName string) models.ClusterConfigSnapshot {
-	return models.ClusterConfigSnapshot{
-		ClusterName:        clusterName,
-		ClusterDescription: "Managed by DST Control Plane",
-		GameMode:           "survival",
-		ClusterKey:         "replace-me-cluster-key",
-		MasterPort:         10889,
-		Master: models.ShardConfigSnapshot{
-			ServerPort:         11000,
-			MasterServerPort:   27018,
-			AuthenticationPort: 8768,
-		},
-		Caves: models.ShardConfigSnapshot{
-			ServerPort:         11001,
-			MasterServerPort:   27019,
-			AuthenticationPort: 8769,
-		},
+func snapshotFromCreateRequest(req handlers.ClusterMutationRequest) models.ClusterConfigSnapshot {
+	snapshot := files.DefaultManagedSnapshot(req.ClusterName)
+	if strings.TrimSpace(req.ClusterDescription) != "" {
+		snapshot.ClusterDescription = req.ClusterDescription
 	}
+	if strings.TrimSpace(req.GameMode) != "" {
+		snapshot.GameMode = req.GameMode
+	}
+	if req.MaxPlayers > 0 {
+		snapshot.MaxPlayers = req.MaxPlayers
+	}
+	if strings.TrimSpace(req.ClusterKey) != "" {
+		snapshot.ClusterKey = req.ClusterKey
+	}
+	if strings.TrimSpace(req.Intent) != "" {
+		snapshot.ClusterIntention = req.Intent
+	}
+	return snapshot
+}
+
+func validateManagedPorts(req handlers.ClusterMutationRequest) error {
+	ports := []int{req.MasterHostPort, req.CavesHostPort, req.SteamHostPort, req.CavesSteamHostPort}
+	seen := map[int]struct{}{}
+	for _, port := range ports {
+		if port <= 0 {
+			return apierror.Invalid("invalid port", nil)
+		}
+		if _, ok := seen[port]; ok {
+			return apierror.Invalid("duplicate ports are not allowed", nil)
+		}
+		seen[port] = struct{}{}
+	}
+	return nil
 }
 
 func copyClusterDir(src string, dst string) error {
