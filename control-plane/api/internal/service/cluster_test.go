@@ -81,6 +81,9 @@ func TestClusterServiceCreateBuildsPlayableMasterAndCavesLayout(t *testing.T) {
 		ClusterDescription: "Welcome to Cluster A",
 		GameMode:           "endless",
 		MaxPlayers:         8,
+		PVP:                true,
+		PauseWhenEmpty:     false,
+		ClusterPassword:    "play-together",
 		ClusterToken:       "cluster-token-123",
 		ClusterKey:         "cluster-key-xyz",
 		Intent:             "social",
@@ -117,8 +120,17 @@ func TestClusterServiceCreateBuildsPlayableMasterAndCavesLayout(t *testing.T) {
 	if clusterCfg.Gameplay.MaxPlayers != 8 {
 		t.Fatalf("expected max_players to persist, got %d", clusterCfg.Gameplay.MaxPlayers)
 	}
+	if !clusterCfg.Gameplay.PVP {
+		t.Fatal("expected pvp to persist as true")
+	}
+	if clusterCfg.Gameplay.PauseWhenEmpty {
+		t.Fatal("expected pause_when_empty to persist as false")
+	}
 	if clusterCfg.Network.ClusterIntention != "social" {
 		t.Fatalf("expected cluster_intention to persist, got %q", clusterCfg.Network.ClusterIntention)
+	}
+	if clusterCfg.Network.ClusterPassword != "play-together" {
+		t.Fatalf("expected cluster_password to persist, got %q", clusterCfg.Network.ClusterPassword)
 	}
 	if clusterCfg.Shard.ClusterKey != "cluster-key-xyz" {
 		t.Fatalf("expected cluster_key to persist, got %q", clusterCfg.Shard.ClusterKey)

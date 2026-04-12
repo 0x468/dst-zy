@@ -50,6 +50,8 @@ describe("CreateClusterWizard", () => {
     await user.selectOptions(screen.getByLabelText("Game mode"), "endless");
     await user.clear(screen.getByLabelText("Max players"));
     await user.type(screen.getByLabelText("Max players"), "8");
+    await user.click(screen.getByLabelText("PVP"));
+    await user.click(screen.getByLabelText("Pause when empty"));
     await user.selectOptions(screen.getByLabelText("Intent"), "social");
     await user.clear(screen.getByLabelText("Time zone"));
     await user.type(screen.getByLabelText("Time zone"), "UTC");
@@ -70,6 +72,7 @@ describe("CreateClusterWizard", () => {
     expect(screen.getByRole("heading", { name: "Authentication" })).toBeInTheDocument();
     expect(screen.getByLabelText("Auto start after creation")).toBeChecked();
 
+    await user.type(screen.getByLabelText("Cluster password"), "play-together");
     await user.type(screen.getByLabelText("Cluster token"), "token-b");
     await user.type(screen.getByLabelText("Cluster key"), "key-b");
 
@@ -77,6 +80,15 @@ describe("CreateClusterWizard", () => {
     expect(screen.getByRole("heading", { name: "Review" })).toBeInTheDocument();
     expect(screen.getByText("cluster-b")).toBeInTheDocument();
     expect(screen.getByText("12000")).toBeInTheDocument();
+    expect(screen.getByText("playable Master + Caves managed layout")).toBeInTheDocument();
+    expect(screen.getByText("Cluster password")).toBeInTheDocument();
+    expect(screen.getByText("Configured")).toBeInTheDocument();
+    expect(screen.getByText("PVP")).toBeInTheDocument();
+    expect(screen.getByText("Enabled")).toBeInTheDocument();
+    expect(screen.getByText("Pause when empty")).toBeInTheDocument();
+    expect(screen.getByText("Disabled")).toBeInTheDocument();
+    expect(screen.getByText("runtime/data/Cluster_B")).toBeInTheDocument();
+    expect(screen.getByText("Switch to the new cluster workspace after creation to continue long-term management.")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Preflight" })).toBeInTheDocument();
     expect(previewClusterPreflight).toHaveBeenCalledWith({
       mode: "create",
@@ -86,6 +98,9 @@ describe("CreateClusterWizard", () => {
       clusterDescription: "Cluster B Desc",
       gameMode: "endless",
       maxPlayers: 8,
+      pvp: true,
+      pauseWhenEmpty: false,
+      clusterPassword: "play-together",
       clusterToken: "token-b",
       clusterKey: "key-b",
       intent: "social",
@@ -108,6 +123,9 @@ describe("CreateClusterWizard", () => {
       clusterDescription: "Cluster B Desc",
       gameMode: "endless",
       maxPlayers: 8,
+      pvp: true,
+      pauseWhenEmpty: false,
+      clusterPassword: "play-together",
       clusterToken: "token-b",
       clusterKey: "key-b",
       intent: "social",

@@ -154,7 +154,7 @@ func TestClusterHandlers(t *testing.T) {
 		t.Fatalf("expected cluster list to return 200, got %d", rec.Code)
 	}
 
-	createBody := bytes.NewBufferString(`{"mode":"create","slug":"cluster-b","display_name":"Cluster B","cluster_name":"Cluster_B","cluster_description":"Cluster B Desc","game_mode":"endless","max_players":8,"cluster_token":"token-b","cluster_key":"key-b","intent":"social","time_zone":"UTC","master_host_port":12000,"caves_host_port":12001,"steam_host_port":28018,"caves_steam_host_port":28019,"auto_start":false,"base_dir":"/srv/cluster-b"}`)
+	createBody := bytes.NewBufferString(`{"mode":"create","slug":"cluster-b","display_name":"Cluster B","cluster_name":"Cluster_B","cluster_description":"Cluster B Desc","game_mode":"endless","max_players":8,"pvp":true,"pause_when_empty":false,"cluster_password":"play-together","cluster_token":"token-b","cluster_key":"key-b","intent":"social","time_zone":"UTC","master_host_port":12000,"caves_host_port":12001,"steam_host_port":28018,"caves_steam_host_port":28019,"auto_start":false,"base_dir":"/srv/cluster-b"}`)
 	createReq := httptest.NewRequest(http.MethodPost, "/api/clusters", createBody)
 	createReq.AddCookie(sessionCookie)
 	createReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
@@ -175,6 +175,12 @@ func TestClusterHandlers(t *testing.T) {
 	}
 	if clusterService.lastCreateReq.GameMode != "endless" || clusterService.lastCreateReq.MaxPlayers != 8 {
 		t.Fatalf("expected create gameplay fields to be forwarded, got game_mode=%q max_players=%d", clusterService.lastCreateReq.GameMode, clusterService.lastCreateReq.MaxPlayers)
+	}
+	if !clusterService.lastCreateReq.PVP || clusterService.lastCreateReq.PauseWhenEmpty {
+		t.Fatalf("expected create gameplay toggles to be forwarded, got pvp=%t pause_when_empty=%t", clusterService.lastCreateReq.PVP, clusterService.lastCreateReq.PauseWhenEmpty)
+	}
+	if clusterService.lastCreateReq.ClusterPassword != "play-together" {
+		t.Fatalf("expected create cluster password to be forwarded, got %q", clusterService.lastCreateReq.ClusterPassword)
 	}
 	if clusterService.lastCreateReq.ClusterToken != "token-b" || clusterService.lastCreateReq.ClusterKey != "key-b" {
 		t.Fatalf("expected create credential fields to be forwarded, got token=%q key=%q", clusterService.lastCreateReq.ClusterToken, clusterService.lastCreateReq.ClusterKey)

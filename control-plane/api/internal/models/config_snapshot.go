@@ -22,6 +22,7 @@ type RawConfigFiles struct {
 type ClusterConfigSnapshot struct {
 	ClusterName        string              `json:"cluster_name"`
 	ClusterDescription string              `json:"cluster_description"`
+	ClusterPassword    string              `json:"cluster_password"`
 	GameMode           string              `json:"game_mode"`
 	MaxPlayers         int                 `json:"max_players"`
 	PVP                bool                `json:"pvp"`

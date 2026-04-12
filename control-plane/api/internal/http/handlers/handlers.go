@@ -92,6 +92,9 @@ type ClusterMutationRequest struct {
 	ClusterDescription string `json:"cluster_description"`
 	GameMode           string `json:"game_mode"`
 	MaxPlayers         int    `json:"max_players"`
+	PVP                bool   `json:"pvp"`
+	PauseWhenEmpty     bool   `json:"pause_when_empty"`
+	ClusterPassword    string `json:"cluster_password"`
 	ClusterToken       string `json:"cluster_token"`
 	ClusterKey         string `json:"cluster_key"`
 	Intent             string `json:"intent"`

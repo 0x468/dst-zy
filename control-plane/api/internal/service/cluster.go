@@ -177,7 +177,7 @@ func (s ClusterService) writeSnapshot(layout files.ManagedLayout, clusterName st
 	clusterCfg.Gameplay.PauseWhenEmpty = snapshot.PauseWhenEmpty
 	clusterCfg.Network.ClusterName = snapshot.ClusterName
 	clusterCfg.Network.ClusterDescription = snapshot.ClusterDescription
-	clusterCfg.Network.ClusterPassword = ""
+	clusterCfg.Network.ClusterPassword = snapshot.ClusterPassword
 	clusterCfg.Network.ClusterIntention = snapshot.ClusterIntention
 	clusterCfg.Misc.ConsoleEnabled = true
 	clusterCfg.Shard.ShardEnabled = snapshot.ShardEnabled
@@ -274,6 +274,9 @@ func snapshotFromCreateRequest(req handlers.ClusterMutationRequest) models.Clust
 	if req.MaxPlayers > 0 {
 		snapshot.MaxPlayers = req.MaxPlayers
 	}
+	snapshot.PVP = req.PVP
+	snapshot.PauseWhenEmpty = req.PauseWhenEmpty
+	snapshot.ClusterPassword = strings.TrimSpace(req.ClusterPassword)
 	if strings.TrimSpace(req.ClusterKey) != "" {
 		snapshot.ClusterKey = req.ClusterKey
 	}

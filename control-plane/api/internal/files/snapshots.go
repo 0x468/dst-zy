@@ -6,6 +6,7 @@ func BuildSnapshot(cluster ClusterINIConfig, master ServerINIConfig, caves Serve
 	return models.ClusterConfigSnapshot{
 		ClusterName:        cluster.Network.ClusterName,
 		ClusterDescription: cluster.Network.ClusterDescription,
+		ClusterPassword:    cluster.Network.ClusterPassword,
 		GameMode:           cluster.Gameplay.GameMode,
 		MaxPlayers:         cluster.Gameplay.MaxPlayers,
 		PVP:                cluster.Gameplay.PVP,

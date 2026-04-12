@@ -6,6 +6,7 @@ func DefaultManagedSnapshot(clusterName string) models.ClusterConfigSnapshot {
 	return models.ClusterConfigSnapshot{
 		ClusterName:        clusterName,
 		ClusterDescription: "Managed by DST Control Plane",
+		ClusterPassword:    "",
 		GameMode:           "survival",
 		MaxPlayers:         6,
 		PVP:                false,

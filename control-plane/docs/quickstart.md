@@ -130,6 +130,19 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
 
 默认生成的 `cluster_key` 只是占位值，正式使用前应改成你自己的随机值；`cluster_token.txt` 仍需由你向 Klei 申请并放入对应 Cluster 目录。
 
+当前创建向导除了基础标识、端口、token 与 `cluster_key` 之外，还支持在创建阶段直接设置下面这组高频长期管理字段：
+
+- `cluster password`
+- `pvp`
+- `pause when empty`
+
+Review 步骤现在也会额外展示：
+
+- 游戏行为摘要
+- 认证摘要（密码是否已设置）
+- 将生成的受控目录结构
+- 创建完成后会切换到该集群详情页继续长期管理的提示
+
 当前标准闭环 UI 已经把这条创建链路固定成“列表页 -> 向导 -> 详情页”三段：
 
 - 列表页负责选择当前集群和展示运行摘要

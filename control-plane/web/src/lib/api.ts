@@ -21,6 +21,7 @@ export type ShardSnapshot = {
 export type ClusterConfigSnapshot = {
   clusterName: string;
   clusterDescription: string;
+  clusterPassword?: string;
   gameMode: string;
   clusterKey: string;
   maxPlayers?: number;
@@ -95,8 +96,11 @@ export type ClusterMutationInput = {
   displayName: string;
   clusterName: string;
   clusterDescription?: string;
+  clusterPassword?: string;
   gameMode?: string;
   maxPlayers?: number;
+  pvp?: boolean;
+  pauseWhenEmpty?: boolean;
   clusterToken?: string;
   clusterKey?: string;
   intent?: string;
@@ -139,6 +143,7 @@ type ClusterSummaryResponse = {
 type ClusterConfigSnapshotResponse = {
   cluster_name: string;
   cluster_description: string;
+  cluster_password?: string;
   game_mode: string;
   cluster_key: string;
   max_players?: number;
@@ -410,6 +415,7 @@ function mapSnapshot(snapshot: ClusterConfigSnapshotResponse): ClusterConfigSnap
   return {
     clusterName: snapshot.cluster_name,
     clusterDescription: snapshot.cluster_description,
+    clusterPassword: snapshot.cluster_password ?? "",
     gameMode: snapshot.game_mode,
     clusterKey: snapshot.cluster_key,
     maxPlayers: snapshot.max_players,
@@ -479,8 +485,11 @@ function encodeClusterMutation(input: ClusterMutationInput) {
     display_name: input.displayName,
     cluster_name: input.clusterName,
     cluster_description: input.clusterDescription ?? "",
+    cluster_password: input.clusterPassword ?? "",
     game_mode: input.gameMode ?? "",
     max_players: input.maxPlayers ?? 0,
+    pvp: input.pvp ?? false,
+    pause_when_empty: input.pauseWhenEmpty ?? false,
     cluster_token: input.clusterToken ?? "",
     cluster_key: input.clusterKey ?? "",
     intent: input.intent ?? "",
@@ -498,6 +507,7 @@ function encodeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapshotR
   return {
     cluster_name: snapshot.clusterName,
     cluster_description: snapshot.clusterDescription,
+    cluster_password: snapshot.clusterPassword,
     game_mode: snapshot.gameMode,
     cluster_key: snapshot.clusterKey,
     max_players: snapshot.maxPlayers,

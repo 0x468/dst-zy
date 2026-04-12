@@ -18,8 +18,11 @@ type WizardState = {
   displayName: string;
   clusterName: string;
   clusterDescription: string;
+  clusterPassword: string;
   gameMode: string;
   maxPlayers: string;
+  pvp: boolean;
+  pauseWhenEmpty: boolean;
   intent: string;
   timeZone: string;
   masterHostPort: string;
@@ -38,8 +41,11 @@ const initialState: WizardState = {
   displayName: "",
   clusterName: "",
   clusterDescription: "",
+  clusterPassword: "",
   gameMode: "survival",
   maxPlayers: "6",
+  pvp: false,
+  pauseWhenEmpty: true,
   intent: "cooperative",
   timeZone: "Asia/Shanghai",
   masterHostPort: "11000",
@@ -279,6 +285,24 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
                 onChange={(event) => update("maxPlayers", event.target.value)}
               />
             </label>
+            <label className="cluster-wizard__checkbox">
+              <input
+                type="checkbox"
+                checked={state.pvp}
+                disabled={pending}
+                onChange={(event) => update("pvp", event.target.checked)}
+              />
+              <span>PVP</span>
+            </label>
+            <label className="cluster-wizard__checkbox">
+              <input
+                type="checkbox"
+                checked={state.pauseWhenEmpty}
+                disabled={pending}
+                onChange={(event) => update("pauseWhenEmpty", event.target.checked)}
+              />
+              <span>Pause when empty</span>
+            </label>
             <label className="cluster-wizard__field">
               <span>Intent</span>
               <select value={state.intent} disabled={pending} onChange={(event) => update("intent", event.target.value)}>
@@ -351,6 +375,14 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
           <h4>Authentication</h4>
           <div className="cluster-wizard__grid">
             <label className="cluster-wizard__field">
+              <span>Cluster password</span>
+              <input
+                value={state.clusterPassword}
+                disabled={pending}
+                onChange={(event) => update("clusterPassword", event.target.value)}
+              />
+            </label>
+            <label className="cluster-wizard__field">
               <span>Cluster token</span>
               <input
                 value={state.clusterToken}
@@ -377,6 +409,7 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
       {step === "review" ? (
         <div className="cluster-wizard__panel">
           <h4>Review</h4>
+          <p className="cluster-wizard__copy">playable Master + Caves managed layout</p>
           <dl className="cluster-wizard__review">
             <div>
               <dt>Slug</dt>
@@ -391,6 +424,46 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
               <dd>{state.clusterName}</dd>
             </div>
             <div>
+              <dt>Description</dt>
+              <dd>{state.clusterDescription || "Not set"}</dd>
+            </div>
+            <div>
+              <dt>Game mode</dt>
+              <dd>{state.gameMode}</dd>
+            </div>
+            <div>
+              <dt>Max players</dt>
+              <dd>{state.maxPlayers}</dd>
+            </div>
+            <div>
+              <dt>PVP</dt>
+              <dd>{state.pvp ? "Enabled" : "Disabled"}</dd>
+            </div>
+            <div>
+              <dt>Pause when empty</dt>
+              <dd>{state.pauseWhenEmpty ? "Enabled" : "Disabled"}</dd>
+            </div>
+            <div>
+              <dt>Intent</dt>
+              <dd>{state.intent}</dd>
+            </div>
+            <div>
+              <dt>Time zone</dt>
+              <dd>{state.timeZone}</dd>
+            </div>
+            <div>
+              <dt>Cluster password</dt>
+              <dd>{state.clusterPassword.trim() === "" ? "Not configured" : "Configured"}</dd>
+            </div>
+            <div>
+              <dt>Cluster key</dt>
+              <dd>{state.clusterKey || "Not set"}</dd>
+            </div>
+            <div>
+              <dt>Auto start</dt>
+              <dd>{state.autoStart ? "Start after create" : "Manual start"}</dd>
+            </div>
+            <div>
               <dt>Master host UDP port</dt>
               <dd>{state.masterHostPort}</dd>
             </div>
@@ -398,7 +471,26 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
               <dt>Caves host UDP port</dt>
               <dd>{state.cavesHostPort}</dd>
             </div>
+            <div>
+              <dt>Master Steam port</dt>
+              <dd>{state.steamHostPort}</dd>
+            </div>
+            <div>
+              <dt>Caves Steam port</dt>
+              <dd>{state.cavesSteamHostPort}</dd>
+            </div>
+            <div>
+              <dt>Managed layout</dt>
+              <dd className="cluster-wizard__review-stack">
+                <span>runtime/data/{state.clusterName}</span>
+                <span>runtime/ugc</span>
+                <span>runtime/dst</span>
+                <span>runtime/steam-state</span>
+                <span>compose/.env + compose/docker-compose.yml</span>
+              </dd>
+            </div>
           </dl>
+          <p className="cluster-wizard__handoff">Switch to the new cluster workspace after creation to continue long-term management.</p>
           {preflightReport?.status === "blocked" && state.autoStart ? (
             <p className="cluster-wizard__warning">Auto-start will be blocked until fatal preflight issues are fixed.</p>
           ) : null}
@@ -485,8 +577,11 @@ function buildCreateInput(
     displayName: state.displayName.trim(),
     clusterName: state.clusterName.trim(),
     clusterDescription: state.clusterDescription.trim(),
+    clusterPassword: state.clusterPassword.trim(),
     gameMode: state.gameMode,
     maxPlayers: parseMaxPlayers(state.maxPlayers),
+    pvp: state.pvp,
+    pauseWhenEmpty: state.pauseWhenEmpty,
     clusterToken: state.clusterToken.trim(),
     clusterKey: state.clusterKey.trim(),
     intent: state.intent,
