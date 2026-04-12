@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
@@ -30,6 +31,7 @@ type Dependencies struct {
 	Runtime             RuntimeService
 	Jobs                JobsService
 	Backups             BackupService
+	Logs                LogsService
 }
 
 type AuthService interface {
@@ -72,6 +74,10 @@ type BackupService interface {
 	ResolveArchivePath(ctx context.Context, slug string, name string) (string, error)
 }
 
+type LogsService interface {
+	Read(ctx context.Context, slug string, source string) (LogEntry, error)
+}
+
 type ClusterMutationRequest struct {
 	Mode               string `json:"mode"`
 	Slug               string `json:"slug"`
@@ -98,7 +104,14 @@ type loginRequest struct {
 }
 
 type actionRequest struct {
-	Action string `json:"action"`
+	Action     string `json:"action"`
+	BackupName string `json:"backup_name"`
+}
+
+type LogEntry struct {
+	Source    string    `json:"source"`
+	Content   string    `json:"content"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func NewRouter(deps Dependencies) http.Handler {
@@ -310,6 +323,30 @@ func NewRouter(deps Dependencies) http.Handler {
 		http.ServeFile(w, r, archivePath)
 	})))
 
+	mux.Handle("GET /api/clusters/{slug}/logs", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		source := r.URL.Query().Get("source")
+		if source == "" {
+			source = "jobs"
+		}
+
+		if deps.Logs == nil {
+			writeJSON(w, http.StatusOK, LogEntry{
+				Source:    source,
+				Content:   "",
+				UpdatedAt: time.Now().UTC(),
+			})
+			return
+		}
+
+		entry, err := deps.Logs.Read(r.Context(), r.PathValue("slug"), source)
+		if err != nil {
+			writeMappedError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, entry)
+	})))
+
 	mux.Handle("POST /api/clusters/{slug}/actions", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req actionRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -318,7 +355,11 @@ func NewRouter(deps Dependencies) http.Handler {
 		}
 
 		actor := sessionActor(r, deps.SessionSecret)
-		job, err := deps.Runtime.RunAction(r.Context(), r.PathValue("slug"), req.Action, actor)
+		actionInput := req.Action
+		if req.Action == "restore" && strings.TrimSpace(req.BackupName) != "" {
+			actionInput = "restore:" + strings.TrimSpace(req.BackupName)
+		}
+		job, err := deps.Runtime.RunAction(r.Context(), r.PathValue("slug"), actionInput, actor)
 		if err != nil {
 			writeMappedError(w, err)
 			return

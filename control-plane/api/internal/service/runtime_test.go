@@ -2,8 +2,8 @@ package service
 
 import (
 	"archive/tar"
-	"context"
 	"compress/gzip"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
@@ -275,6 +276,178 @@ func TestRuntimeServiceBackupCreatesArchiveAndPreservesStatus(t *testing.T) {
 	}
 	if reloaded.Status != "stopped" {
 		t.Fatalf("expected backup to preserve cluster status, got %q", reloaded.Status)
+	}
+}
+
+func TestRuntimeServiceRunActionSupportsRestore(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	jobsRepo := jobs.NewService(database)
+	record, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "stopped",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster record to be created, got error: %v", err)
+	}
+
+	backupDir := filepath.Join(record.BaseDir, "meta", "backups")
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+		t.Fatalf("expected backup dir to be created, got error: %v", err)
+	}
+
+	clusterDataDir := filepath.Join(record.BaseDir, "runtime", "data", record.ClusterName)
+	if err := os.MkdirAll(filepath.Join(clusterDataDir, "Master"), 0o755); err != nil {
+		t.Fatalf("expected cluster data directory to be created, got error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(clusterDataDir, "Master", "state.txt"), []byte("old-state"), 0o644); err != nil {
+		t.Fatalf("expected existing shard state to be written, got error: %v", err)
+	}
+
+	restoreSource := filepath.Join(rootDir, "restore-src")
+	if err := os.MkdirAll(filepath.Join(restoreSource, "Master"), 0o755); err != nil {
+		t.Fatalf("expected restore source to be created, got error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(restoreSource, "Master", "state.txt"), []byte("restored-state"), 0o644); err != nil {
+		t.Fatalf("expected restore source state to be written, got error: %v", err)
+	}
+
+	archiveName := "Cluster_A-20260412T090000Z.tar.gz"
+	archivePath := filepath.Join(backupDir, archiveName)
+	if err := writeTarGzArchive(restoreSource, record.ClusterName, archivePath); err != nil {
+		t.Fatalf("expected restore archive to be created, got error: %v", err)
+	}
+
+	service := NewRuntimeService(repo, jobsRepo, "compose")
+
+	job, err := service.RunAction(context.Background(), record.Slug, "restore:"+archiveName, "admin")
+	if err != nil {
+		t.Fatalf("expected restore action to succeed, got error: %v", err)
+	}
+	if job.Status != "succeeded" {
+		t.Fatalf("expected restore job status succeeded, got %q", job.Status)
+	}
+	if job.JobType != "restore" {
+		t.Fatalf("expected restore job type, got %q", job.JobType)
+	}
+	if !strings.Contains(job.StdoutExcerpt, archiveName) {
+		t.Fatalf("expected restore stdout excerpt to include archive name, got %q", job.StdoutExcerpt)
+	}
+
+	restoredStatePath := filepath.Join(clusterDataDir, "Master", "state.txt")
+	restoredState, err := os.ReadFile(restoredStatePath)
+	if err != nil {
+		t.Fatalf("expected restored state to be readable, got error: %v", err)
+	}
+	if string(restoredState) != "restored-state" {
+		t.Fatalf("expected restored state contents, got %q", string(restoredState))
+	}
+}
+
+func TestRuntimeServiceRestoreWithoutArchiveNameUsesLatestBackup(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	jobsRepo := jobs.NewService(database)
+	record, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "stopped",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster record to be created, got error: %v", err)
+	}
+
+	clusterDataDir := filepath.Join(record.BaseDir, "runtime", "data", record.ClusterName)
+	if err := os.MkdirAll(filepath.Join(clusterDataDir, "Master"), 0o755); err != nil {
+		t.Fatalf("expected cluster data directory to be created, got error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(clusterDataDir, "Master", "state.txt"), []byte("old-state"), 0o644); err != nil {
+		t.Fatalf("expected existing shard state to be written, got error: %v", err)
+	}
+
+	backupDir := filepath.Join(record.BaseDir, "meta", "backups")
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+		t.Fatalf("expected backup dir to be created, got error: %v", err)
+	}
+
+	oldSource := filepath.Join(rootDir, "restore-old")
+	if err := os.MkdirAll(filepath.Join(oldSource, "Master"), 0o755); err != nil {
+		t.Fatalf("expected old restore source to be created, got error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(oldSource, "Master", "state.txt"), []byte("old-backup-state"), 0o644); err != nil {
+		t.Fatalf("expected old restore source state to be written, got error: %v", err)
+	}
+
+	newSource := filepath.Join(rootDir, "restore-new")
+	if err := os.MkdirAll(filepath.Join(newSource, "Master"), 0o755); err != nil {
+		t.Fatalf("expected new restore source to be created, got error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(newSource, "Master", "state.txt"), []byte("latest-backup-state"), 0o644); err != nil {
+		t.Fatalf("expected new restore source state to be written, got error: %v", err)
+	}
+
+	oldArchiveName := "Cluster_A-20260412T080000Z.tar.gz"
+	newArchiveName := "Cluster_A-20260412T090000Z.tar.gz"
+	oldArchivePath := filepath.Join(backupDir, oldArchiveName)
+	newArchivePath := filepath.Join(backupDir, newArchiveName)
+	if err := writeTarGzArchive(oldSource, record.ClusterName, oldArchivePath); err != nil {
+		t.Fatalf("expected old archive to be created, got error: %v", err)
+	}
+	if err := writeTarGzArchive(newSource, record.ClusterName, newArchivePath); err != nil {
+		t.Fatalf("expected new archive to be created, got error: %v", err)
+	}
+
+	oldTime := time.Date(2026, 4, 12, 8, 0, 0, 0, time.UTC)
+	newTime := time.Date(2026, 4, 12, 9, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(oldArchivePath, oldTime, oldTime); err != nil {
+		t.Fatalf("expected old archive timestamps to update, got error: %v", err)
+	}
+	if err := os.Chtimes(newArchivePath, newTime, newTime); err != nil {
+		t.Fatalf("expected new archive timestamps to update, got error: %v", err)
+	}
+
+	service := NewRuntimeService(repo, jobsRepo, "compose")
+
+	job, err := service.RunAction(context.Background(), record.Slug, "restore", "admin")
+	if err != nil {
+		t.Fatalf("expected restore action without name to succeed, got error: %v", err)
+	}
+	if job.Status != "succeeded" {
+		t.Fatalf("expected restore job status succeeded, got %q", job.Status)
+	}
+	if !strings.Contains(job.StdoutExcerpt, "restored latest backup") {
+		t.Fatalf("expected restore stdout excerpt to indicate latest backup, got %q", job.StdoutExcerpt)
+	}
+
+	restoredState, err := os.ReadFile(filepath.Join(clusterDataDir, "Master", "state.txt"))
+	if err != nil {
+		t.Fatalf("expected restored state to be readable, got error: %v", err)
+	}
+	if string(restoredState) != "latest-backup-state" {
+		t.Fatalf("expected latest backup contents, got %q", string(restoredState))
 	}
 }
 

@@ -1,7 +1,10 @@
 package service
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -86,6 +89,67 @@ func (s BackupService) ResolveArchivePath(_ context.Context, slug string, name s
 	return archivePath, nil
 }
 
+func (s BackupService) Restore(ctx context.Context, slug string, name string) error {
+	record, err := s.repo.GetBySlug(slug)
+	if err != nil {
+		return err
+	}
+
+	archiveName := strings.TrimSpace(name)
+	if archiveName == "" {
+		backups, err := s.List(ctx, slug)
+		if err != nil {
+			return err
+		}
+		if len(backups) == 0 {
+			return apierror.NotFound("backup not found", nil)
+		}
+		archiveName = backups[0].Name
+	}
+
+	archivePath, err := s.ResolveArchivePath(ctx, slug, archiveName)
+	if err != nil {
+		return err
+	}
+
+	runtimeDataDir := filepath.Join(record.BaseDir, "runtime", "data")
+	if err := os.MkdirAll(runtimeDataDir, 0o755); err != nil {
+		return err
+	}
+
+	restoreRoot, err := os.MkdirTemp(runtimeDataDir, ".restore-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(restoreRoot)
+
+	if err := extractTarGzArchive(archivePath, restoreRoot); err != nil {
+		return err
+	}
+
+	restoredClusterDir := filepath.Join(restoreRoot, record.ClusterName)
+	info, err := os.Stat(restoredClusterDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return apierror.Invalid("backup archive missing cluster root", nil)
+		}
+		return err
+	}
+	if !info.IsDir() {
+		return apierror.Invalid("backup archive missing cluster root", nil)
+	}
+
+	targetClusterDir := filepath.Join(runtimeDataDir, record.ClusterName)
+	if err := os.RemoveAll(targetClusterDir); err != nil {
+		return err
+	}
+	if err := os.Rename(restoredClusterDir, targetClusterDir); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func validateArchiveName(name string) error {
 	if name == "" || strings.Contains(name, "/") || strings.Contains(name, `\`) {
 		return apierror.Invalid("invalid backup name", nil)
@@ -95,4 +159,68 @@ func validateArchiveName(name string) error {
 	}
 
 	return nil
+}
+
+func extractTarGzArchive(archivePath string, destinationRoot string) (err error) {
+	archiveFile, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer archiveFile.Close()
+
+	gzipReader, err := gzip.NewReader(archiveFile)
+	if err != nil {
+		return err
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+	for {
+		header, err := tarReader.Next()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+
+		name := filepath.Clean(filepath.FromSlash(header.Name))
+		if name == "." || strings.HasPrefix(name, "..") || filepath.IsAbs(name) {
+			return apierror.Invalid("backup archive contains invalid path", nil)
+		}
+
+		targetPath := filepath.Join(destinationRoot, name)
+		relPath, err := filepath.Rel(destinationRoot, targetPath)
+		if err != nil {
+			return err
+		}
+		if relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
+			return apierror.Invalid("backup archive contains invalid path", nil)
+		}
+
+		mode := header.FileInfo().Mode()
+		switch {
+		case mode.IsDir():
+			if err := os.MkdirAll(targetPath, 0o755); err != nil {
+				return err
+			}
+		case mode.IsRegular():
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+				return err
+			}
+			targetFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode.Perm())
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(targetFile, tarReader); err != nil {
+				targetFile.Close()
+				return err
+			}
+			if err := targetFile.Close(); err != nil {
+				return err
+			}
+		default:
+			return apierror.Invalid("backup archive contains unsupported file type", nil)
+		}
+	}
 }

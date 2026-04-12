@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -53,6 +54,9 @@ func main() {
 		Runtime:  service.NewRuntimeService(clusterRepo, jobsRepo, cfg.ExecutionMode),
 		Jobs:     service.NewJobsService(jobsRepo),
 		Backups:  service.NewBackupService(clusterRepo),
+		Logs: logsServiceAdapter{
+			service: service.NewLogsService(clusterRepo, jobsRepo),
+		},
 	}
 
 	mux := httpapi.NewServerHandler(deps, cfg.WebStaticDir)
@@ -61,4 +65,21 @@ func main() {
 	if err := http.ListenAndServe(cfg.ListenAddr, mux); err != nil {
 		log.Fatal(err)
 	}
+}
+
+type logsServiceAdapter struct {
+	service service.LogsService
+}
+
+func (a logsServiceAdapter) Read(ctx context.Context, slug string, source string) (handlers.LogEntry, error) {
+	entry, err := a.service.Read(ctx, slug, source)
+	if err != nil {
+		return handlers.LogEntry{}, err
+	}
+
+	return handlers.LogEntry{
+		Source:    entry.Source,
+		Content:   entry.Content,
+		UpdatedAt: entry.UpdatedAt,
+	}, nil
 }

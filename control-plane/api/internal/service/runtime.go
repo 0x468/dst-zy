@@ -24,15 +24,21 @@ import (
 type RuntimeService struct {
 	repo          *cluster.Repository
 	jobs          *jobs.Service
+	backups       backupRestorer
 	executionMode string
 	runnerFactory func(record models.ClusterRecord) composeCommandFactory
 	commandRunner func(cmd *exec.Cmd) (string, string, error)
+}
+
+type backupRestorer interface {
+	Restore(ctx context.Context, slug string, name string) error
 }
 
 func NewRuntimeService(repo *cluster.Repository, jobs *jobs.Service, executionMode string) RuntimeService {
 	return RuntimeService{
 		repo:          repo,
 		jobs:          jobs,
+		backups:       NewBackupService(repo),
 		executionMode: executionMode,
 		runnerFactory: func(record models.ClusterRecord) composeCommandFactory {
 			return runtime.NewComposeRunner(filepath.Dir(record.ComposeFile), record.ComposeFile, record.EnvFile)
@@ -41,8 +47,9 @@ func NewRuntimeService(repo *cluster.Repository, jobs *jobs.Service, executionMo
 	}
 }
 
-func (s RuntimeService) RunAction(_ context.Context, slug string, action string, actor string) (models.JobRecord, error) {
-	if !isSupportedAction(action) {
+func (s RuntimeService) RunAction(ctx context.Context, slug string, action string, actor string) (models.JobRecord, error) {
+	resolvedAction, restoreArchiveName := parseAction(action)
+	if !isSupportedAction(resolvedAction) {
 		return models.JobRecord{}, apierror.Invalid("unsupported action", nil)
 	}
 
@@ -51,12 +58,12 @@ func (s RuntimeService) RunAction(_ context.Context, slug string, action string,
 		return models.JobRecord{}, err
 	}
 
-	job, err := s.jobs.Create(record.ID, action, actor)
+	job, err := s.jobs.Create(record.ID, resolvedAction, actor)
 	if err != nil {
 		return models.JobRecord{}, err
 	}
 
-	if action == "backup" {
+	if resolvedAction == "backup" {
 		archivePath, err := createBackupArchive(record)
 		if err != nil {
 			if markErr := s.jobs.MarkFinished(job.ID, "failed", "", truncateExcerpt(err.Error())); markErr != nil {
@@ -74,17 +81,42 @@ func (s RuntimeService) RunAction(_ context.Context, slug string, action string,
 		return s.jobs.Get(job.ID)
 	}
 
-	switch s.executionMode {
-	case "dry-run":
-		if err := s.jobs.MarkFinished(job.ID, "succeeded", "dry run "+action, ""); err != nil {
+	if resolvedAction == "restore" {
+		if s.backups == nil {
+			return models.JobRecord{}, errors.New("backup restore mode not wired yet")
+		}
+		if err := s.backups.Restore(ctx, slug, restoreArchiveName); err != nil {
+			if markErr := s.jobs.MarkFinished(job.ID, "failed", "", truncateExcerpt(err.Error())); markErr != nil {
+				return models.JobRecord{}, markErr
+			}
+			failedJob, getErr := s.jobs.Get(job.ID)
+			if getErr != nil {
+				return models.JobRecord{}, getErr
+			}
+			return failedJob, err
+		}
+
+		restoreSummary := "restored latest backup"
+		if strings.TrimSpace(restoreArchiveName) != "" {
+			restoreSummary = "restored backup " + restoreArchiveName
+		}
+		if err := s.jobs.MarkFinished(job.ID, "succeeded", truncateExcerpt(restoreSummary), ""); err != nil {
 			return models.JobRecord{}, err
 		}
-		if err := s.repo.UpdateStatus(record.ID, nextStatusForAction(action)); err != nil {
+		return s.jobs.Get(job.ID)
+	}
+
+	switch s.executionMode {
+	case "dry-run":
+		if err := s.jobs.MarkFinished(job.ID, "succeeded", "dry run "+resolvedAction, ""); err != nil {
+			return models.JobRecord{}, err
+		}
+		if err := s.repo.UpdateStatus(record.ID, nextStatusForAction(resolvedAction)); err != nil {
 			return models.JobRecord{}, err
 		}
 	case "compose":
 		runner := s.runnerFactory(record)
-		cmd, err := commandForAction(runner, action)
+		cmd, err := commandForAction(runner, resolvedAction)
 		if err != nil {
 			return models.JobRecord{}, err
 		}
@@ -104,7 +136,7 @@ func (s RuntimeService) RunAction(_ context.Context, slug string, action string,
 		if err := s.jobs.MarkFinished(job.ID, "succeeded", truncateExcerpt(stdout), truncateExcerpt(stderr)); err != nil {
 			return models.JobRecord{}, err
 		}
-		if err := s.repo.UpdateStatus(record.ID, nextStatusForAction(action)); err != nil {
+		if err := s.repo.UpdateStatus(record.ID, nextStatusForAction(resolvedAction)); err != nil {
 			return models.JobRecord{}, err
 		}
 	default:
@@ -141,11 +173,18 @@ func commandForAction(runner composeCommandFactory, action string) (*exec.Cmd, e
 
 func isSupportedAction(action string) bool {
 	switch action {
-	case "start", "stop", "restart", "update", "validate", "backup":
+	case "start", "stop", "restart", "update", "validate", "backup", "restore":
 		return true
 	default:
 		return false
 	}
+}
+
+func parseAction(rawAction string) (action string, restoreArchiveName string) {
+	if strings.HasPrefix(rawAction, "restore:") {
+		return "restore", strings.TrimSpace(strings.TrimPrefix(rawAction, "restore:"))
+	}
+	return rawAction, ""
 }
 
 func nextStatusForAction(action string) string {

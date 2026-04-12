@@ -232,6 +232,10 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 			{ID: 23, Actor: "admin", Action: "cluster_action_stop", TargetType: "cluster", Summary: "slug=cluster-b"},
 		},
 	}
+	var runtimeCall struct {
+		action string
+		actor  string
+	}
 	router := NewRouter(Dependencies{
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
@@ -244,11 +248,21 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 			},
 		},
 		Runtime: fakeRuntimeService{
-			job: models.JobRecord{ID: 10, JobType: "start", Status: "running"},
+			runAction: func(_ context.Context, _ string, action string, actor string) (models.JobRecord, error) {
+				runtimeCall.action = action
+				runtimeCall.actor = actor
+				return models.JobRecord{ID: 10, ClusterID: 1, JobType: "start", Status: "running"}, nil
+			},
 		},
 		Jobs: fakeJobsService{
 			list: []models.JobRecord{
 				{ID: 10, JobType: "start", Status: "running"},
+			},
+		},
+		Logs: fakeLogsService{
+			entry: LogEntry{
+				Source:  "master",
+				Content: "master-line-2",
 			},
 		},
 		Audit: auditService,
@@ -302,6 +316,9 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	if actionRec.Code != http.StatusAccepted {
 		t.Fatalf("expected lifecycle action to return 202, got %d", actionRec.Code)
 	}
+	if runtimeCall.action != "start" || runtimeCall.actor != "admin" {
+		t.Fatalf("expected start action to be forwarded with actor, got action=%q actor=%q", runtimeCall.action, runtimeCall.actor)
+	}
 	if len(auditService.records) != 2 || auditService.records[1].action != "cluster_action_start" {
 		t.Fatalf("expected action to record cluster_action_start audit, got %+v", auditService.records)
 	}
@@ -317,6 +334,22 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	}
 	if len(auditService.records) != 3 || auditService.records[2].action != "cluster_action_backup" {
 		t.Fatalf("expected backup action to record cluster_action_backup audit, got %+v", auditService.records)
+	}
+
+	restoreReq := httptest.NewRequest(http.MethodPost, "/api/clusters/cluster-a/actions", bytes.NewBufferString(`{"action":"restore","backup_name":"Cluster_A-20260329T130000Z.tar.gz"}`))
+	restoreReq.AddCookie(sessionCookie)
+	restoreReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
+	restoreRec := httptest.NewRecorder()
+	router.ServeHTTP(restoreRec, restoreReq)
+
+	if restoreRec.Code != http.StatusAccepted {
+		t.Fatalf("expected restore action to return 202, got %d", restoreRec.Code)
+	}
+	if runtimeCall.action != "restore:Cluster_A-20260329T130000Z.tar.gz" {
+		t.Fatalf("expected restore action to include backup name, got %q", runtimeCall.action)
+	}
+	if len(auditService.records) != 4 || auditService.records[3].action != "cluster_action_restore" {
+		t.Fatalf("expected restore action to record cluster_action_restore audit, got %+v", auditService.records)
 	}
 
 	jobsReq := httptest.NewRequest(http.MethodGet, "/api/jobs", nil)
@@ -378,6 +411,18 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	if !bytes.Contains(backupsRec.Body.Bytes(), []byte(`"name":"Cluster_A-20260329T130000Z.tar.gz"`)) {
 		t.Fatalf("expected backups list to include archive metadata, got %q", backupsRec.Body.String())
 	}
+
+	logsReq := httptest.NewRequest(http.MethodGet, "/api/clusters/cluster-a/logs?source=master", nil)
+	logsReq.AddCookie(sessionCookie)
+	logsRec := httptest.NewRecorder()
+	router.ServeHTTP(logsRec, logsReq)
+
+	if logsRec.Code != http.StatusOK {
+		t.Fatalf("expected logs endpoint to return 200, got %d", logsRec.Code)
+	}
+	if !bytes.Contains(logsRec.Body.Bytes(), []byte(`"source":"master"`)) || !bytes.Contains(logsRec.Body.Bytes(), []byte(`"content":"master-line-2"`)) {
+		t.Fatalf("expected logs response to include source/content, got %q", logsRec.Body.String())
+	}
 }
 
 func TestBackupDownloadHandlerServesArchiveFile(t *testing.T) {
@@ -430,6 +475,7 @@ func TestReadHandlersRequireSession(t *testing.T) {
 		{name: "cluster list", path: "/api/clusters"},
 		{name: "cluster config", path: "/api/clusters/cluster-a/config"},
 		{name: "cluster backups", path: "/api/clusters/cluster-a/backups"},
+		{name: "cluster logs", path: "/api/clusters/cluster-a/logs"},
 		{name: "jobs list", path: "/api/jobs"},
 		{name: "audit list", path: "/api/audit"},
 	}
@@ -774,4 +820,13 @@ func (f fakeBackupService) List(_ context.Context, _ string) ([]models.BackupRec
 
 func (f fakeBackupService) ResolveArchivePath(_ context.Context, _ string, _ string) (string, error) {
 	return f.resolvePath, f.resolveErr
+}
+
+type fakeLogsService struct {
+	entry   LogEntry
+	readErr error
+}
+
+func (f fakeLogsService) Read(_ context.Context, _ string, _ string) (LogEntry, error) {
+	return f.entry, f.readErr
 }
