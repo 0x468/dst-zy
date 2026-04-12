@@ -2,6 +2,18 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../lib/api")>("../lib/api");
+  return {
+    ...actual,
+    getClusterLogs: vi.fn().mockResolvedValue({
+      source: "jobs",
+      content: "",
+      updatedAt: "2026-03-29T14:00:00Z",
+    }),
+  };
+});
+
 import { App } from "./App";
 
 describe("App", () => {
@@ -673,6 +685,118 @@ describe("App", () => {
 
     expect(await screen.findByRole("link", { name: "Cluster_A-20260329T140000Z.tar.gz" })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/clusters/cluster-a/backups", expect.any(Object));
+  });
+
+  it("refreshes detail state after restoring a named backup", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "stopped",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          name: "Cluster_A-20260329T140000Z.tar.gz",
+          size_bytes: 4096,
+          created_at: "2026-03-29T14:00:00Z",
+          cluster_slug: "cluster-a",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        id: 31,
+        cluster_id: 1,
+        job_type: "restore",
+        status: "succeeded",
+        stdout_excerpt: "restored backup Cluster_A-20260329T140000Z.tar.gz",
+        stderr_excerpt: "",
+      }, 202))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 31,
+          cluster_id: 1,
+          job_type: "restore",
+          status: "succeeded",
+          stdout_excerpt: "restored backup Cluster_A-20260329T140000Z.tar.gz",
+          stderr_excerpt: "",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          actor: "admin",
+          action: "cluster_action_restore",
+          target_type: "cluster",
+          target_id: 0,
+          id: 91,
+          summary: "slug=cluster-a",
+          created_at: "2026-03-29T14:05:00Z",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          name: "Cluster_A-20260329T140000Z.tar.gz",
+          size_bytes: 4096,
+          created_at: "2026-03-29T14:00:00Z",
+          cluster_slug: "cluster-a",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "stopped",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    await user.click(screen.getByRole("button", { name: "Restore latest backup" }));
+
+    expect(await screen.findByText("restore")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/clusters/cluster-a/actions", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({
+        action: "restore",
+        backup_name: "Cluster_A-20260329T140000Z.tar.gz",
+      }),
+    }));
   });
 
   it("refreshes backup list when the user requests a manual refresh", async () => {

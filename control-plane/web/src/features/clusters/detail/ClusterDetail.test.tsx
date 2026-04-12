@@ -1,10 +1,82 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ClusterDetailPage } from "./ClusterDetailPage";
 
 describe("ClusterDetailPage", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      if (typeof input === "string" && input.includes("/logs")) {
+        const source = input.includes("source=master")
+          ? "master"
+          : input.includes("source=caves")
+            ? "caves"
+            : "jobs";
+        return Promise.resolve(new Response(JSON.stringify({
+          source,
+          content: "",
+          updated_at: "2026-03-29T14:00:00Z",
+        }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }));
+      }
+
+      return Promise.reject(new Error(`unmocked fetch: ${String(input)}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders the standard closure detail sections in overview mode", () => {
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          gameMode: "survival",
+          clusterKey: "secret-key",
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+        }}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Base configuration" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ports and connection" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Logs" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Backups" })).toBeInTheDocument();
+  });
+
   it("disables lifecycle buttons while an action is running", async () => {
     const user = userEvent.setup();
     let resolveAction: (() => void) | undefined;
@@ -160,12 +232,28 @@ describe("ClusterDetailPage", () => {
             authenticationPort: 8769,
           },
         }}
+        backups={[
+          {
+            name: "Cluster_A-20260329T140000Z.tar.gz",
+            sizeBytes: 4096,
+            createdAt: "2026-03-29T14:00:00Z",
+            clusterSlug: "cluster-a",
+          },
+          {
+            name: "Cluster_A-20260329T130000Z.tar.gz",
+            sizeBytes: 2048,
+            createdAt: "2026-03-29T13:00:00Z",
+            clusterSlug: "cluster-a",
+          },
+        ]}
         onSave={vi.fn()}
       />,
     );
 
     expect(screen.queryByLabelText("Confirm cluster slug")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete cluster" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restore latest backup" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restore Cluster_A-20260329T130000Z.tar.gz" })).not.toBeInTheDocument();
   });
 
   it("shows cluster metadata and status summary", () => {

@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Panel } from "../../../components/ui/Panel";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
-import type { AuditSummary, BackupSummary, ClusterConfigSnapshot, ClusterSummary, JobSummary } from "../../../lib/api";
+import { getClusterLogs, type AuditSummary, type BackupSummary, type ClusterConfigSnapshot, type ClusterLogEntry, type ClusterLogSource, type ClusterSummary, type JobSummary } from "../../../lib/api";
 import { BackupPanel } from "../../backups/BackupPanel";
 import { LifecycleActions } from "../actions/LifecycleActions";
 import { RawFileEditor } from "../../editor/RawFileEditor";
 import { ClusterConfigForm } from "../forms/ClusterConfigForm";
 import { JobPanel } from "../../jobs/JobPanel";
 import { AuditPanel } from "../../jobs/AuditPanel";
+import { ConnectionPanel } from "./ConnectionPanel";
+import { LogsPanel } from "../../logs/LogsPanel";
 
 type ClusterDetailPageProps = {
   cluster: ClusterSummary;
@@ -18,6 +20,7 @@ type ClusterDetailPageProps = {
   audit?: AuditSummary[];
   backups?: BackupSummary[];
   onAction?: (action: string) => void;
+  onRestoreBackup?: (backupName: string) => Promise<void> | void;
   onRefreshBackups?: () => Promise<void> | void;
   onDelete?: () => Promise<void> | void;
 };
@@ -30,11 +33,17 @@ export function ClusterDetailPage({
   audit = [],
   backups = [],
   onAction = () => {},
+  onRestoreBackup = () => {},
   onRefreshBackups = () => {},
   onDelete = () => {},
 }: ClusterDetailPageProps) {
   const [tab, setTab] = useState<"overview" | "advanced">("overview");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [selectedLogSource, setSelectedLogSource] = useState<ClusterLogSource>("jobs");
+  const [logEntry, setLogEntry] = useState<ClusterLogEntry>();
+  const [logsPending, setLogsPending] = useState(false);
+  const [logsErrorMessage, setLogsErrorMessage] = useState<string>();
+  const logsRequestID = useRef(0);
   const overviewCards = [
     {
       rows: [
@@ -61,6 +70,37 @@ export function ClusterDetailPage({
       ],
     },
   ];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLogs() {
+      const requestID = ++logsRequestID.current;
+      setLogsPending(true);
+      try {
+        const nextLogEntry = await getClusterLogs(cluster.slug, selectedLogSource);
+        if (cancelled || requestID !== logsRequestID.current) {
+          return;
+        }
+        setLogEntry(nextLogEntry);
+        setLogsErrorMessage(undefined);
+      } catch (error) {
+        if (!cancelled && requestID === logsRequestID.current) {
+          setLogsErrorMessage(getErrorMessage(error, "Failed to load logs"));
+        }
+      } finally {
+        if (!cancelled && requestID === logsRequestID.current) {
+          setLogsPending(false);
+        }
+      }
+    }
+
+    void loadLogs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cluster.slug, selectedLogSource]);
 
   return (
     <section className="cluster-detail">
@@ -120,9 +160,23 @@ export function ClusterDetailPage({
               ))}
             </div>
           </Panel>
-          <div className="cluster-detail__overview-main">
+          <div className="cluster-detail__ops-grid">
             <LifecycleActions onAction={onAction} />
             <ClusterConfigForm snapshot={snapshot} onSave={onSave} />
+            <ConnectionPanel cluster={cluster} snapshot={snapshot} />
+            <LogsPanel
+              selectedSource={selectedLogSource}
+              content={logEntry?.content ?? ""}
+              updatedAt={logEntry?.updatedAt}
+              pending={logsPending}
+              errorMessage={logsErrorMessage}
+              onSelectSource={(source) => {
+                setSelectedLogSource(source);
+                setLogEntry(undefined);
+                setLogsErrorMessage(undefined);
+              }}
+              onRefresh={() => refreshLogs(cluster.slug, selectedLogSource, logsRequestID, setLogsPending, setLogEntry, setLogsErrorMessage)}
+            />
           </div>
           {cluster.status === "stopped" ? (
             <Panel title="Danger zone" eyebrow="Destructive action" className="cluster-detail__danger-panel">
@@ -144,7 +198,12 @@ export function ClusterDetailPage({
             </Panel>
           ) : null}
           <div className="cluster-detail__records-grid">
-            <BackupPanel clusterSlug={cluster.slug} backups={backups} onRefresh={onRefreshBackups} />
+            <BackupPanel
+              clusterSlug={cluster.slug}
+              backups={backups}
+              onRefresh={onRefreshBackups}
+              onRestore={cluster.status === "stopped" ? onRestoreBackup : undefined}
+            />
             <JobPanel jobs={jobs} />
             <AuditPanel audit={audit} clusterSlug={cluster.slug} />
           </div>
@@ -156,4 +215,42 @@ export function ClusterDetailPage({
       )}
     </section>
   );
+}
+
+async function refreshLogs(
+  slug: string,
+  source: ClusterLogSource,
+  requestIDRef: { current: number },
+  setPending: (value: boolean) => void,
+  setEntry: (value: ClusterLogEntry | undefined) => void,
+  setErrorMessage: (value: string | undefined) => void,
+) {
+  const requestID = ++requestIDRef.current;
+  setPending(true);
+  setEntry(undefined);
+  setErrorMessage(undefined);
+  try {
+    const nextLogEntry = await getClusterLogs(slug, source);
+    if (requestID !== requestIDRef.current) {
+      return;
+    }
+    setEntry(nextLogEntry);
+    setErrorMessage(undefined);
+  } catch (error) {
+    if (requestID === requestIDRef.current) {
+      setErrorMessage(getErrorMessage(error, "Failed to load logs"));
+    }
+  } finally {
+    if (requestID === requestIDRef.current) {
+      setPending(false);
+    }
+  }
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim() !== "") {
+    return error.message;
+  }
+
+  return fallback;
 }

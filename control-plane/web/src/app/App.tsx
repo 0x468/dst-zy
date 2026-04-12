@@ -252,6 +252,32 @@ export function App() {
     }
   }
 
+  async function handleRestoreBackup(backupName: string) {
+    if (!selectedSlug) {
+      return;
+    }
+
+    try {
+      await runClusterAction(selectedSlug, "restore", backupName);
+      setErrorMessage(undefined);
+      const [nextJobs, nextAudit, nextBackups] = await Promise.all([
+        listJobs(),
+        listAudit(selectedSlug),
+        listBackups(selectedSlug),
+      ]);
+      setJobs(filterJobsForCluster(nextJobs, selectedCluster?.id));
+      setAudit(nextAudit);
+      setBackups(nextBackups);
+      await refreshClusters(selectedSlug);
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        handleAppError(error, "Failed to restore backup");
+        return;
+      }
+      throw error;
+    }
+  }
+
   useEffect(() => {
     if (!authenticated || !selectedSlug || !selectedCluster) {
       return;
@@ -310,6 +336,7 @@ export function App() {
           backups={backups}
           onSaveConfig={handleSaveConfig}
           onAction={handleAction}
+          onRestoreBackup={handleRestoreBackup}
           onRefreshBackups={handleRefreshBackups}
           onDeleteCluster={handleDeleteCluster}
         />

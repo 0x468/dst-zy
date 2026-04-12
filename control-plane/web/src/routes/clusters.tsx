@@ -18,6 +18,7 @@ type ClustersRouteProps = {
   backups?: BackupSummary[];
   onSaveConfig: (snapshot: ClusterConfigSnapshot) => Promise<void> | void;
   onAction: (action: string) => Promise<void> | void;
+  onRestoreBackup: (backupName: string) => Promise<void> | void;
   onRefreshBackups: () => Promise<void> | void;
   onDeleteCluster: () => Promise<void> | void;
 };
@@ -36,6 +37,7 @@ export function ClustersRoute({
   backups = [],
   onSaveConfig,
   onAction,
+  onRestoreBackup,
   onRefreshBackups,
   onDeleteCluster,
 }: ClustersRouteProps) {
@@ -63,6 +65,7 @@ export function ClustersRoute({
             actions={<StatusBadge status={detailCluster.status} />}
           >
             <ClusterDetailPage
+              key={detailCluster.slug}
               cluster={detailCluster}
               snapshot={snapshot}
               jobs={jobs}
@@ -70,6 +73,7 @@ export function ClustersRoute({
               backups={backups}
               onSave={onSaveConfig}
               onAction={onAction}
+              onRestoreBackup={onRestoreBackup}
               onRefreshBackups={onRefreshBackups}
               onDelete={onDeleteCluster}
             />

@@ -1,10 +1,37 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ClusterDetailPage } from "../clusters/detail/ClusterDetailPage";
 
 describe("ClusterDetailPage lifecycle and jobs", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      if (typeof input === "string" && input.includes("/logs")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          source: "jobs",
+          content: "",
+          updated_at: "2026-03-29T14:00:00Z",
+        }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }));
+      }
+
+      return Promise.reject(new Error(`unmocked fetch: ${String(input)}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("triggers lifecycle actions and renders recent jobs", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();

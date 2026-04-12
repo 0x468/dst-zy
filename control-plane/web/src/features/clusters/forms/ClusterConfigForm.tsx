@@ -19,7 +19,7 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
   }, [snapshot]);
 
   return (
-    <Panel title="Config panel" eyebrow="Cluster settings" className="cluster-config-panel">
+    <Panel title="Base configuration" eyebrow="Cluster settings" className="cluster-config-panel">
       <form
         className="cluster-config-form"
         onSubmit={async (event) => {

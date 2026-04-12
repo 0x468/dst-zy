@@ -5,6 +5,10 @@ export type ClusterSummary = {
   status: string;
   note?: string;
   clusterName?: string;
+  masterHostPort?: number;
+  cavesHostPort?: number;
+  masterSteamHostPort?: number;
+  cavesSteamHostPort?: number;
 };
 
 export type ShardSnapshot = {
@@ -33,6 +37,14 @@ export type JobSummary = {
   status: string;
   stdoutExcerpt: string;
   stderrExcerpt: string;
+};
+
+export type ClusterLogSource = "jobs" | "master" | "caves";
+
+export type ClusterLogEntry = {
+  source: ClusterLogSource;
+  content: string;
+  updatedAt: string;
 };
 
 export type AuditSummary = {
@@ -92,6 +104,10 @@ type ClusterSummaryResponse = {
   status: string;
   note?: string;
   cluster_name?: string;
+  master_host_port?: number;
+  caves_host_port?: number;
+  master_steam_host_port?: number;
+  caves_steam_host_port?: number;
 };
 
 type ClusterConfigSnapshotResponse = {
@@ -122,6 +138,12 @@ type JobSummaryResponse = {
   status: string;
   stdout_excerpt: string;
   stderr_excerpt: string;
+};
+
+type ClusterLogEntryResponse = {
+  source: ClusterLogSource;
+  content: string;
+  updated_at: string;
 };
 
 type AuditSummaryResponse = {
@@ -229,10 +251,19 @@ export async function listBackups(slug: string): Promise<BackupSummary[]> {
   return mapBackups(await response.json() as BackupSummaryResponse[]);
 }
 
-export async function runClusterAction(slug: string, action: string): Promise<JobSummary> {
+export async function getClusterLogs(slug: string, source: ClusterLogSource): Promise<ClusterLogEntry> {
+  const query = new URLSearchParams({ source });
+  const response = await request(`/api/clusters/${slug}/logs?${query.toString()}`);
+  return mapClusterLog(await response.json() as ClusterLogEntryResponse);
+}
+
+export async function runClusterAction(slug: string, action: string, backupName?: string): Promise<JobSummary> {
   const response = await request(`/api/clusters/${slug}/actions`, {
     method: "POST",
-    body: JSON.stringify({ action }),
+    body: JSON.stringify({
+      action,
+      ...(backupName ? { backup_name: backupName } : {}),
+    }),
   });
   return mapJob(await response.json() as JobSummaryResponse);
 }
@@ -322,6 +353,10 @@ function mapCluster(cluster: ClusterSummaryResponse): ClusterSummary {
     status: cluster.status,
     note: cluster.note ?? "",
     clusterName: cluster.cluster_name ?? "",
+    masterHostPort: cluster.master_host_port ?? 0,
+    cavesHostPort: cluster.caves_host_port ?? 0,
+    masterSteamHostPort: cluster.master_steam_host_port ?? 0,
+    cavesSteamHostPort: cluster.caves_steam_host_port ?? 0,
   };
 }
 
@@ -404,5 +439,13 @@ function mapJob(job: JobSummaryResponse): JobSummary {
     status: job.status,
     stdoutExcerpt: job.stdout_excerpt,
     stderrExcerpt: job.stderr_excerpt,
+  };
+}
+
+function mapClusterLog(entry: ClusterLogEntryResponse): ClusterLogEntry {
+  return {
+    source: entry.source,
+    content: entry.content,
+    updatedAt: entry.updated_at,
   };
 }

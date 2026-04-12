@@ -109,4 +109,36 @@ describe("BackupPanel", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("backup index unavailable");
   });
+
+  it("offers restore actions for the latest backup and history entries", async () => {
+    const user = userEvent.setup();
+    const onRestore = vi.fn();
+
+    render(
+      <BackupPanel
+        clusterSlug="cluster-a"
+        backups={[
+          {
+            name: "Cluster_A-20260329T140000Z.tar.gz",
+            sizeBytes: 4096,
+            createdAt: "2026-03-29T14:00:00Z",
+            clusterSlug: "cluster-a",
+          },
+          {
+            name: "Cluster_A-20260329T130000Z.tar.gz",
+            sizeBytes: 2048,
+            createdAt: "2026-03-29T13:00:00Z",
+            clusterSlug: "cluster-a",
+          },
+        ]}
+        onRestore={onRestore}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Restore latest backup" }));
+    await user.click(screen.getByRole("button", { name: "Restore Cluster_A-20260329T130000Z.tar.gz" }));
+
+    expect(onRestore).toHaveBeenNthCalledWith(1, "Cluster_A-20260329T140000Z.tar.gz");
+    expect(onRestore).toHaveBeenNthCalledWith(2, "Cluster_A-20260329T130000Z.tar.gz");
+  });
 });

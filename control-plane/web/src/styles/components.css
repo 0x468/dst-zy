@@ -472,6 +472,81 @@
   gap: var(--space-2);
 }
 
+.connection-panel__grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 0;
+}
+
+.connection-panel__item {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface-muted) 74%, #fff);
+  border: 1px solid color-mix(in srgb, var(--color-border) 84%, #fff);
+}
+
+.connection-panel__item dt {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.connection-panel__item dd {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.logs-panel {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.logs-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.logs-panel__source {
+  border: 1px solid color-mix(in srgb, var(--color-border) 84%, #fff);
+  background: color-mix(in srgb, var(--color-surface-muted) 74%, #fff);
+}
+
+.logs-panel__source--active {
+  border-color: color-mix(in srgb, var(--color-brand) 36%, #fff);
+  background: color-mix(in srgb, var(--color-brand) 16%, #fff);
+  color: var(--color-brand-ink);
+}
+
+.logs-panel__meta {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+}
+
+.logs-panel__content {
+  margin: 0;
+  min-height: 220px;
+  max-height: 360px;
+  overflow: auto;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-border) 84%, #fff);
+  background: #0f1729;
+  color: #d8e0f7;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .cluster-config-form__actions,
 .advanced-editor__actions {
   display: flex;
@@ -569,8 +644,27 @@
   gap: var(--space-3);
 }
 
+.backup-panel__latest-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
 .backup-panel__record a {
   font-weight: 700;
+}
+
+.backup-panel__record {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.backup-panel__record-meta {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .backup-panel__record--emphasized {
@@ -590,6 +684,10 @@
 
   .cluster-config-form__meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .backup-panel__record {
+    grid-template-columns: 1fr;
   }
 
   .advanced-editor textarea {
