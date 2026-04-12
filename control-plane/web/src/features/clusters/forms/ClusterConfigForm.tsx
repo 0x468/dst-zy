@@ -163,6 +163,18 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
           </div>
 
           <div className="cluster-config-form__field">
+            <label htmlFor="cluster-token">Cluster token</label>
+            <input
+              id="cluster-token"
+              value={draft.clusterToken ?? ""}
+              disabled={pending}
+              onChange={(event) => {
+                updateDraft((current) => ({ ...current, clusterToken: event.target.value }));
+              }}
+            />
+          </div>
+
+          <div className="cluster-config-form__field">
             <label htmlFor="cluster-intention">Cluster intention</label>
             <select
               id="cluster-intention"
@@ -264,6 +276,7 @@ function normalizeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapsh
   return {
     ...snapshot,
     clusterPassword: snapshot.clusterPassword ?? "",
+    clusterToken: snapshot.clusterToken ?? "",
     maxPlayers: snapshot.maxPlayers ?? 6,
     clusterIntention: snapshot.clusterIntention ?? "",
     shardEnabled: snapshot.shardEnabled ?? true,

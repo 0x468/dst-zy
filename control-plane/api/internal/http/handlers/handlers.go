@@ -131,6 +131,7 @@ type saveClusterConfigRequest struct {
 	ClusterName        *string                    `json:"cluster_name"`
 	ClusterDescription *string                    `json:"cluster_description"`
 	ClusterPassword    *string                    `json:"cluster_password"`
+	ClusterToken       *string                    `json:"cluster_token"`
 	GameMode           *string                    `json:"game_mode"`
 	ClusterKey         *string                    `json:"cluster_key"`
 	MaxPlayers         *int                       `json:"max_players"`
@@ -571,6 +572,9 @@ func mergeClusterConfigSnapshot(snapshot models.ClusterConfigSnapshot, req saveC
 	}
 	if req.ClusterPassword != nil {
 		merged.ClusterPassword = *req.ClusterPassword
+	}
+	if req.ClusterToken != nil {
+		merged.ClusterToken = *req.ClusterToken
 	}
 	if req.GameMode != nil {
 		merged.GameMode = *req.GameMode

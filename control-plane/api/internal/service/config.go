@@ -47,7 +47,13 @@ func (s ConfigService) GetSnapshot(_ context.Context, slug string) (models.Clust
 		return models.ClusterConfigSnapshot{}, err
 	}
 
-	return files.BuildSnapshot(clusterCfg, masterCfg, cavesCfg, string(rawClusterINI)), nil
+	snapshot := files.BuildSnapshot(clusterCfg, masterCfg, cavesCfg, string(rawClusterINI))
+	snapshot.ClusterToken, err = readClusterToken(filepath.Join(record.BaseDir, "runtime", "data", record.ClusterName, "cluster_token.txt"))
+	if err != nil {
+		return models.ClusterConfigSnapshot{}, err
+	}
+
+	return snapshot, nil
 }
 
 func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot models.ClusterConfigSnapshot) error {
@@ -68,6 +74,9 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 	}
 	cavesCfg, err := files.ParseServerINI(filepath.Join(clusterDir, "Caves", "server.ini"))
 	if err != nil {
+		return err
+	}
+	if err := writeClusterToken(filepath.Join(clusterDir, "cluster_token.txt"), snapshot.ClusterToken); err != nil {
 		return err
 	}
 
@@ -112,4 +121,20 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 	}
 
 	return nil
+}
+
+func readClusterToken(path string) (string, error) {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	return strings.TrimSpace(string(contents)), nil
+}
+
+func writeClusterToken(path string, token string) error {
+	return os.WriteFile(path, []byte(strings.TrimSpace(token)+"\n"), 0o600)
 }

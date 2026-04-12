@@ -171,6 +171,7 @@ describe("ClusterDetailPage", () => {
           clusterName: "Cluster_A",
           clusterDescription: "A co-op world",
           clusterPassword: "friends-only",
+          clusterToken: "token-a",
           gameMode: "survival",
           pvp: true,
           pauseWhenEmpty: true,
@@ -484,6 +485,7 @@ describe("ClusterDetailPage", () => {
     const gameModeInput = screen.getByLabelText("Game mode");
     const maxPlayersInput = screen.getByLabelText("Max players");
     const clusterPasswordInput = screen.getByLabelText("Cluster password");
+    const clusterTokenInput = screen.getByLabelText("Cluster token");
     const clusterKeyInput = screen.getByLabelText("Cluster key");
     const intentionInput = screen.getByLabelText("Cluster intention");
     const shardEnabledInput = screen.getByRole("checkbox", { name: "Shard enabled" });
@@ -496,6 +498,8 @@ describe("ClusterDetailPage", () => {
     await user.type(maxPlayersInput, "12");
     await user.clear(clusterPasswordInput);
     await user.type(clusterPasswordInput, "new-password");
+    await user.clear(clusterTokenInput);
+    await user.type(clusterTokenInput, "token-b");
     await user.clear(clusterKeyInput);
     await user.type(clusterKeyInput, "updated-secret-key");
     await user.selectOptions(intentionInput, "social");
@@ -517,6 +521,7 @@ describe("ClusterDetailPage", () => {
       expect.objectContaining({
         clusterDescription: "Updated description",
         clusterPassword: "new-password",
+        clusterToken: "token-b",
         gameMode: "endless",
         maxPlayers: 12,
         shardEnabled: false,

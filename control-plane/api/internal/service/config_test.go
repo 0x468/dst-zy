@@ -65,6 +65,9 @@ func TestConfigServiceRoundTripsRawClusterINI(t *testing.T) {
 	if err := files.WriteClusterINI(filepath.Join(clusterDir, "cluster.ini"), clusterCfg); err != nil {
 		t.Fatalf("expected cluster ini to be written, got error: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(clusterDir, "cluster_token.txt"), []byte("initial-token\n"), 0o600); err != nil {
+		t.Fatalf("expected cluster token to be written, got error: %v", err)
+	}
 	if err := files.WriteServerINI(filepath.Join(clusterDir, "Master", "server.ini"), masterCfg); err != nil {
 		t.Fatalf("expected master ini to be written, got error: %v", err)
 	}
@@ -246,6 +249,7 @@ func TestConfigServiceStructuredSavePersistsHighFrequencyFields(t *testing.T) {
 		GameMode:           "endless",
 		MaxPlayers:         12,
 		ClusterIntention:   "social",
+		ClusterToken:       "updated-token",
 		ShardEnabled:       false,
 		BindIP:             "192.168.1.10",
 		MasterIP:           "10.0.0.5",
@@ -297,5 +301,13 @@ func TestConfigServiceStructuredSavePersistsHighFrequencyFields(t *testing.T) {
 	}
 	if writtenClusterCfg.Shard.MasterPort != 10999 {
 		t.Fatalf("expected master_port to persist, got %d", writtenClusterCfg.Shard.MasterPort)
+	}
+
+	clusterToken, err := os.ReadFile(filepath.Join(clusterDir, "cluster_token.txt"))
+	if err != nil {
+		t.Fatalf("expected updated cluster token to be readable, got error: %v", err)
+	}
+	if strings.TrimSpace(string(clusterToken)) != "updated-token" {
+		t.Fatalf("expected cluster token to persist, got %q", strings.TrimSpace(string(clusterToken)))
 	}
 }

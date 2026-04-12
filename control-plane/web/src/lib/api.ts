@@ -22,6 +22,7 @@ export type ClusterConfigSnapshot = {
   clusterName: string;
   clusterDescription: string;
   clusterPassword?: string;
+  clusterToken?: string;
   gameMode: string;
   clusterKey: string;
   maxPlayers?: number;
@@ -144,6 +145,7 @@ type ClusterConfigSnapshotResponse = {
   cluster_name: string;
   cluster_description: string;
   cluster_password?: string;
+  cluster_token?: string;
   game_mode: string;
   cluster_key: string;
   max_players?: number;
@@ -416,6 +418,7 @@ function mapSnapshot(snapshot: ClusterConfigSnapshotResponse): ClusterConfigSnap
     clusterName: snapshot.cluster_name,
     clusterDescription: snapshot.cluster_description,
     clusterPassword: snapshot.cluster_password ?? "",
+    clusterToken: snapshot.cluster_token ?? "",
     gameMode: snapshot.game_mode,
     clusterKey: snapshot.cluster_key,
     maxPlayers: snapshot.max_players,
@@ -508,6 +511,7 @@ function encodeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapshotR
     cluster_name: snapshot.clusterName,
     cluster_description: snapshot.clusterDescription,
     cluster_password: snapshot.clusterPassword,
+    cluster_token: snapshot.clusterToken,
     game_mode: snapshot.gameMode,
     cluster_key: snapshot.clusterKey,
     max_players: snapshot.maxPlayers,

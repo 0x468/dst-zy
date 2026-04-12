@@ -247,6 +247,7 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 			ClusterName:        "Cluster_A",
 			ClusterDescription: "Original description",
 			ClusterPassword:    "existing-password",
+			ClusterToken:       "existing-token",
 			GameMode:           "survival",
 			MaxPlayers:         6,
 			PVP:                true,
@@ -321,10 +322,14 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	if getConfigRec.Code != http.StatusOK {
 		t.Fatalf("expected get config to return 200, got %d", getConfigRec.Code)
 	}
+	if !bytes.Contains(getConfigRec.Body.Bytes(), []byte(`"cluster_token":"existing-token"`)) {
+		t.Fatalf("expected get config response to include cluster token, got %q", getConfigRec.Body.String())
+	}
 
 	savePayload := []byte(`{
 		"cluster_name":"Cluster_A",
 		"cluster_description":"Updated description",
+		"cluster_token":"updated-token",
 		"game_mode":"endless",
 		"max_players":12,
 		"pvp":false,
@@ -355,6 +360,9 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	}
 	if configService.savedSnapshot.ClusterPassword != "existing-password" {
 		t.Fatalf("expected omitted cluster password to be preserved, got %q", configService.savedSnapshot.ClusterPassword)
+	}
+	if configService.savedSnapshot.ClusterToken != "updated-token" {
+		t.Fatalf("expected save config to update cluster token, got %q", configService.savedSnapshot.ClusterToken)
 	}
 	if configService.savedSnapshot.ClusterIntention != "social" {
 		t.Fatalf("expected save config to update cluster intention, got %q", configService.savedSnapshot.ClusterIntention)
