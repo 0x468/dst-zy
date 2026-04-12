@@ -182,6 +182,43 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
 
           <div className="cluster-config-form__field">
             <input
+              id="shard-enabled"
+              type="checkbox"
+              checked={draft.shardEnabled ?? true}
+              disabled={pending}
+              onChange={(event) => {
+                updateDraft((current) => ({ ...current, shardEnabled: event.target.checked }));
+              }}
+            />
+            <label htmlFor="shard-enabled">Shard enabled</label>
+          </div>
+
+          <div className="cluster-config-form__field">
+            <label htmlFor="bind-ip">Bind IP</label>
+            <input
+              id="bind-ip"
+              value={draft.bindIP ?? ""}
+              disabled={pending}
+              onChange={(event) => {
+                updateDraft((current) => ({ ...current, bindIP: event.target.value }));
+              }}
+            />
+          </div>
+
+          <div className="cluster-config-form__field">
+            <label htmlFor="master-ip">Master IP</label>
+            <input
+              id="master-ip"
+              value={draft.masterIP ?? ""}
+              disabled={pending}
+              onChange={(event) => {
+                updateDraft((current) => ({ ...current, masterIP: event.target.value }));
+              }}
+            />
+          </div>
+
+          <div className="cluster-config-form__field">
+            <input
               id="cluster-pvp"
               type="checkbox"
               checked={draft.pvp ?? false}
@@ -229,6 +266,9 @@ function normalizeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapsh
     clusterPassword: snapshot.clusterPassword ?? "",
     maxPlayers: snapshot.maxPlayers ?? 6,
     clusterIntention: snapshot.clusterIntention ?? "",
+    shardEnabled: snapshot.shardEnabled ?? true,
+    bindIP: snapshot.bindIP ?? "",
+    masterIP: snapshot.masterIP ?? "",
     pvp: snapshot.pvp ?? false,
     pauseWhenEmpty: snapshot.pauseWhenEmpty ?? true,
   };

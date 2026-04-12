@@ -213,6 +213,9 @@ func TestConfigServiceStructuredSavePersistsHighFrequencyFields(t *testing.T) {
 	clusterCfg.Network.ClusterName = "Cluster_A"
 	clusterCfg.Network.ClusterDescription = "A co-op world"
 	clusterCfg.Network.ClusterIntention = "cooperative"
+	clusterCfg.Shard.ShardEnabled = true
+	clusterCfg.Shard.BindIP = "0.0.0.0"
+	clusterCfg.Shard.MasterIP = "127.0.0.1"
 	clusterCfg.Shard.ClusterKey = "secret-key"
 	clusterCfg.Shard.MasterPort = 10889
 
@@ -243,6 +246,9 @@ func TestConfigServiceStructuredSavePersistsHighFrequencyFields(t *testing.T) {
 		GameMode:           "endless",
 		MaxPlayers:         12,
 		ClusterIntention:   "social",
+		ShardEnabled:       false,
+		BindIP:             "192.168.1.10",
+		MasterIP:           "10.0.0.5",
 		ClusterKey:         "updated-secret-key",
 		MasterPort:         10999,
 		Master: models.ShardConfigSnapshot{
@@ -276,6 +282,15 @@ func TestConfigServiceStructuredSavePersistsHighFrequencyFields(t *testing.T) {
 	}
 	if writtenClusterCfg.Network.ClusterIntention != "social" {
 		t.Fatalf("expected cluster_intention to persist, got %q", writtenClusterCfg.Network.ClusterIntention)
+	}
+	if writtenClusterCfg.Shard.ShardEnabled {
+		t.Fatalf("expected shard_enabled to persist as false, got %t", writtenClusterCfg.Shard.ShardEnabled)
+	}
+	if writtenClusterCfg.Shard.BindIP != "192.168.1.10" {
+		t.Fatalf("expected bind_ip to persist, got %q", writtenClusterCfg.Shard.BindIP)
+	}
+	if writtenClusterCfg.Shard.MasterIP != "10.0.0.5" {
+		t.Fatalf("expected master_ip to persist, got %q", writtenClusterCfg.Shard.MasterIP)
 	}
 	if writtenClusterCfg.Shard.ClusterKey != "updated-secret-key" {
 		t.Fatalf("expected cluster_key to persist, got %q", writtenClusterCfg.Shard.ClusterKey)

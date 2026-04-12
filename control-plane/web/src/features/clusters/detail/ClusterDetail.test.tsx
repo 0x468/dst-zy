@@ -124,6 +124,9 @@ describe("ClusterDetailPage", () => {
           clusterDescription: "A co-op world",
           clusterPassword: "friends-only",
           gameMode: "survival",
+          shardEnabled: true,
+          bindIP: "0.0.0.0",
+          masterIP: "127.0.0.1",
           pvp: true,
           pauseWhenEmpty: true,
           clusterKey: "secret-key",
@@ -483,6 +486,9 @@ describe("ClusterDetailPage", () => {
     const clusterPasswordInput = screen.getByLabelText("Cluster password");
     const clusterKeyInput = screen.getByLabelText("Cluster key");
     const intentionInput = screen.getByLabelText("Cluster intention");
+    const shardEnabledInput = screen.getByRole("checkbox", { name: "Shard enabled" });
+    const bindIPInput = screen.getByLabelText("Bind IP");
+    const masterIPInput = screen.getByLabelText("Master IP");
     await user.clear(descriptionInput);
     await user.type(descriptionInput, "Updated description");
     await user.selectOptions(gameModeInput, "endless");
@@ -493,9 +499,15 @@ describe("ClusterDetailPage", () => {
     await user.clear(clusterKeyInput);
     await user.type(clusterKeyInput, "updated-secret-key");
     await user.selectOptions(intentionInput, "social");
+    await user.click(shardEnabledInput);
+    await user.clear(bindIPInput);
+    await user.type(bindIPInput, "192.168.1.10");
+    await user.clear(masterIPInput);
+    await user.type(masterIPInput, "10.0.0.5");
     await user.click(screen.getByRole("checkbox", { name: "PVP" }));
     await user.click(screen.getByRole("checkbox", { name: "Pause when empty" }));
     await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: "Shard enabled" })).not.toBeChecked();
       expect(screen.getByRole("checkbox", { name: "PVP" })).not.toBeChecked();
       expect(screen.getByRole("checkbox", { name: "Pause when empty" })).not.toBeChecked();
     });
@@ -507,6 +519,9 @@ describe("ClusterDetailPage", () => {
         clusterPassword: "new-password",
         gameMode: "endless",
         maxPlayers: 12,
+        shardEnabled: false,
+        bindIP: "192.168.1.10",
+        masterIP: "10.0.0.5",
         pvp: false,
         pauseWhenEmpty: false,
         clusterKey: "updated-secret-key",

@@ -88,6 +88,9 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 		clusterCfg.Gameplay.MaxPlayers = snapshot.MaxPlayers
 		clusterCfg.Gameplay.PVP = snapshot.PVP
 		clusterCfg.Gameplay.PauseWhenEmpty = snapshot.PauseWhenEmpty
+		clusterCfg.Shard.ShardEnabled = snapshot.ShardEnabled
+		clusterCfg.Shard.BindIP = snapshot.BindIP
+		clusterCfg.Shard.MasterIP = snapshot.MasterIP
 		clusterCfg.Shard.ClusterKey = snapshot.ClusterKey
 		clusterCfg.Shard.MasterPort = snapshot.MasterPort
 		if err := files.WriteClusterINI(clusterINIPath, clusterCfg); err != nil {
