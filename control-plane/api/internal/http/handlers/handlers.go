@@ -32,6 +32,7 @@ type Dependencies struct {
 	Jobs                JobsService
 	Backups             BackupService
 	Logs                LogsService
+	Preflight           PreflightService
 }
 
 type AuthService interface {
@@ -76,6 +77,11 @@ type BackupService interface {
 
 type LogsService interface {
 	Read(ctx context.Context, slug string, source string) (LogEntry, error)
+}
+
+type PreflightService interface {
+	GetBySlug(ctx context.Context, slug string) (models.PreflightReport, error)
+	Preview(ctx context.Context, req ClusterMutationRequest) (models.PreflightReport, error)
 }
 
 type ClusterMutationRequest struct {
@@ -255,6 +261,20 @@ func NewRouter(deps Dependencies) http.Handler {
 		writeJSON(w, http.StatusCreated, record)
 	}))))
 
+	mux.Handle("POST /api/preflight", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req ClusterMutationRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+		report, err := deps.Preflight.Preview(r.Context(), req)
+		if err != nil {
+			writeMappedError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, report)
+	}))))
+
 	mux.Handle("DELETE /api/clusters/{slug}", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		record, err := deps.Clusters.Delete(r.Context(), r.PathValue("slug"))
 		if err != nil {
@@ -305,6 +325,15 @@ func NewRouter(deps Dependencies) http.Handler {
 		}
 
 		writeJSON(w, http.StatusOK, backups)
+	})))
+
+	mux.Handle("GET /api/clusters/{slug}/preflight", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		report, err := deps.Preflight.GetBySlug(r.Context(), r.PathValue("slug"))
+		if err != nil {
+			writeMappedError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, report)
 	})))
 
 	mux.Handle("GET /api/clusters/{slug}/backups/{name}", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

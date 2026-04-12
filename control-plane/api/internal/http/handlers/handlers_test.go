@@ -276,6 +276,20 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 				},
 			},
 		},
+		Preflight: fakePreflightService{
+			report: models.PreflightReport{
+				Status:       models.PreflightStatusBlocked,
+				FatalCount:   1,
+				WarningCount: 0,
+				Checks: []models.PreflightCheck{
+					{
+						Code:     models.PreflightCodeTokenMissing,
+						Severity: models.PreflightSeverityFatal,
+						Summary:  "cluster_token.txt is missing",
+					},
+				},
+			},
+		},
 	})
 
 	sessionCookie := issueSessionCookie(t, secret)
@@ -423,6 +437,31 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	if !bytes.Contains(logsRec.Body.Bytes(), []byte(`"source":"master"`)) || !bytes.Contains(logsRec.Body.Bytes(), []byte(`"content":"master-line-2"`)) {
 		t.Fatalf("expected logs response to include source/content, got %q", logsRec.Body.String())
 	}
+
+	preflightReq := httptest.NewRequest(http.MethodGet, "/api/clusters/cluster-a/preflight", nil)
+	preflightReq.AddCookie(sessionCookie)
+	preflightRec := httptest.NewRecorder()
+	router.ServeHTTP(preflightRec, preflightReq)
+
+	if preflightRec.Code != http.StatusOK {
+		t.Fatalf("expected persisted preflight endpoint to return 200, got %d", preflightRec.Code)
+	}
+	if !bytes.Contains(preflightRec.Body.Bytes(), []byte(`"status":"blocked"`)) || !bytes.Contains(preflightRec.Body.Bytes(), []byte(`"code":"token_missing"`)) {
+		t.Fatalf("expected persisted preflight response to include structured report, got %q", preflightRec.Body.String())
+	}
+
+	previewReq := httptest.NewRequest(http.MethodPost, "/api/preflight", bytes.NewBufferString(`{"mode":"create","slug":"cluster-b","display_name":"Cluster B","cluster_name":"Cluster_B","cluster_description":"Cluster B Desc","game_mode":"endless","max_players":8,"cluster_token":"token-b","cluster_key":"key-b","intent":"social","time_zone":"UTC","master_host_port":12000,"caves_host_port":12001,"steam_host_port":28018,"caves_steam_host_port":28019,"auto_start":false}`))
+	previewReq.AddCookie(sessionCookie)
+	previewReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
+	previewRec := httptest.NewRecorder()
+	router.ServeHTTP(previewRec, previewReq)
+
+	if previewRec.Code != http.StatusOK {
+		t.Fatalf("expected draft preflight endpoint to return 200, got %d", previewRec.Code)
+	}
+	if !bytes.Contains(previewRec.Body.Bytes(), []byte(`"fatal_count":1`)) {
+		t.Fatalf("expected draft preflight response to include fatal_count, got %q", previewRec.Body.String())
+	}
 }
 
 func TestBackupDownloadHandlerServesArchiveFile(t *testing.T) {
@@ -475,6 +514,7 @@ func TestReadHandlersRequireSession(t *testing.T) {
 		{name: "cluster list", path: "/api/clusters"},
 		{name: "cluster config", path: "/api/clusters/cluster-a/config"},
 		{name: "cluster backups", path: "/api/clusters/cluster-a/backups"},
+		{name: "cluster preflight", path: "/api/clusters/cluster-a/preflight"},
 		{name: "cluster logs", path: "/api/clusters/cluster-a/logs"},
 		{name: "jobs list", path: "/api/jobs"},
 		{name: "audit list", path: "/api/audit"},
@@ -836,6 +876,28 @@ func (f fakeRuntimeService) RunAction(ctx context.Context, slug string, action s
 
 type fakeJobsService struct {
 	list []models.JobRecord
+}
+
+type fakePreflightService struct {
+	report       models.PreflightReport
+	getBySlugErr error
+	previewErr   error
+	lastPreview  ClusterMutationRequest
+}
+
+func (f fakePreflightService) GetBySlug(_ context.Context, _ string) (models.PreflightReport, error) {
+	if f.getBySlugErr != nil {
+		return models.PreflightReport{}, f.getBySlugErr
+	}
+	return f.report, nil
+}
+
+func (f fakePreflightService) Preview(_ context.Context, req ClusterMutationRequest) (models.PreflightReport, error) {
+	if f.previewErr != nil {
+		return models.PreflightReport{}, f.previewErr
+	}
+	f.lastPreview = req
+	return f.report, nil
 }
 
 func (f fakeJobsService) List(_ context.Context, _ int) ([]models.JobRecord, error) {

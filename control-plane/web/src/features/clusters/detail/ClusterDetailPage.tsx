@@ -2,7 +2,18 @@ import { useEffect, useRef, useState } from "react";
 
 import { Panel } from "../../../components/ui/Panel";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
-import { getClusterLogs, type AuditSummary, type BackupSummary, type ClusterConfigSnapshot, type ClusterLogEntry, type ClusterLogSource, type ClusterSummary, type JobSummary } from "../../../lib/api";
+import {
+  getClusterLogs,
+  getClusterPreflight,
+  type AuditSummary,
+  type BackupSummary,
+  type ClusterConfigSnapshot,
+  type ClusterLogEntry,
+  type ClusterLogSource,
+  type ClusterSummary,
+  type JobSummary,
+  type PreflightReport,
+} from "../../../lib/api";
 import { BackupPanel } from "../../backups/BackupPanel";
 import { LifecycleActions } from "../actions/LifecycleActions";
 import { RawFileEditor } from "../../editor/RawFileEditor";
@@ -11,6 +22,7 @@ import { JobPanel } from "../../jobs/JobPanel";
 import { AuditPanel } from "../../jobs/AuditPanel";
 import { ConnectionPanel } from "./ConnectionPanel";
 import { LogsPanel } from "../../logs/LogsPanel";
+import { PreflightPanel } from "../../preflight/PreflightPanel";
 
 type ClusterDetailPageProps = {
   cluster: ClusterSummary;
@@ -43,7 +55,11 @@ export function ClusterDetailPage({
   const [logEntry, setLogEntry] = useState<ClusterLogEntry>();
   const [logsPending, setLogsPending] = useState(false);
   const [logsErrorMessage, setLogsErrorMessage] = useState<string>();
+  const [preflightReport, setPreflightReport] = useState<PreflightReport>();
+  const [preflightPending, setPreflightPending] = useState(false);
+  const [preflightErrorMessage, setPreflightErrorMessage] = useState<string>();
   const logsRequestID = useRef(0);
+  const preflightRequestID = useRef(0);
   const overviewCards = [
     {
       rows: [
@@ -101,6 +117,37 @@ export function ClusterDetailPage({
       cancelled = true;
     };
   }, [cluster.slug, selectedLogSource]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPreflight() {
+      const requestID = ++preflightRequestID.current;
+      setPreflightPending(true);
+      try {
+        const nextReport = await getClusterPreflight(cluster.slug);
+        if (cancelled || requestID !== preflightRequestID.current) {
+          return;
+        }
+        setPreflightReport(nextReport);
+        setPreflightErrorMessage(undefined);
+      } catch (error) {
+        if (!cancelled && requestID === preflightRequestID.current) {
+          setPreflightErrorMessage(getErrorMessage(error, "Failed to load readiness"));
+        }
+      } finally {
+        if (!cancelled && requestID === preflightRequestID.current) {
+          setPreflightPending(false);
+        }
+      }
+    }
+
+    void loadPreflight();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cluster.slug]);
 
   return (
     <section className="cluster-detail">
@@ -164,6 +211,14 @@ export function ClusterDetailPage({
             <LifecycleActions onAction={onAction} />
             <ClusterConfigForm snapshot={snapshot} onSave={onSave} />
             <ConnectionPanel cluster={cluster} snapshot={snapshot} />
+            <PreflightPanel
+              title="Readiness"
+              eyebrow="Start guard"
+              report={preflightReport}
+              pending={preflightPending}
+              errorMessage={preflightErrorMessage}
+              onRefresh={() => refreshPreflight(cluster.slug, preflightRequestID, setPreflightPending, setPreflightReport, setPreflightErrorMessage)}
+            />
             <LogsPanel
               selectedSource={selectedLogSource}
               content={logEntry?.content ?? ""}
@@ -239,6 +294,34 @@ async function refreshLogs(
   } catch (error) {
     if (requestID === requestIDRef.current) {
       setErrorMessage(getErrorMessage(error, "Failed to load logs"));
+    }
+  } finally {
+    if (requestID === requestIDRef.current) {
+      setPending(false);
+    }
+  }
+}
+
+async function refreshPreflight(
+  slug: string,
+  requestIDRef: { current: number },
+  setPending: (value: boolean) => void,
+  setReport: (value: PreflightReport | undefined) => void,
+  setErrorMessage: (value: string | undefined) => void,
+) {
+  const requestID = ++requestIDRef.current;
+  setPending(true);
+  setErrorMessage(undefined);
+  try {
+    const nextReport = await getClusterPreflight(slug);
+    if (requestID !== requestIDRef.current) {
+      return;
+    }
+    setReport(nextReport);
+    setErrorMessage(undefined);
+  } catch (error) {
+    if (requestID === requestIDRef.current) {
+      setErrorMessage(getErrorMessage(error, "Failed to load readiness"));
     }
   } finally {
     if (requestID === requestIDRef.current) {

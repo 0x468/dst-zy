@@ -47,8 +47,9 @@ npm test
 
 - 登录、会话恢复、会话过期
 - 集群创建/导入/切换
+- 创建向导 Review 步骤的 preflight 预览
 - 配置保存与高级原文保存
-- 生命周期动作与本地错误展示
+- 生命周期动作、本地错误展示与 start 前预检阻断
 - 详情页标准闭环六区块、日志分源切换、备份刷新与备份恢复护栏
 
 它不证明：
@@ -64,6 +65,7 @@ cd control-plane/web
 npm test -- \
   src/app/App.test.tsx \
   src/features/clusters/detail/ClusterDetail.test.tsx \
+  src/features/preflight/PreflightPanel.test.tsx \
   src/features/logs/LogsPanel.test.tsx \
   src/features/backups/BackupPanel.test.tsx \
   src/features/jobs/JobPanel.test.tsx \
@@ -76,6 +78,7 @@ npm run build
 这组命令主要用来确认：
 
 - 详情页的 Overview 工作区还能完整渲染
+- Readiness / Preflight 面板能正确展示阻断项与刷新入口
 - logs/backups/restore 的前端状态链没有回归
 - Vite 打包路径没有被新增组件或样式破坏
 
@@ -100,6 +103,7 @@ bash control-plane/tests/e2e/delete-cluster.sh
 - `delete-cluster.sh` 会验证停止状态集群的删除链路，包括目录移除、列表刷新和审计记录
 - 受控目录与 SQLite 数据流接线正常
 - 配置读取、保存、任务列表能闭环
+- `start` 会在 runtime 真正执行前统一跑一次 preflight，并对 fatal 问题给出稳定错误
 - `create-cluster.sh` 现在还会额外触发一次 `backup`，确认归档文件会实际落到 `meta/backups/`，并验证备份列表接口与下载接口都可用
 - 删除集群能力当前至少要补后端 service/handler 与前端确认流测试，确保只有 `stopped` 集群可删
 

@@ -25,6 +25,7 @@ type RuntimeService struct {
 	repo          *cluster.Repository
 	jobs          *jobs.Service
 	backups       backupRestorer
+	preflight     runtimePreflightService
 	executionMode string
 	runnerFactory func(record models.ClusterRecord) composeCommandFactory
 	commandRunner func(cmd *exec.Cmd) (string, string, error)
@@ -34,11 +35,16 @@ type backupRestorer interface {
 	Restore(ctx context.Context, slug string, name string) error
 }
 
+type runtimePreflightService interface {
+	GetBySlug(ctx context.Context, slug string) (models.PreflightReport, error)
+}
+
 func NewRuntimeService(repo *cluster.Repository, jobs *jobs.Service, executionMode string) RuntimeService {
 	return RuntimeService{
 		repo:          repo,
 		jobs:          jobs,
 		backups:       NewBackupService(repo),
+		preflight:     NewPreflightService(repo),
 		executionMode: executionMode,
 		runnerFactory: func(record models.ClusterRecord) composeCommandFactory {
 			return runtime.NewComposeRunner(filepath.Dir(record.ComposeFile), record.ComposeFile, record.EnvFile)
@@ -117,6 +123,31 @@ func (s RuntimeService) RunAction(ctx context.Context, slug string, action strin
 		return s.jobs.Get(job.ID)
 	}
 
+	if resolvedAction == "start" && s.preflight != nil {
+		report, err := s.preflight.GetBySlug(ctx, slug)
+		if err != nil {
+			if markErr := s.jobs.MarkFinished(job.ID, "failed", "", truncateExcerpt(err.Error())); markErr != nil {
+				return models.JobRecord{}, markErr
+			}
+			failedJob, getErr := s.jobs.Get(job.ID)
+			if getErr != nil {
+				return models.JobRecord{}, getErr
+			}
+			return failedJob, err
+		}
+		if report.FatalCount > 0 {
+			err := apierror.Invalid(buildPreflightBlockMessage(report), nil)
+			if markErr := s.jobs.MarkFinished(job.ID, "failed", "", truncateExcerpt(err.Error())); markErr != nil {
+				return models.JobRecord{}, markErr
+			}
+			failedJob, getErr := s.jobs.Get(job.ID)
+			if getErr != nil {
+				return models.JobRecord{}, getErr
+			}
+			return failedJob, err
+		}
+	}
+
 	switch s.executionMode {
 	case "dry-run":
 		if err := s.jobs.MarkFinished(job.ID, "succeeded", "dry run "+resolvedAction, ""); err != nil {
@@ -155,6 +186,13 @@ func (s RuntimeService) RunAction(ctx context.Context, slug string, action strin
 	}
 
 	return s.jobs.Get(job.ID)
+}
+
+func buildPreflightBlockMessage(report models.PreflightReport) string {
+	if len(report.Checks) == 0 {
+		return "preflight blocked start"
+	}
+	return "preflight blocked start: " + report.Checks[0].Summary
 }
 
 type composeCommandFactory interface {

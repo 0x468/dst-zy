@@ -11,6 +11,18 @@ vi.mock("../lib/api", async () => {
       content: "",
       updatedAt: "2026-03-29T14:00:00Z",
     }),
+    previewClusterPreflight: vi.fn().mockResolvedValue({
+      status: "ready",
+      fatalCount: 0,
+      warningCount: 0,
+      checks: [],
+    }),
+    getClusterPreflight: vi.fn().mockResolvedValue({
+      status: "ready",
+      fatalCount: 0,
+      warningCount: 0,
+      checks: [],
+    }),
   };
 });
 
@@ -202,10 +214,10 @@ describe("App", () => {
         "X-DST-Control-Plane-CSRF": "1",
       }),
     }));
-    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/clusters", expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/clusters/cluster-a/config", expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/jobs", expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(6, "/api/audit?slug=cluster-a&limit=20", expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith("/api/clusters", expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith("/api/clusters/cluster-a/config", expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith("/api/jobs", expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith("/api/audit?slug=cluster-a&limit=20", expect.any(Object));
   });
 
   it("stays on the login form when credentials are rejected", async () => {

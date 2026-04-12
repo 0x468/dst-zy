@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import type { ClusterMutationInput } from "../../../lib/api";
+import {
+  previewClusterPreflight,
+  type ClusterMutationInput,
+  type PreflightReport,
+} from "../../../lib/api";
+import { PreflightPanel } from "../../preflight/PreflightPanel";
 
 type CreateClusterWizardProps = {
   onSubmit: (input: ClusterMutationInput) => Promise<void> | void;
@@ -51,13 +56,65 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
   const [state, setState] = useState<WizardState>(initialState);
   const [errorMessage, setErrorMessage] = useState<string>();
   const [pending, setPending] = useState(false);
+  const [preflightReport, setPreflightReport] = useState<PreflightReport>();
+  const [preflightPending, setPreflightPending] = useState(false);
+  const [preflightErrorMessage, setPreflightErrorMessage] = useState<string>();
 
   const stepIndex = stepOrder.indexOf(step);
+
+  useEffect(() => {
+    if (step !== "review") {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadPreflight() {
+      let nextInput: ClusterMutationInput;
+      try {
+        nextInput = buildCreateInput(state, parsePort, parseMaxPlayers);
+      } catch (error) {
+        if (!cancelled) {
+          setPreflightReport(undefined);
+          setPreflightErrorMessage(getErrorMessage(error, "Failed to prepare preflight preview"));
+        }
+        return;
+      }
+
+      setPreflightPending(true);
+      try {
+        const nextReport = await previewClusterPreflight(nextInput);
+        if (cancelled) {
+          return;
+        }
+        setPreflightReport(nextReport);
+        setPreflightErrorMessage(undefined);
+      } catch (error) {
+        if (!cancelled) {
+          setPreflightReport(undefined);
+          setPreflightErrorMessage(getErrorMessage(error, "Failed to load preflight preview"));
+        }
+      } finally {
+        if (!cancelled) {
+          setPreflightPending(false);
+        }
+      }
+    }
+
+    void loadPreflight();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [state, step]);
 
   function update<K extends keyof WizardState>(key: K, value: WizardState[K]) {
     setState((prev) => ({ ...prev, [key]: value }));
     if (errorMessage) {
       setErrorMessage(undefined);
+    }
+    if (preflightErrorMessage) {
+      setPreflightErrorMessage(undefined);
     }
   }
 
@@ -152,25 +209,10 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
 
     try {
       setPending(true);
-      await onSubmit({
-        mode: "create",
-        slug: state.slug.trim(),
-        displayName: state.displayName.trim(),
-        clusterName: state.clusterName.trim(),
-        clusterDescription: state.clusterDescription.trim(),
-        gameMode: state.gameMode,
-        maxPlayers: parseMaxPlayers(state.maxPlayers),
-        clusterToken: state.clusterToken.trim(),
-        clusterKey: state.clusterKey.trim(),
-        intent: state.intent,
-        timeZone: state.timeZone.trim(),
-        masterHostPort: parsePort(state.masterHostPort, "Master host UDP port"),
-        cavesHostPort: parsePort(state.cavesHostPort, "Caves host UDP port"),
-        steamHostPort: parsePort(state.steamHostPort, "Master Steam port"),
-        cavesSteamHostPort: parsePort(state.cavesSteamHostPort, "Caves Steam port"),
-        autoStart: state.autoStart,
-      });
+      await onSubmit(buildCreateInput(state, parsePort, parseMaxPlayers));
       setErrorMessage(undefined);
+      setPreflightReport(undefined);
+      setPreflightErrorMessage(undefined);
       setStep("basics");
       setState(initialState);
     } catch (error) {
@@ -357,6 +399,30 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
               <dd>{state.cavesHostPort}</dd>
             </div>
           </dl>
+          {preflightReport?.status === "blocked" && state.autoStart ? (
+            <p className="cluster-wizard__warning">Auto-start will be blocked until fatal preflight issues are fixed.</p>
+          ) : null}
+          <PreflightPanel
+            title="Preflight"
+            eyebrow="Create preview"
+            report={preflightReport}
+            pending={preflightPending}
+            errorMessage={preflightErrorMessage}
+            onRefresh={async () => {
+              const nextInput = buildCreateInput(state, parsePort, parseMaxPlayers);
+              setPreflightPending(true);
+              try {
+                const nextReport = await previewClusterPreflight(nextInput);
+                setPreflightReport(nextReport);
+                setPreflightErrorMessage(undefined);
+              } catch (error) {
+                setPreflightReport(undefined);
+                setPreflightErrorMessage(getErrorMessage(error, "Failed to load preflight preview"));
+              } finally {
+                setPreflightPending(false);
+              }
+            }}
+          />
         </div>
       ) : null}
       <div className="cluster-wizard__actions">
@@ -406,4 +472,29 @@ function getErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function buildCreateInput(
+  state: WizardState,
+  parsePort: (raw: string, label: string) => number,
+  parseMaxPlayers: (raw: string) => number,
+): ClusterMutationInput {
+  return {
+    mode: "create",
+    slug: state.slug.trim(),
+    displayName: state.displayName.trim(),
+    clusterName: state.clusterName.trim(),
+    clusterDescription: state.clusterDescription.trim(),
+    gameMode: state.gameMode,
+    maxPlayers: parseMaxPlayers(state.maxPlayers),
+    clusterToken: state.clusterToken.trim(),
+    clusterKey: state.clusterKey.trim(),
+    intent: state.intent,
+    timeZone: state.timeZone.trim(),
+    masterHostPort: parsePort(state.masterHostPort, "Master host UDP port"),
+    cavesHostPort: parsePort(state.cavesHostPort, "Caves host UDP port"),
+    steamHostPort: parsePort(state.steamHostPort, "Master Steam port"),
+    cavesSteamHostPort: parsePort(state.cavesSteamHostPort, "Caves Steam port"),
+    autoStart: state.autoStart,
+  };
 }

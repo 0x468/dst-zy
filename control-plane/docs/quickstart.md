@@ -119,6 +119,15 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
 3. 生成默认的 `cluster.ini`、`Master/server.ini`、`Caves/server.ini`
 4. 把运行状态初始化为 `stopped`
 
+在创建向导进入 Review 步骤后，页面现在还会主动执行一次预检（preflight）预览，提前告诉你：
+
+- token 或 `cluster_key` 是否缺失
+- `cluster.ini` / `server.ini` 是否存在明显结构问题
+- Master / Caves shard 结构是否不合理
+- 与其他已纳管集群之间是否存在宿主机端口冲突
+
+如果存在 `fatal` 级别问题，Review 区会直接显示阻断项。即使你勾选了 `Auto start after creation`，控制平面也会在创建后阻止自动启动，而不是等 `start` 失败后再让你从任务日志里倒推原因。
+
 默认生成的 `cluster_key` 只是占位值，正式使用前应改成你自己的随机值；`cluster_token.txt` 仍需由你向 Klei 申请并放入对应 Cluster 目录。
 
 当前标准闭环 UI 已经把这条创建链路固定成“列表页 -> 向导 -> 详情页”三段：
@@ -158,6 +167,8 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
   可以直接编辑房间名称和描述，不需要先切到原文模式。
 - 端口与连接
   会优先显示当前集群真实的宿主机映射端口；如果还没有单独映射值，则回退到配置快照里的默认端口。
+- 就绪度（Readiness）
+  会读取当前集群的统一预检报告，展示 `ready/blocked` 状态、fatal/warning 数量，以及每条阻断/警告项的摘要、细节和修复提示。
 - 日志
   当前只支持三类基础日志源：`jobs`、`master`、`caves`，以“最近片段 + 手动刷新”为边界。
 - 备份与恢复
@@ -181,6 +192,11 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
 
 其中 `backup` 不会调用 `docker compose`，而是直接把当前集群的 `runtime/data/<ClusterName>/` 打成 `.tar.gz` 归档，放到该集群目录下的 `meta/backups/`。这份归档可以直接作为后续迁移、手工保留或额外离线备份的基础材料。
 备份完成后，Overview 页面里的 Backups 区会列出已生成归档，并直接提供下载链接。
+
+其中 `start` 现在会先执行一次后端预检：
+
+- 如果没有 `fatal` 项，才会继续进入 runtime / compose 执行链
+- 如果存在 `fatal` 项，任务会直接失败，并在错误摘要里明确写出是 preflight 阻断，而不是模糊地显示为 compose 异常
 
 `restore` 当前也已经接入同一条详情页工作流，但与其他生命周期动作不同：
 

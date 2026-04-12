@@ -28,6 +28,28 @@ describe("ClusterDetailPage", () => {
         }));
       }
 
+      if (typeof input === "string" && input.includes("/preflight")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "blocked",
+          fatal_count: 1,
+          warning_count: 0,
+          checks: [
+            {
+              code: "token_missing",
+              severity: "fatal",
+              summary: "cluster_token.txt is missing",
+              detail: "Token file was not found.",
+              hint: "Add the token before starting the cluster.",
+            },
+          ],
+        }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }));
+      }
+
       return Promise.reject(new Error(`unmocked fetch: ${String(input)}`));
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -73,6 +95,7 @@ describe("ClusterDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Base configuration" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ports and connection" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Readiness" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Logs" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Backups" })).toBeInTheDocument();
   });

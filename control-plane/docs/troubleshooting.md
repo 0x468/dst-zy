@@ -138,6 +138,8 @@ X-DST-Control-Plane-CSRF: 1
 
 第一阶段控制平面故意不允许越界导入宿主机任意路径，这是安全边界，不是 bug。
 
+如果这类问题发生在创建向导 Review 步骤之前，通常还是表单或后端请求校验错误；如果发生在 Review 区的 preflight 卡片里，则说明真正的创建请求还没发出，问题先被预检截住了。
+
 ### 6. config save / raw save 返回 `400`
 
 最常见的是：
@@ -165,6 +167,18 @@ X-DST-Control-Plane-CSRF: 1
 - 再看目标集群目录下生成的 compose 与 `.env`
 - 最后再看宿主机 Docker 权限是否真的允许控制平面操作
 
+如果错误摘要里包含类似：
+
+- `preflight blocked start: ...`
+
+说明这次失败不是 compose 运行期故障，而是启动前预检已经发现 fatal 问题。优先回到详情页的 `Readiness` 卡片看对应检查项，常见会是：
+
+- `token_missing`
+- `cluster_key_missing`
+- `cluster_ini_missing`
+- `master_server_ini_invalid`
+- `host_port_conflict`
+
 如果错误是：
 
 - `unsupported action`
@@ -186,7 +200,25 @@ X-DST-Control-Plane-CSRF: 1
 
 最简单的判断方式是：先执行一次 `stop`，确认状态徽标已经切到 `stopped`，再看 Backups 区是否出现 restore 入口。
 
-### 9. 日志面板没有内容，或者切换后看起来不对
+### 9.5 Readiness / Preflight 显示 `blocked`
+
+这说明当前集群不满足“允许启动”的最低条件。第一阶段预检主要覆盖四类问题：
+
+- 认证材料缺失
+  例如 `cluster_token.txt` 或 `cluster_key` 为空。
+- 关键配置文件缺失或无法解析
+  例如 `cluster.ini`、`Master/server.ini`、`Caves/server.ini`。
+- shard 结构不合理
+  例如 Master/Caves 的 `is_master` 配置错位，或关键端口值非法。
+- 与其他已纳管集群发生宿主机端口冲突
+
+建议处理顺序：
+
+1. 先修 `fatal`，再看 `warning`。
+2. 优先以文件真相源为准，不要只盯数据库记录。
+3. 修完后在向导 Review 或详情页点击 `Refresh preflight` 再确认。
+
+### 10. 日志面板没有内容，或者切换后看起来不对
 
 当前日志面板只支持三类源：
 
@@ -213,7 +245,7 @@ curl -i \
 
 正常情况下应该返回带 `source`、`content`、`updated_at` 的 JSON。
 
-### 10. e2e 脚本起不来
+### 11. e2e 脚本起不来
 
 create/import 脚本当前走的是容器内 `go run` 路径。优先看脚本自动打印的容器日志，常见问题包括：
 
@@ -230,7 +262,7 @@ GOPROXY=https://goproxy.cn,direct
 
 如果你在不同网络环境里仍然拉依赖失败，可以先手动确认对应镜像是否能访问代理，或者改用预构建镜像 smoke。
 
-### 11. `smoke-image.sh` 失败
+### 12. `smoke-image.sh` 失败
 
 先定位是哪一步挂了：
 
@@ -245,7 +277,7 @@ GOPROXY=https://goproxy.cn,direct
 
 这条脚本默认不覆盖 create/import 全链路，它只负责验证“真实镜像路径的最小可用性”。
 
-### 12. 想确认最近有没有登录失败或被限流
+### 13. 想确认最近有没有登录失败或被限流
 
 第一阶段现在会把登录成功、登录失败、限流拒绝写进本地 SQLite 审计表，并在控制平面 Overview 区展示最近记录。
 

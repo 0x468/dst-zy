@@ -1,10 +1,29 @@
+import { waitFor } from "@testing-library/react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
+  return {
+    ...actual,
+    previewClusterPreflight: vi.fn().mockResolvedValue({
+      status: "ready",
+      fatalCount: 0,
+      warningCount: 0,
+      checks: [],
+    }),
+  };
+});
+
+import { previewClusterPreflight } from "../../../lib/api";
 import { CreateClusterWizard } from "./CreateClusterWizard";
 
 describe("CreateClusterWizard", () => {
+  beforeEach(() => {
+    vi.mocked(previewClusterPreflight).mockClear();
+  });
+
   it("blocks moving forward when basics are incomplete", async () => {
     const user = userEvent.setup();
 
@@ -58,6 +77,25 @@ describe("CreateClusterWizard", () => {
     expect(screen.getByRole("heading", { name: "Review" })).toBeInTheDocument();
     expect(screen.getByText("cluster-b")).toBeInTheDocument();
     expect(screen.getByText("12000")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Preflight" })).toBeInTheDocument();
+    expect(previewClusterPreflight).toHaveBeenCalledWith({
+      mode: "create",
+      slug: "cluster-b",
+      displayName: "Cluster B",
+      clusterName: "Cluster_B",
+      clusterDescription: "Cluster B Desc",
+      gameMode: "endless",
+      maxPlayers: 8,
+      clusterToken: "token-b",
+      clusterKey: "key-b",
+      intent: "social",
+      timeZone: "UTC",
+      masterHostPort: 12000,
+      cavesHostPort: 12001,
+      steamHostPort: 28018,
+      cavesSteamHostPort: 28019,
+      autoStart: true,
+    });
 
     await user.click(screen.getByRole("button", { name: "Create cluster" }));
 
@@ -79,6 +117,42 @@ describe("CreateClusterWizard", () => {
       steamHostPort: 28018,
       cavesSteamHostPort: 28019,
       autoStart: true,
+    });
+  });
+
+  it("shows a blocked preflight warning on the review step", async () => {
+    const user = userEvent.setup();
+    vi.mocked(previewClusterPreflight).mockResolvedValueOnce({
+      status: "blocked",
+      fatalCount: 1,
+      warningCount: 0,
+      checks: [
+        {
+          code: "token_missing",
+          severity: "fatal",
+          summary: "cluster_token.txt is missing",
+          detail: "Token file was not found.",
+          hint: "Add the token before starting the cluster.",
+        },
+      ],
+    });
+
+    render(<CreateClusterWizard onSubmit={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Slug"), "cluster-b");
+    await user.type(screen.getByLabelText("Display name"), "Cluster B");
+    await user.type(screen.getByLabelText("Cluster name"), "Cluster_B");
+    await user.click(screen.getByRole("button", { name: "Next: Network" }));
+    await user.click(screen.getByRole("button", { name: "Next: Authentication" }));
+    await user.type(screen.getByLabelText("Cluster token"), "token-b");
+    await user.type(screen.getByLabelText("Cluster key"), "key-b");
+    await user.click(screen.getByRole("button", { name: "Next: Review" }));
+
+    expect(await screen.findByText("Auto-start will be blocked until fatal preflight issues are fixed.")).toBeInTheDocument();
+    expect(screen.getByText("cluster_token.txt is missing")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(previewClusterPreflight).toHaveBeenCalledTimes(1);
     });
   });
 

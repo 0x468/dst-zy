@@ -57,6 +57,7 @@ func main() {
 		Logs: logsServiceAdapter{
 			service: service.NewLogsService(clusterRepo, jobsRepo),
 		},
+		Preflight: service.NewPreflightService(clusterRepo),
 	}
 
 	mux := httpapi.NewServerHandler(deps, cfg.WebStaticDir)

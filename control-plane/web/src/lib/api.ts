@@ -64,6 +64,21 @@ export type BackupSummary = {
   clusterSlug: string;
 };
 
+export type PreflightCheck = {
+  code: string;
+  severity: string;
+  summary: string;
+  detail: string;
+  hint: string;
+};
+
+export type PreflightReport = {
+  status: string;
+  fatalCount: number;
+  warningCount: number;
+  checks: PreflightCheck[];
+};
+
 export type ClusterMutationInput = {
   mode: "create" | "import";
   slug: string;
@@ -163,6 +178,21 @@ type BackupSummaryResponse = {
   cluster_slug: string;
 };
 
+type PreflightCheckResponse = {
+  code: string;
+  severity: string;
+  summary: string;
+  detail: string;
+  hint: string;
+};
+
+type PreflightReportResponse = {
+  status: string;
+  fatal_count: number;
+  warning_count: number;
+  checks: PreflightCheckResponse[];
+};
+
 export async function signIn(username: string, password: string): Promise<boolean> {
   const response = await fetch("/api/login", {
     method: "POST",
@@ -257,6 +287,19 @@ export async function getClusterLogs(slug: string, source: ClusterLogSource): Pr
   return mapClusterLog(await response.json() as ClusterLogEntryResponse);
 }
 
+export async function previewClusterPreflight(input: ClusterMutationInput): Promise<PreflightReport> {
+  const response = await request("/api/preflight", {
+    method: "POST",
+    body: JSON.stringify(encodeClusterMutation(input)),
+  });
+  return mapPreflight(await response.json() as PreflightReportResponse);
+}
+
+export async function getClusterPreflight(slug: string): Promise<PreflightReport> {
+  const response = await request(`/api/clusters/${slug}/preflight`);
+  return mapPreflight(await response.json() as PreflightReportResponse);
+}
+
 export async function runClusterAction(slug: string, action: string, backupName?: string): Promise<JobSummary> {
   const response = await request(`/api/clusters/${slug}/actions`, {
     method: "POST",
@@ -271,25 +314,7 @@ export async function runClusterAction(slug: string, action: string, backupName?
 export async function mutateCluster(input: ClusterMutationInput): Promise<ClusterSummary> {
   const response = await request("/api/clusters", {
     method: "POST",
-    body: JSON.stringify({
-      mode: input.mode,
-      slug: input.slug,
-      display_name: input.displayName,
-      cluster_name: input.clusterName,
-      cluster_description: input.clusterDescription ?? "",
-      game_mode: input.gameMode ?? "",
-      max_players: input.maxPlayers ?? 0,
-      cluster_token: input.clusterToken ?? "",
-      cluster_key: input.clusterKey ?? "",
-      intent: input.intent ?? "",
-      time_zone: input.timeZone ?? "",
-      master_host_port: input.masterHostPort ?? 0,
-      caves_host_port: input.cavesHostPort ?? 0,
-      steam_host_port: input.steamHostPort ?? 0,
-      caves_steam_host_port: input.cavesSteamHostPort ?? 0,
-      auto_start: input.autoStart ?? false,
-      base_dir: input.baseDir ?? "",
-    }),
+    body: JSON.stringify(encodeClusterMutation(input)),
   });
 
   return mapCluster(await response.json() as ClusterSummaryResponse);
@@ -402,6 +427,43 @@ function mapBackups(records: BackupSummaryResponse[]): BackupSummary[] {
     createdAt: record.created_at,
     clusterSlug: record.cluster_slug,
   }));
+}
+
+function mapPreflight(report: PreflightReportResponse): PreflightReport {
+  return {
+    status: report.status,
+    fatalCount: report.fatal_count,
+    warningCount: report.warning_count,
+    checks: report.checks.map((check) => ({
+      code: check.code,
+      severity: check.severity,
+      summary: check.summary,
+      detail: check.detail,
+      hint: check.hint,
+    })),
+  };
+}
+
+function encodeClusterMutation(input: ClusterMutationInput) {
+  return {
+    mode: input.mode,
+    slug: input.slug,
+    display_name: input.displayName,
+    cluster_name: input.clusterName,
+    cluster_description: input.clusterDescription ?? "",
+    game_mode: input.gameMode ?? "",
+    max_players: input.maxPlayers ?? 0,
+    cluster_token: input.clusterToken ?? "",
+    cluster_key: input.clusterKey ?? "",
+    intent: input.intent ?? "",
+    time_zone: input.timeZone ?? "",
+    master_host_port: input.masterHostPort ?? 0,
+    caves_host_port: input.cavesHostPort ?? 0,
+    steam_host_port: input.steamHostPort ?? 0,
+    caves_steam_host_port: input.cavesSteamHostPort ?? 0,
+    auto_start: input.autoStart ?? false,
+    base_dir: input.baseDir ?? "",
+  };
 }
 
 function encodeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapshotResponse {

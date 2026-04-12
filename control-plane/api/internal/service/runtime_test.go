@@ -46,6 +46,11 @@ func TestRuntimeServiceComposeModeRunsCommandAndUpdatesStatus(t *testing.T) {
 
 	var executedArgs []string
 	service := NewRuntimeService(repo, jobsRepo, "compose")
+	service.preflight = fakeRuntimePreflightService{
+		report: models.PreflightReport{
+			Status: models.PreflightStatusReady,
+		},
+	}
 	service.runnerFactory = func(record models.ClusterRecord) composeCommandFactory {
 		return fakeComposeRunner{
 			startCommand: exec.Command("docker", "compose", "up", "-d"),
@@ -488,6 +493,64 @@ func TestRuntimeServiceRestoreRejectsRunningCluster(t *testing.T) {
 	}
 }
 
+func TestRuntimeServiceStartBlocksWhenPreflightHasFatalChecks(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	jobsRepo := jobs.NewService(database)
+	record, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "stopped",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster record to be created, got error: %v", err)
+	}
+
+	service := NewRuntimeService(repo, jobsRepo, "compose")
+	service.preflight = fakeRuntimePreflightService{
+		report: models.PreflightReport{
+			Status:     models.PreflightStatusBlocked,
+			FatalCount: 1,
+			Checks: []models.PreflightCheck{
+				{
+					Code:     models.PreflightCodeTokenMissing,
+					Severity: models.PreflightSeverityFatal,
+					Summary:  "cluster_token.txt is missing",
+				},
+			},
+		},
+	}
+	service.runnerFactory = func(models.ClusterRecord) composeCommandFactory {
+		t.Fatal("expected compose runner not to be invoked when preflight is blocked")
+		return fakeComposeRunner{}
+	}
+
+	job, err := service.RunAction(context.Background(), record.Slug, "start", "admin")
+	if err == nil {
+		t.Fatal("expected start to fail when preflight is blocked")
+	}
+	if !apierror.IsKind(err, apierror.KindInvalid) {
+		t.Fatalf("expected blocked start to return invalid api error, got %T %v", err, err)
+	}
+	if job.Status != "failed" {
+		t.Fatalf("expected blocked start job status failed, got %q", job.Status)
+	}
+	if !strings.Contains(job.StderrExcerpt, "preflight blocked start") {
+		t.Fatalf("expected stderr excerpt to explain preflight block, got %q", job.StderrExcerpt)
+	}
+}
+
 type fakeComposeRunner struct {
 	startCommand    *exec.Cmd
 	stopCommand     *exec.Cmd
@@ -514,4 +577,16 @@ func (f fakeComposeRunner) UpdateCommand() *exec.Cmd {
 
 func (f fakeComposeRunner) ValidateCommand() *exec.Cmd {
 	return f.validateCommand
+}
+
+type fakeRuntimePreflightService struct {
+	report models.PreflightReport
+	err    error
+}
+
+func (f fakeRuntimePreflightService) GetBySlug(_ context.Context, _ string) (models.PreflightReport, error) {
+	if f.err != nil {
+		return models.PreflightReport{}, f.err
+	}
+	return f.report, nil
 }
