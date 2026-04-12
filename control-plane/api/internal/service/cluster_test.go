@@ -147,6 +147,13 @@ func TestClusterServiceCreateBuildsPlayableMasterAndCavesLayout(t *testing.T) {
 	if strings.TrimSpace(string(clusterToken)) != "cluster-token-123" {
 		t.Fatalf("expected cluster token to persist, got %q", strings.TrimSpace(string(clusterToken)))
 	}
+	clusterTokenInfo, err := os.Stat(clusterTokenPath)
+	if err != nil {
+		t.Fatalf("expected cluster_token.txt stat to succeed, got error: %v", err)
+	}
+	if clusterTokenInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("expected cluster_token.txt permissions 0600, got %o", clusterTokenInfo.Mode().Perm())
+	}
 
 	composeYAML, err := os.ReadFile(record.ComposeFile)
 	if err != nil {
@@ -259,6 +266,48 @@ func TestClusterServiceCreateRejectsConflictingPorts(t *testing.T) {
 	}
 }
 
+func TestClusterServiceCreateRejectsPortOutsideValidRange(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	guard, err := files.NewGuard(rootDir)
+	if err != nil {
+		t.Fatalf("expected guard to initialize, got error: %v", err)
+	}
+
+	service := NewClusterService(repo, guard, "dst-control-plane:test")
+	_, err = service.Create(context.Background(), handlers.ClusterMutationRequest{
+		Mode:               "create",
+		Slug:               "cluster-a",
+		DisplayName:        "Cluster A",
+		ClusterName:        "Cluster_A",
+		ClusterDescription: "Welcome to Cluster A",
+		GameMode:           "survival",
+		MaxPlayers:         6,
+		ClusterToken:       "cluster-token-123",
+		ClusterKey:         "cluster-key-xyz",
+		Intent:             "cooperative",
+		TimeZone:           "Asia/Shanghai",
+		MasterHostPort:     70000,
+		CavesHostPort:      12001,
+		SteamHostPort:      28018,
+		CavesSteamHostPort: 28019,
+		AutoStart:          false,
+	})
+	if err == nil {
+		t.Fatal("expected out-of-range port to fail")
+	}
+	if !apierror.IsKind(err, apierror.KindInvalid) {
+		t.Fatalf("expected out-of-range port to return invalid api error, got %T %v", err, err)
+	}
+}
+
 func TestClusterServiceImportRejectsMissingBaseDir(t *testing.T) {
 	rootDir := t.TempDir()
 
@@ -356,10 +405,15 @@ func TestClusterServiceImportCopiesExistingClusterContentsRecursively(t *testing
 
 	service := NewClusterService(repo, guard, "dst-control-plane:test")
 	record, err := service.Import(context.Background(), handlers.ClusterMutationRequest{
-		Slug:        "cluster-a",
-		DisplayName: "Cluster A",
-		ClusterName: "Cluster_A",
-		BaseDir:     sourceDir,
+		Slug:               "cluster-a",
+		DisplayName:        "Cluster A",
+		ClusterName:        "Cluster_A",
+		BaseDir:            sourceDir,
+		TimeZone:           "UTC",
+		MasterHostPort:     12000,
+		CavesHostPort:      12001,
+		SteamHostPort:      28018,
+		CavesSteamHostPort: 28019,
 	})
 	if err != nil {
 		t.Fatalf("expected import to succeed, got error: %v", err)
@@ -375,6 +429,80 @@ func TestClusterServiceImportCopiesExistingClusterContentsRecursively(t *testing
 		if string(data) != contents {
 			t.Fatalf("expected imported file %s contents %q, got %q", relativePath, contents, string(data))
 		}
+	}
+
+	envFile, err := os.ReadFile(record.EnvFile)
+	if err != nil {
+		t.Fatalf("expected env file to exist, got error: %v", err)
+	}
+	env := string(envFile)
+	if !strings.Contains(env, "DST_MASTER_HOST_PORT=12000") {
+		t.Fatalf("expected env file to include imported master host port, got %q", env)
+	}
+	if !strings.Contains(env, "DST_CAVES_HOST_PORT=12001") {
+		t.Fatalf("expected env file to include imported caves host port, got %q", env)
+	}
+	if !strings.Contains(env, "DST_STEAM_HOST_PORT=28018") {
+		t.Fatalf("expected env file to include imported steam host port, got %q", env)
+	}
+	if !strings.Contains(env, "DST_CAVES_STEAM_HOST_PORT=28019") {
+		t.Fatalf("expected env file to include imported caves steam host port, got %q", env)
+	}
+	if !strings.Contains(env, "TZ=UTC") {
+		t.Fatalf("expected env file to include imported timezone, got %q", env)
+	}
+
+	saved, err := repo.GetBySlug("cluster-a")
+	if err != nil {
+		t.Fatalf("expected imported record to exist, got error: %v", err)
+	}
+	if saved.MasterHostPort != 12000 || saved.CavesHostPort != 12001 {
+		t.Fatalf("expected imported host ports to persist in metadata, got master=%d caves=%d", saved.MasterHostPort, saved.CavesHostPort)
+	}
+	if saved.MasterSteamHostPort != 28018 || saved.CavesSteamHostPort != 28019 {
+		t.Fatalf("expected imported steam ports to persist in metadata, got master=%d caves=%d", saved.MasterSteamHostPort, saved.CavesSteamHostPort)
+	}
+	if saved.TimeZone != "UTC" {
+		t.Fatalf("expected imported timezone to persist in metadata, got %q", saved.TimeZone)
+	}
+}
+
+func TestClusterServiceImportRejectsConflictingPorts(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	guard, err := files.NewGuard(rootDir)
+	if err != nil {
+		t.Fatalf("expected guard to initialize, got error: %v", err)
+	}
+
+	sourceDir := filepath.Join(rootDir, "legacy-cluster")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatalf("expected source cluster dir to be created, got error: %v", err)
+	}
+
+	service := NewClusterService(repo, guard, "dst-control-plane:test")
+	_, err = service.Import(context.Background(), handlers.ClusterMutationRequest{
+		Slug:               "cluster-a",
+		DisplayName:        "Cluster A",
+		ClusterName:        "Cluster_A",
+		BaseDir:            sourceDir,
+		MasterHostPort:     12000,
+		CavesHostPort:      12000,
+		SteamHostPort:      28018,
+		CavesSteamHostPort: 28019,
+	})
+	if err == nil {
+		t.Fatal("expected conflicting import ports to fail")
+	}
+	if !apierror.IsKind(err, apierror.KindInvalid) {
+		t.Fatalf("expected conflicting import ports to return invalid api error, got %T %v", err, err)
 	}
 }
 

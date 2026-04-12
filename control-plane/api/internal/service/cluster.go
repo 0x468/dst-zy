@@ -38,6 +38,7 @@ func (s ClusterService) Create(_ context.Context, req handlers.ClusterMutationRe
 	if err := validateManagedPorts(req); err != nil {
 		return models.ClusterRecord{}, err
 	}
+	req.TimeZone = normalizeTimeZone(req.TimeZone)
 
 	layout := files.BuildManagedLayout(clusterDir)
 	if err := s.prepareLayout(layout, req.ClusterName); err != nil {
@@ -54,11 +55,6 @@ func (s ClusterService) Create(_ context.Context, req handlers.ClusterMutationRe
 		return models.ClusterRecord{}, err
 	}
 
-	timeZone := req.TimeZone
-	if timeZone == "" {
-		timeZone = models.StandardClosureDefaultTimeZone
-	}
-
 	return s.repo.Create(models.ClusterRecord{
 		Slug:                 req.Slug,
 		DisplayName:          req.DisplayName,
@@ -69,7 +65,7 @@ func (s ClusterService) Create(_ context.Context, req handlers.ClusterMutationRe
 		Status:               "stopped",
 		UpdateMode:           models.StandardClosureDefaultUpdateMode,
 		ServerModsUpdateMode: models.StandardClosureDefaultServerModsUpdateMode,
-		TimeZone:             timeZone,
+		TimeZone:             req.TimeZone,
 		MasterHostPort:       req.MasterHostPort,
 		CavesHostPort:        req.CavesHostPort,
 		MasterSteamHostPort:  req.SteamHostPort,
@@ -89,6 +85,10 @@ func (s ClusterService) Import(_ context.Context, req handlers.ClusterMutationRe
 	if err != nil {
 		return models.ClusterRecord{}, mapClusterMutationError(err)
 	}
+	req = normalizeManagedRuntimeRequest(req)
+	if err := validateManagedPorts(req); err != nil {
+		return models.ClusterRecord{}, err
+	}
 
 	layout := files.BuildManagedLayout(clusterDir)
 	if err := s.prepareLayout(layout, req.ClusterName); err != nil {
@@ -106,13 +106,20 @@ func (s ClusterService) Import(_ context.Context, req handlers.ClusterMutationRe
 	}
 
 	return s.repo.Create(models.ClusterRecord{
-		Slug:        req.Slug,
-		DisplayName: req.DisplayName,
-		ClusterName: req.ClusterName,
-		BaseDir:     clusterDir,
-		ComposeFile: composePath,
-		EnvFile:     envPath,
-		Status:      "stopped",
+		Slug:                 req.Slug,
+		DisplayName:          req.DisplayName,
+		ClusterName:          req.ClusterName,
+		BaseDir:              clusterDir,
+		ComposeFile:          composePath,
+		EnvFile:              envPath,
+		Status:               "stopped",
+		UpdateMode:           models.StandardClosureDefaultUpdateMode,
+		ServerModsUpdateMode: models.StandardClosureDefaultServerModsUpdateMode,
+		TimeZone:             req.TimeZone,
+		MasterHostPort:       req.MasterHostPort,
+		CavesHostPort:        req.CavesHostPort,
+		MasterSteamHostPort:  req.SteamHostPort,
+		CavesSteamHostPort:   req.CavesSteamHostPort,
 	})
 }
 
@@ -206,7 +213,7 @@ func (s ClusterService) writeSnapshot(layout files.ManagedLayout, clusterName st
 	if err := files.WriteServerINI(filepath.Join(clusterDir, "Caves", "server.ini"), cavesCfg); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(clusterDir, "cluster_token.txt"), []byte(strings.TrimSpace(clusterToken)+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(clusterDir, "cluster_token.txt"), []byte(strings.TrimSpace(clusterToken)+"\n"), 0o600); err != nil {
 		return err
 	}
 
@@ -214,10 +221,7 @@ func (s ClusterService) writeSnapshot(layout files.ManagedLayout, clusterName st
 }
 
 func (s ClusterService) writeComposeArtifacts(layout files.ManagedLayout, req handlers.ClusterMutationRequest) (string, string, error) {
-	timeZone := req.TimeZone
-	if strings.TrimSpace(timeZone) == "" {
-		timeZone = models.StandardClosureDefaultTimeZone
-	}
+	timeZone := normalizeTimeZone(req.TimeZone)
 	masterHostPort := req.MasterHostPort
 	if masterHostPort == 0 {
 		masterHostPort = models.StandardClosureDefaultMasterHostPort
@@ -283,7 +287,7 @@ func validateManagedPorts(req handlers.ClusterMutationRequest) error {
 	ports := []int{req.MasterHostPort, req.CavesHostPort, req.SteamHostPort, req.CavesSteamHostPort}
 	seen := map[int]struct{}{}
 	for _, port := range ports {
-		if port <= 0 {
+		if port < 1 || port > 65535 {
 			return apierror.Invalid("invalid port", nil)
 		}
 		if _, ok := seen[port]; ok {
@@ -292,6 +296,31 @@ func validateManagedPorts(req handlers.ClusterMutationRequest) error {
 		seen[port] = struct{}{}
 	}
 	return nil
+}
+
+func normalizeManagedRuntimeRequest(req handlers.ClusterMutationRequest) handlers.ClusterMutationRequest {
+	req.TimeZone = normalizeTimeZone(req.TimeZone)
+	if req.MasterHostPort == 0 {
+		req.MasterHostPort = models.StandardClosureDefaultMasterHostPort
+	}
+	if req.CavesHostPort == 0 {
+		req.CavesHostPort = models.StandardClosureDefaultCavesHostPort
+	}
+	if req.SteamHostPort == 0 {
+		req.SteamHostPort = models.StandardClosureDefaultMasterSteamHostPort
+	}
+	if req.CavesSteamHostPort == 0 {
+		req.CavesSteamHostPort = models.StandardClosureDefaultCavesSteamHostPort
+	}
+	return req
+}
+
+func normalizeTimeZone(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return models.StandardClosureDefaultTimeZone
+	}
+	return trimmed
 }
 
 func copyClusterDir(src string, dst string) error {
