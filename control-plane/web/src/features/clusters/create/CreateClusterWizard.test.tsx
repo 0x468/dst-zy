@@ -81,4 +81,21 @@ describe("CreateClusterWizard", () => {
       autoStart: true,
     });
   });
+
+  it("requires max players to be an integer between 1 and 64", async () => {
+    const user = userEvent.setup();
+
+    render(<CreateClusterWizard onSubmit={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Slug"), "cluster-b");
+    await user.type(screen.getByLabelText("Display name"), "Cluster B");
+    await user.type(screen.getByLabelText("Cluster name"), "Cluster_B");
+    await user.clear(screen.getByLabelText("Max players"));
+    await user.type(screen.getByLabelText("Max players"), "0");
+
+    await user.click(screen.getByRole("button", { name: "Next: Network" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Max players must be an integer between 1 and 64");
+    expect(screen.getByRole("heading", { name: "Basics" })).toBeInTheDocument();
+  });
 });

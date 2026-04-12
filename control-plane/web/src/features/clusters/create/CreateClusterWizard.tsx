@@ -69,6 +69,14 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
     return value;
   }
 
+  function parseMaxPlayers(raw: string) {
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1 || value > 64) {
+      throw new Error("Max players must be an integer between 1 and 64");
+    }
+    return value;
+  }
+
   function validateStep(current: WizardStep): string | undefined {
     if (current === "basics") {
       if (state.slug.trim() === "") {
@@ -79,6 +87,11 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
       }
       if (state.clusterName.trim() === "") {
         return "Cluster name is required";
+      }
+      try {
+        parseMaxPlayers(state.maxPlayers);
+      } catch (error) {
+        return getErrorMessage(error, "Invalid basic settings");
       }
     }
     if (current === "network") {
@@ -146,7 +159,7 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
         clusterName: state.clusterName.trim(),
         clusterDescription: state.clusterDescription.trim(),
         gameMode: state.gameMode,
-        maxPlayers: Number(state.maxPlayers),
+        maxPlayers: parseMaxPlayers(state.maxPlayers),
         clusterToken: state.clusterToken.trim(),
         clusterKey: state.clusterKey.trim(),
         intent: state.intent,

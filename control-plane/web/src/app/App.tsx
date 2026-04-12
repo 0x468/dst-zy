@@ -146,6 +146,15 @@ export function App() {
     try {
       const createdCluster = await mutateCluster(input);
       setErrorMessage(undefined);
+      // The backend accepts auto_start but does not currently change lifecycle state during create,
+      // so the UI bridges the gap by issuing a start action only when the new record is still stopped.
+      if (input.mode === "create" && input.autoStart && createdCluster.status === "stopped") {
+        try {
+          await runClusterAction(createdCluster.slug, "start");
+        } catch (error) {
+          setErrorMessage(getErrorMessage(error, "Cluster created but failed to auto-start"));
+        }
+      }
       await refreshClusters(createdCluster.slug);
     } catch (error) {
       if (isUnauthorizedError(error)) {

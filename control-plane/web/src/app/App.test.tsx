@@ -243,12 +243,20 @@ describe("App", () => {
         note: "",
         cluster_name: "Cluster_B",
       }, 201))
+      .mockResolvedValueOnce(jsonResponse({
+        id: 12,
+        cluster_id: 7,
+        job_type: "start",
+        status: "queued",
+        stdout_excerpt: "",
+        stderr_excerpt: "",
+      }, 202))
       .mockResolvedValueOnce(jsonResponse([
         {
           id: 7,
           slug: "cluster-b",
           display_name: "Cluster B",
-          status: "stopped",
+          status: "running",
           note: "",
           cluster_name: "Cluster_B",
         },
@@ -291,6 +299,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Next: Authentication" }));
     await user.type(screen.getByLabelText("Cluster token"), "token-b");
     await user.type(screen.getByLabelText("Cluster key"), "key-b");
+    expect(screen.getByLabelText("Auto start after creation")).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Next: Review" }));
     await user.click(screen.getByRole("button", { name: "Create cluster" }));
 
@@ -301,6 +310,13 @@ describe("App", () => {
         headers: expect.objectContaining({
           "X-DST-Control-Plane-CSRF": "1",
         }),
+      }));
+      expect(fetchMock).toHaveBeenCalledWith("/api/clusters/cluster-b/actions", expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "X-DST-Control-Plane-CSRF": "1",
+        }),
+        body: JSON.stringify({ action: "start" }),
       }));
     });
   });

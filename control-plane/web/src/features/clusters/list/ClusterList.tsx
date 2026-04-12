@@ -60,12 +60,26 @@ function ImportClusterForm({ onSubmit }: ImportClusterFormProps) {
   const [open, setOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
   const [pending, setPending] = useState(false);
+  const formID = "cluster-import-form";
+
+  function toggleOpen() {
+    setOpen((current) => !current);
+    if (errorMessage) {
+      setErrorMessage(undefined);
+    }
+  }
 
   return (
     <section className="cluster-import" aria-label="Import existing cluster">
       <div className="cluster-import__header">
         <h3>Import existing cluster</h3>
-        <button type="button" disabled={pending} onClick={() => setOpen((current) => !current)}>
+        <button
+          type="button"
+          disabled={pending}
+          aria-expanded={open}
+          aria-controls={formID}
+          onClick={toggleOpen}
+        >
           {open ? "Hide import form" : "Open import form"}
         </button>
       </div>
@@ -73,7 +87,13 @@ function ImportClusterForm({ onSubmit }: ImportClusterFormProps) {
       {errorMessage ? <p role="alert">{errorMessage}</p> : null}
       {open ? (
         <form
+          id={formID}
           className="cluster-management__form cluster-import__form"
+          onChange={() => {
+            if (errorMessage) {
+              setErrorMessage(undefined);
+            }
+          }}
           onSubmit={async (event) => {
             event.preventDefault();
             const form = event.currentTarget;

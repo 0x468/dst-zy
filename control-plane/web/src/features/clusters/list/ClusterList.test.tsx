@@ -72,9 +72,12 @@ describe("ClusterList", () => {
 
     expect(screen.getByRole("heading", { name: "Basics" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next: Network" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open import form" })).toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: "Open import form" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls", "cluster-import-form");
 
-    await user.click(screen.getByRole("button", { name: "Open import form" }));
+    await user.click(toggle);
+    expect(screen.getByRole("button", { name: "Hide import form" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Import cluster" })).toBeInTheDocument();
   });
 
@@ -128,6 +131,29 @@ describe("ClusterList", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("Import path is required");
     expect(onImport).not.toHaveBeenCalled();
+  });
+
+  it("clears stale import errors when the operator edits fields or closes the form", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ClusterList
+        clusters={[]}
+        onCreate={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open import form" }));
+    await user.click(screen.getByRole("button", { name: "Import cluster" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Slug is required");
+
+    await user.type(screen.getByLabelText("Import slug"), "cluster-a");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Hide import form" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("shows a submission error when mutation fails", async () => {
