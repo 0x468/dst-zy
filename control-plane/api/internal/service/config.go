@@ -82,9 +82,12 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 	} else {
 		clusterCfg.Network.ClusterName = snapshot.ClusterName
 		clusterCfg.Network.ClusterDescription = snapshot.ClusterDescription
+		clusterCfg.Network.ClusterPassword = snapshot.ClusterPassword
 		clusterCfg.Network.ClusterIntention = snapshot.ClusterIntention
 		clusterCfg.Gameplay.GameMode = snapshot.GameMode
 		clusterCfg.Gameplay.MaxPlayers = snapshot.MaxPlayers
+		clusterCfg.Gameplay.PVP = snapshot.PVP
+		clusterCfg.Gameplay.PauseWhenEmpty = snapshot.PauseWhenEmpty
 		clusterCfg.Shard.ClusterKey = snapshot.ClusterKey
 		clusterCfg.Shard.MasterPort = snapshot.MasterPort
 		if err := files.WriteClusterINI(clusterINIPath, clusterCfg); err != nil {

@@ -242,17 +242,30 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 		action string
 		actor  string
 	}
+	configService := &fakeConfigService{
+		snapshot: models.ClusterConfigSnapshot{
+			ClusterName:        "Cluster_A",
+			ClusterDescription: "Original description",
+			ClusterPassword:    "existing-password",
+			GameMode:           "survival",
+			MaxPlayers:         6,
+			PVP:                true,
+			PauseWhenEmpty:     true,
+			ClusterIntention:   "cooperative",
+			ClusterKey:         "secret-key",
+			MasterPort:         10889,
+			Master: models.ShardConfigSnapshot{
+				ServerPort: 11000,
+			},
+			Caves: models.ShardConfigSnapshot{
+				ServerPort: 11001,
+			},
+		},
+	}
 	router := NewRouter(Dependencies{
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
-		Config: fakeConfigService{
-			snapshot: models.ClusterConfigSnapshot{
-				ClusterName: "Cluster_A",
-				Master: models.ShardConfigSnapshot{
-					ServerPort: 11000,
-				},
-			},
-		},
+		Config:        configService,
 		Runtime: fakeRuntimeService{
 			runAction: func(_ context.Context, _ string, action string, actor string) (models.JobRecord, error) {
 				runtimeCall.action = action
@@ -309,9 +322,20 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 		t.Fatalf("expected get config to return 200, got %d", getConfigRec.Code)
 	}
 
-	savePayload, err := json.Marshal(models.ClusterConfigSnapshot{ClusterName: "Cluster_A"})
-	if err != nil {
-		t.Fatalf("expected save payload to marshal, got error: %v", err)
+	savePayload := []byte(`{
+		"cluster_name":"Cluster_A",
+		"cluster_description":"Updated description",
+		"game_mode":"endless",
+		"max_players":12,
+		"pvp":false,
+		"cluster_intention":"social",
+		"cluster_key":"updated-secret-key",
+		"master_port":10889,
+		"master":{"server_port":11000,"master_server_port":27018,"authentication_port":8768},
+		"caves":{"server_port":11001,"master_server_port":27019,"authentication_port":8769}
+	}`)
+	if !json.Valid(savePayload) {
+		t.Fatal("expected save payload to be valid JSON")
 	}
 
 	saveConfigReq := httptest.NewRequest(http.MethodPut, "/api/clusters/cluster-a/config", bytes.NewReader(savePayload))
@@ -322,6 +346,27 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 
 	if saveConfigRec.Code != http.StatusNoContent {
 		t.Fatalf("expected save config to return 204, got %d", saveConfigRec.Code)
+	}
+	if configService.savedSnapshot.ClusterDescription != "Updated description" {
+		t.Fatalf("expected save config to update cluster description, got %q", configService.savedSnapshot.ClusterDescription)
+	}
+	if configService.savedSnapshot.GameMode != "endless" || configService.savedSnapshot.MaxPlayers != 12 {
+		t.Fatalf("expected save config to update gameplay fields, got game_mode=%q max_players=%d", configService.savedSnapshot.GameMode, configService.savedSnapshot.MaxPlayers)
+	}
+	if configService.savedSnapshot.ClusterPassword != "existing-password" {
+		t.Fatalf("expected omitted cluster password to be preserved, got %q", configService.savedSnapshot.ClusterPassword)
+	}
+	if configService.savedSnapshot.ClusterIntention != "social" {
+		t.Fatalf("expected save config to update cluster intention, got %q", configService.savedSnapshot.ClusterIntention)
+	}
+	if configService.savedSnapshot.ClusterKey != "updated-secret-key" {
+		t.Fatalf("expected save config to update cluster key, got %q", configService.savedSnapshot.ClusterKey)
+	}
+	if configService.savedSnapshot.PVP {
+		t.Fatalf("expected explicit pvp=false to be preserved, got %t", configService.savedSnapshot.PVP)
+	}
+	if !configService.savedSnapshot.PauseWhenEmpty {
+		t.Fatalf("expected omitted pause_when_empty to remain true, got %t", configService.savedSnapshot.PauseWhenEmpty)
 	}
 	if len(auditService.records) != 1 || auditService.records[0].action != "config_save" {
 		t.Fatalf("expected save config to record config_save audit, got %+v", auditService.records)
@@ -509,7 +554,7 @@ func TestReadHandlersRequireSession(t *testing.T) {
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
 		Clusters:      &fakeClusterService{},
-		Config:        fakeConfigService{},
+		Config:        &fakeConfigService{},
 		Jobs:          fakeJobsService{},
 	})
 
@@ -546,9 +591,22 @@ func TestHandlersMapKnownErrorsToStructuredResponses(t *testing.T) {
 	router := NewRouter(Dependencies{
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
-		Config: fakeConfigService{
-			getErr:  sql.ErrNoRows,
+		Config: &fakeConfigService{
 			saveErr: apierror.Invalid("invalid cluster.ini", nil),
+			getSnapshot: func(_ context.Context, slug string) (models.ClusterConfigSnapshot, error) {
+				if slug == "missing" {
+					return models.ClusterConfigSnapshot{}, sql.ErrNoRows
+				}
+				return models.ClusterConfigSnapshot{
+					ClusterName: "Cluster_A",
+					Master: models.ShardConfigSnapshot{
+						ServerPort: 11000,
+					},
+					Caves: models.ShardConfigSnapshot{
+						ServerPort: 11001,
+					},
+				}, nil
+			},
 		},
 		Runtime: fakeRuntimeService{
 			runErr: apierror.Invalid("unsupported action", nil),
@@ -854,16 +912,22 @@ func (f *fakeClusterService) Delete(_ context.Context, _ string) (models.Cluster
 }
 
 type fakeConfigService struct {
-	snapshot models.ClusterConfigSnapshot
-	getErr   error
-	saveErr  error
+	snapshot      models.ClusterConfigSnapshot
+	savedSnapshot models.ClusterConfigSnapshot
+	getErr        error
+	saveErr       error
+	getSnapshot   func(ctx context.Context, slug string) (models.ClusterConfigSnapshot, error)
 }
 
-func (f fakeConfigService) GetSnapshot(_ context.Context, _ string) (models.ClusterConfigSnapshot, error) {
+func (f *fakeConfigService) GetSnapshot(ctx context.Context, slug string) (models.ClusterConfigSnapshot, error) {
+	if f.getSnapshot != nil {
+		return f.getSnapshot(ctx, slug)
+	}
 	return f.snapshot, f.getErr
 }
 
-func (f fakeConfigService) SaveSnapshot(_ context.Context, _ string, _ models.ClusterConfigSnapshot) error {
+func (f *fakeConfigService) SaveSnapshot(_ context.Context, _ string, snapshot models.ClusterConfigSnapshot) error {
+	f.savedSnapshot = snapshot
 	return f.saveErr
 }
 

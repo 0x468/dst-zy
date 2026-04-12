@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Panel } from "../../../components/ui/Panel";
 import type { ClusterConfigSnapshot } from "../../../lib/api";
@@ -10,6 +10,7 @@ type ClusterConfigFormProps = {
 
 export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) {
   const [draft, setDraft] = useState(() => normalizeSnapshot(snapshot));
+  const draftRef = useRef(draft);
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
   const gameModeOptions = withCurrentOption(["survival", "endless", "wilderness", "relaxed"], draft.gameMode);
@@ -19,9 +20,19 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
   );
 
   useEffect(() => {
-    setDraft(normalizeSnapshot(snapshot));
+    const nextDraft = normalizeSnapshot(snapshot);
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
     setErrorMessage(undefined);
   }, [snapshot]);
+
+  function updateDraft(updater: (current: ClusterConfigSnapshot) => ClusterConfigSnapshot) {
+    setDraft((current) => {
+      const nextDraft = updater(current);
+      draftRef.current = nextDraft;
+      return nextDraft;
+    });
+  }
 
   return (
     <Panel title="Base configuration" eyebrow="Cluster settings" className="cluster-config-panel">
@@ -32,7 +43,7 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
           setPending(true);
 
           try {
-            await onSave(draft);
+            await onSave(draftRef.current);
             setErrorMessage(undefined);
           } catch (error) {
             setErrorMessage(getErrorMessage(error, "Failed to save config"));
@@ -71,7 +82,7 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
               value={draft.gameMode}
               disabled={pending}
               onChange={(event) => {
-                setDraft({ ...draft, gameMode: event.target.value });
+                updateDraft((current) => ({ ...current, gameMode: event.target.value }));
               }}
             >
               {gameModeOptions.map((option) => (
@@ -91,13 +102,13 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
               onChange={(event) => {
                 const value = event.target.value.trim();
                 if (value === "") {
-                  setDraft({ ...draft, maxPlayers: undefined });
+                  updateDraft((current) => ({ ...current, maxPlayers: undefined }));
                   return;
                 }
                 if (!/^\d+$/.test(value)) {
                   return;
                 }
-                setDraft({ ...draft, maxPlayers: Number(value) });
+                updateDraft((current) => ({ ...current, maxPlayers: Number(value) }));
               }}
             />
           </div>
@@ -109,7 +120,7 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
               value={draft.clusterName}
               disabled={pending}
               onChange={(event) => {
-                setDraft({ ...draft, clusterName: event.target.value });
+                updateDraft((current) => ({ ...current, clusterName: event.target.value }));
               }}
             />
           </div>
@@ -122,7 +133,7 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
               value={draft.clusterDescription}
               disabled={pending}
               onChange={(event) => {
-                setDraft({ ...draft, clusterDescription: event.target.value });
+                updateDraft((current) => ({ ...current, clusterDescription: event.target.value }));
               }}
             />
           </div>
@@ -134,7 +145,19 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
               value={draft.clusterKey}
               disabled={pending}
               onChange={(event) => {
-                setDraft({ ...draft, clusterKey: event.target.value });
+                updateDraft((current) => ({ ...current, clusterKey: event.target.value }));
+              }}
+            />
+          </div>
+
+          <div className="cluster-config-form__field">
+            <label htmlFor="cluster-password">Cluster password</label>
+            <input
+              id="cluster-password"
+              value={draft.clusterPassword ?? ""}
+              disabled={pending}
+              onChange={(event) => {
+                updateDraft((current) => ({ ...current, clusterPassword: event.target.value }));
               }}
             />
           </div>
@@ -146,7 +169,7 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
               value={draft.clusterIntention ?? ""}
               disabled={pending}
               onChange={(event) => {
-                setDraft({ ...draft, clusterIntention: event.target.value });
+                updateDraft((current) => ({ ...current, clusterIntention: event.target.value }));
               }}
             >
               {clusterIntentionOptions.map((option) => (
@@ -155,6 +178,32 @@ export function ClusterConfigForm({ snapshot, onSave }: ClusterConfigFormProps) 
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="cluster-config-form__field">
+            <input
+              id="cluster-pvp"
+              type="checkbox"
+              checked={draft.pvp ?? false}
+              disabled={pending}
+              onChange={(event) => {
+                updateDraft((current) => ({ ...current, pvp: event.target.checked }));
+              }}
+            />
+            <label htmlFor="cluster-pvp">PVP</label>
+          </div>
+
+          <div className="cluster-config-form__field">
+            <input
+              id="pause-when-empty"
+              type="checkbox"
+              checked={draft.pauseWhenEmpty ?? true}
+              disabled={pending}
+              onChange={(event) => {
+                updateDraft((current) => ({ ...current, pauseWhenEmpty: event.target.checked }));
+              }}
+            />
+            <label htmlFor="pause-when-empty">Pause when empty</label>
           </div>
         </div>
 
@@ -177,8 +226,11 @@ function getErrorMessage(error: unknown, fallback: string) {
 function normalizeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapshot {
   return {
     ...snapshot,
+    clusterPassword: snapshot.clusterPassword ?? "",
     maxPlayers: snapshot.maxPlayers ?? 6,
     clusterIntention: snapshot.clusterIntention ?? "",
+    pvp: snapshot.pvp ?? false,
+    pauseWhenEmpty: snapshot.pauseWhenEmpty ?? true,
   };
 }
 

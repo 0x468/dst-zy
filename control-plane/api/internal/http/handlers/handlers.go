@@ -117,6 +117,35 @@ type actionRequest struct {
 	BackupName string `json:"backup_name"`
 }
 
+type saveShardConfigRequest struct {
+	ServerPort         *int `json:"server_port"`
+	MasterServerPort   *int `json:"master_server_port"`
+	AuthenticationPort *int `json:"authentication_port"`
+}
+
+type saveRawConfigFilesRequest struct {
+	ClusterINI *string `json:"cluster_ini"`
+}
+
+type saveClusterConfigRequest struct {
+	ClusterName        *string                    `json:"cluster_name"`
+	ClusterDescription *string                    `json:"cluster_description"`
+	ClusterPassword    *string                    `json:"cluster_password"`
+	GameMode           *string                    `json:"game_mode"`
+	ClusterKey         *string                    `json:"cluster_key"`
+	MaxPlayers         *int                       `json:"max_players"`
+	ClusterIntention   *string                    `json:"cluster_intention"`
+	PVP                *bool                      `json:"pvp"`
+	PauseWhenEmpty     *bool                      `json:"pause_when_empty"`
+	ShardEnabled       *bool                      `json:"shard_enabled"`
+	BindIP             *string                    `json:"bind_ip"`
+	MasterIP           *string                    `json:"master_ip"`
+	MasterPort         *int                       `json:"master_port"`
+	Master             *saveShardConfigRequest    `json:"master"`
+	Caves              *saveShardConfigRequest    `json:"caves"`
+	RawFiles           *saveRawConfigFilesRequest `json:"raw_files"`
+}
+
 type LogEntry struct {
 	Source    string    `json:"source"`
 	Content   string    `json:"content"`
@@ -300,13 +329,21 @@ func NewRouter(deps Dependencies) http.Handler {
 	})))
 
 	mux.Handle("PUT /api/clusters/{slug}/config", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var snapshot models.ClusterConfigSnapshot
-		if err := json.NewDecoder(r.Body).Decode(&snapshot); err != nil {
+		var req saveClusterConfigRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
-		if err := deps.Config.SaveSnapshot(r.Context(), r.PathValue("slug"), snapshot); err != nil {
+		snapshot, err := deps.Config.GetSnapshot(r.Context(), r.PathValue("slug"))
+		if err != nil {
+			writeMappedError(w, err)
+			return
+		}
+
+		merged := mergeClusterConfigSnapshot(snapshot, req)
+
+		if err := deps.Config.SaveSnapshot(r.Context(), r.PathValue("slug"), merged); err != nil {
 			writeMappedError(w, err)
 			return
 		}
@@ -520,6 +557,78 @@ func filterAuditRecords(records []models.AuditRecord, slug string) []models.Audi
 	}
 
 	return filtered
+}
+
+func mergeClusterConfigSnapshot(snapshot models.ClusterConfigSnapshot, req saveClusterConfigRequest) models.ClusterConfigSnapshot {
+	merged := snapshot
+	merged.RawFiles = nil
+
+	if req.ClusterName != nil {
+		merged.ClusterName = *req.ClusterName
+	}
+	if req.ClusterDescription != nil {
+		merged.ClusterDescription = *req.ClusterDescription
+	}
+	if req.ClusterPassword != nil {
+		merged.ClusterPassword = *req.ClusterPassword
+	}
+	if req.GameMode != nil {
+		merged.GameMode = *req.GameMode
+	}
+	if req.ClusterKey != nil {
+		merged.ClusterKey = *req.ClusterKey
+	}
+	if req.MaxPlayers != nil {
+		merged.MaxPlayers = *req.MaxPlayers
+	}
+	if req.ClusterIntention != nil {
+		merged.ClusterIntention = *req.ClusterIntention
+	}
+	if req.PVP != nil {
+		merged.PVP = *req.PVP
+	}
+	if req.PauseWhenEmpty != nil {
+		merged.PauseWhenEmpty = *req.PauseWhenEmpty
+	}
+	if req.ShardEnabled != nil {
+		merged.ShardEnabled = *req.ShardEnabled
+	}
+	if req.BindIP != nil {
+		merged.BindIP = *req.BindIP
+	}
+	if req.MasterIP != nil {
+		merged.MasterIP = *req.MasterIP
+	}
+	if req.MasterPort != nil {
+		merged.MasterPort = *req.MasterPort
+	}
+	if req.Master != nil {
+		if req.Master.ServerPort != nil {
+			merged.Master.ServerPort = *req.Master.ServerPort
+		}
+		if req.Master.MasterServerPort != nil {
+			merged.Master.MasterServerPort = *req.Master.MasterServerPort
+		}
+		if req.Master.AuthenticationPort != nil {
+			merged.Master.AuthenticationPort = *req.Master.AuthenticationPort
+		}
+	}
+	if req.Caves != nil {
+		if req.Caves.ServerPort != nil {
+			merged.Caves.ServerPort = *req.Caves.ServerPort
+		}
+		if req.Caves.MasterServerPort != nil {
+			merged.Caves.MasterServerPort = *req.Caves.MasterServerPort
+		}
+		if req.Caves.AuthenticationPort != nil {
+			merged.Caves.AuthenticationPort = *req.Caves.AuthenticationPort
+		}
+	}
+	if req.RawFiles != nil && req.RawFiles.ClusterINI != nil {
+		merged.RawFiles = &models.RawConfigFiles{ClusterINI: *req.RawFiles.ClusterINI}
+	}
+
+	return merged
 }
 
 func auditLimit(raw string) int {

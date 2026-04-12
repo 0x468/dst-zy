@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -122,7 +122,10 @@ describe("ClusterDetailPage", () => {
         snapshot={{
           clusterName: "Cluster_A",
           clusterDescription: "A co-op world",
+          clusterPassword: "friends-only",
           gameMode: "survival",
+          pvp: true,
+          pauseWhenEmpty: true,
           clusterKey: "secret-key",
           masterPort: 10889,
           master: {
@@ -164,7 +167,10 @@ describe("ClusterDetailPage", () => {
         snapshot={{
           clusterName: "Cluster_A",
           clusterDescription: "A co-op world",
+          clusterPassword: "friends-only",
           gameMode: "survival",
+          pvp: true,
+          pauseWhenEmpty: true,
           clusterKey: "secret-key",
           masterPort: 10889,
           master: {
@@ -202,7 +208,10 @@ describe("ClusterDetailPage", () => {
         snapshot={{
           clusterName: "Cluster_A",
           clusterDescription: "A co-op world",
+          clusterPassword: "friends-only",
           gameMode: "survival",
+          pvp: true,
+          pauseWhenEmpty: true,
           clusterKey: "secret-key",
           masterPort: 10889,
           master: {
@@ -243,7 +252,10 @@ describe("ClusterDetailPage", () => {
         snapshot={{
           clusterName: "Cluster_A",
           clusterDescription: "A co-op world",
+          clusterPassword: "friends-only",
           gameMode: "survival",
+          pvp: true,
+          pauseWhenEmpty: true,
           clusterKey: "secret-key",
           masterPort: 10889,
           master: {
@@ -444,7 +456,10 @@ describe("ClusterDetailPage", () => {
         snapshot={{
           clusterName: "Cluster_A",
           clusterDescription: "A co-op world",
+          clusterPassword: "friends-only",
           gameMode: "survival",
+          pvp: true,
+          pauseWhenEmpty: true,
           clusterKey: "secret-key",
           masterPort: 10889,
           master: {
@@ -465,6 +480,7 @@ describe("ClusterDetailPage", () => {
     const descriptionInput = screen.getByLabelText("Cluster description");
     const gameModeInput = screen.getByLabelText("Game mode");
     const maxPlayersInput = screen.getByLabelText("Max players");
+    const clusterPasswordInput = screen.getByLabelText("Cluster password");
     const clusterKeyInput = screen.getByLabelText("Cluster key");
     const intentionInput = screen.getByLabelText("Cluster intention");
     await user.clear(descriptionInput);
@@ -472,16 +488,27 @@ describe("ClusterDetailPage", () => {
     await user.selectOptions(gameModeInput, "endless");
     await user.clear(maxPlayersInput);
     await user.type(maxPlayersInput, "12");
+    await user.clear(clusterPasswordInput);
+    await user.type(clusterPasswordInput, "new-password");
     await user.clear(clusterKeyInput);
     await user.type(clusterKeyInput, "updated-secret-key");
     await user.selectOptions(intentionInput, "social");
+    await user.click(screen.getByRole("checkbox", { name: "PVP" }));
+    await user.click(screen.getByRole("checkbox", { name: "Pause when empty" }));
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: "PVP" })).not.toBeChecked();
+      expect(screen.getByRole("checkbox", { name: "Pause when empty" })).not.toBeChecked();
+    });
     await user.click(screen.getByRole("button", { name: "Save config" }));
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         clusterDescription: "Updated description",
+        clusterPassword: "new-password",
         gameMode: "endless",
         maxPlayers: 12,
+        pvp: false,
+        pauseWhenEmpty: false,
         clusterKey: "updated-secret-key",
         clusterIntention: "social",
       }),
