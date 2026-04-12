@@ -129,17 +129,18 @@ func TestSessionHandler(t *testing.T) {
 func TestClusterHandlers(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
 	auditService := &fakeAuditService{}
+	clusterService := &fakeClusterService{
+		list: []models.ClusterRecord{
+			{ID: 1, Slug: "cluster-a", DisplayName: "Cluster A", ClusterName: "Cluster_A", Status: "running"},
+		},
+		created:  models.ClusterRecord{ID: 2, Slug: "cluster-b", DisplayName: "Cluster B", ClusterName: "Cluster_B", Status: "stopped"},
+		imported: models.ClusterRecord{ID: 3, Slug: "cluster-c", DisplayName: "Cluster C", ClusterName: "Cluster_C", Status: "stopped"},
+	}
 	router := NewRouter(Dependencies{
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
 		Audit:         auditService,
-		Clusters: fakeClusterService{
-			list: []models.ClusterRecord{
-				{ID: 1, Slug: "cluster-a", DisplayName: "Cluster A", ClusterName: "Cluster_A", Status: "running"},
-			},
-			created:  models.ClusterRecord{ID: 2, Slug: "cluster-b", DisplayName: "Cluster B", ClusterName: "Cluster_B", Status: "stopped"},
-			imported: models.ClusterRecord{ID: 3, Slug: "cluster-c", DisplayName: "Cluster C", ClusterName: "Cluster_C", Status: "stopped"},
-		},
+		Clusters:      clusterService,
 	})
 
 	sessionCookie := issueSessionCookie(t, secret)
@@ -153,7 +154,7 @@ func TestClusterHandlers(t *testing.T) {
 		t.Fatalf("expected cluster list to return 200, got %d", rec.Code)
 	}
 
-	createBody := bytes.NewBufferString(`{"mode":"create","slug":"cluster-b","display_name":"Cluster B","cluster_name":"Cluster_B","base_dir":"/srv/cluster-b"}`)
+	createBody := bytes.NewBufferString(`{"mode":"create","slug":"cluster-b","display_name":"Cluster B","cluster_name":"Cluster_B","cluster_description":"Cluster B Desc","game_mode":"endless","max_players":8,"cluster_token":"token-b","cluster_key":"key-b","intent":"social","time_zone":"UTC","master_host_port":12000,"caves_host_port":12001,"steam_host_port":28018,"caves_steam_host_port":28019,"auto_start":false,"base_dir":"/srv/cluster-b"}`)
 	createReq := httptest.NewRequest(http.MethodPost, "/api/clusters", createBody)
 	createReq.AddCookie(sessionCookie)
 	createReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
@@ -166,8 +167,26 @@ func TestClusterHandlers(t *testing.T) {
 	if len(auditService.records) != 1 || auditService.records[0].action != "cluster_create" {
 		t.Fatalf("expected create cluster to record cluster_create audit, got %+v", auditService.records)
 	}
+	if clusterService.lastCreateReq.Mode != "create" {
+		t.Fatalf("expected create mode to be forwarded, got %q", clusterService.lastCreateReq.Mode)
+	}
+	if clusterService.lastCreateReq.ClusterDescription != "Cluster B Desc" {
+		t.Fatalf("expected create cluster description to be forwarded, got %q", clusterService.lastCreateReq.ClusterDescription)
+	}
+	if clusterService.lastCreateReq.GameMode != "endless" || clusterService.lastCreateReq.MaxPlayers != 8 {
+		t.Fatalf("expected create gameplay fields to be forwarded, got game_mode=%q max_players=%d", clusterService.lastCreateReq.GameMode, clusterService.lastCreateReq.MaxPlayers)
+	}
+	if clusterService.lastCreateReq.ClusterToken != "token-b" || clusterService.lastCreateReq.ClusterKey != "key-b" {
+		t.Fatalf("expected create credential fields to be forwarded, got token=%q key=%q", clusterService.lastCreateReq.ClusterToken, clusterService.lastCreateReq.ClusterKey)
+	}
+	if clusterService.lastCreateReq.Intent != "social" || clusterService.lastCreateReq.TimeZone != "UTC" {
+		t.Fatalf("expected create intent/timezone to be forwarded, got intent=%q time_zone=%q", clusterService.lastCreateReq.Intent, clusterService.lastCreateReq.TimeZone)
+	}
+	if clusterService.lastCreateReq.MasterHostPort != 12000 || clusterService.lastCreateReq.CavesHostPort != 12001 || clusterService.lastCreateReq.SteamHostPort != 28018 || clusterService.lastCreateReq.CavesSteamHostPort != 28019 {
+		t.Fatalf("expected create ports to be forwarded, got master=%d caves=%d steam=%d caves_steam=%d", clusterService.lastCreateReq.MasterHostPort, clusterService.lastCreateReq.CavesHostPort, clusterService.lastCreateReq.SteamHostPort, clusterService.lastCreateReq.CavesSteamHostPort)
+	}
 
-	importBody := bytes.NewBufferString(`{"mode":"import","slug":"cluster-c","display_name":"Cluster C","cluster_name":"Cluster_C","base_dir":"/srv/cluster-c"}`)
+	importBody := bytes.NewBufferString(`{"mode":"import","slug":"cluster-c","display_name":"Cluster C","cluster_name":"Cluster_C","cluster_description":"Legacy import","game_mode":"survival","max_players":6,"cluster_token":"token-c","cluster_key":"key-c","intent":"cooperative","time_zone":"Asia/Shanghai","master_host_port":13000,"caves_host_port":13001,"steam_host_port":29018,"caves_steam_host_port":29019,"auto_start":true,"base_dir":"/srv/cluster-c"}`)
 	importReq := httptest.NewRequest(http.MethodPost, "/api/clusters", importBody)
 	importReq.AddCookie(sessionCookie)
 	importReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
@@ -179,6 +198,15 @@ func TestClusterHandlers(t *testing.T) {
 	}
 	if len(auditService.records) != 2 || auditService.records[1].action != "cluster_import" {
 		t.Fatalf("expected import cluster to record cluster_import audit, got %+v", auditService.records)
+	}
+	if clusterService.lastImportReq.Mode != "import" {
+		t.Fatalf("expected import mode to be forwarded, got %q", clusterService.lastImportReq.Mode)
+	}
+	if clusterService.lastImportReq.BaseDir != "/srv/cluster-c" || clusterService.lastImportReq.Slug != "cluster-c" || clusterService.lastImportReq.ClusterName != "Cluster_C" {
+		t.Fatalf("expected import core fields to be forwarded, got %+v", clusterService.lastImportReq)
+	}
+	if clusterService.lastImportReq.TimeZone != "Asia/Shanghai" || clusterService.lastImportReq.MasterHostPort != 13000 || clusterService.lastImportReq.CavesHostPort != 13001 {
+		t.Fatalf("expected import wizard fields to be decoded and forwarded, got time_zone=%q master=%d caves=%d", clusterService.lastImportReq.TimeZone, clusterService.lastImportReq.MasterHostPort, clusterService.lastImportReq.CavesHostPort)
 	}
 
 	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/clusters/cluster-a", nil)
@@ -227,9 +255,9 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 		Backups: fakeBackupService{
 			list: []models.BackupRecord{
 				{
-					Name:       "Cluster_A-20260329T130000Z.tar.gz",
-					SizeBytes:  512,
-					CreatedAt:  time.Date(2026, 3, 29, 13, 0, 0, 0, time.UTC),
+					Name:        "Cluster_A-20260329T130000Z.tar.gz",
+					SizeBytes:   512,
+					CreatedAt:   time.Date(2026, 3, 29, 13, 0, 0, 0, time.UTC),
 					ClusterSlug: "cluster-a",
 				},
 			},
@@ -390,7 +418,7 @@ func TestReadHandlersRequireSession(t *testing.T) {
 	router := NewRouter(Dependencies{
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
-		Clusters:      fakeClusterService{},
+		Clusters:      &fakeClusterService{},
 		Config:        fakeConfigService{},
 		Jobs:          fakeJobsService{},
 	})
@@ -477,7 +505,7 @@ func TestClusterMutationHandlersMapInvalidInputsToBadRequest(t *testing.T) {
 	router := NewRouter(Dependencies{
 		SessionSecret: secret,
 		Auth:          fakeAuthService{allow: true},
-		Clusters: fakeClusterService{
+		Clusters: &fakeClusterService{
 			createErr: apierror.Invalid("invalid cluster slug", nil),
 			importErr: apierror.Invalid("base_dir required for import", nil),
 		},
@@ -669,28 +697,32 @@ func (f *fakeAuditService) List(limit int) ([]models.AuditRecord, error) {
 }
 
 type fakeClusterService struct {
-	list      []models.ClusterRecord
-	created   models.ClusterRecord
-	imported  models.ClusterRecord
-	deleted   models.ClusterRecord
-	createErr error
-	importErr error
-	deleteErr error
+	list          []models.ClusterRecord
+	created       models.ClusterRecord
+	imported      models.ClusterRecord
+	deleted       models.ClusterRecord
+	lastCreateReq ClusterMutationRequest
+	lastImportReq ClusterMutationRequest
+	createErr     error
+	importErr     error
+	deleteErr     error
 }
 
-func (f fakeClusterService) List(_ context.Context) ([]models.ClusterRecord, error) {
+func (f *fakeClusterService) List(_ context.Context) ([]models.ClusterRecord, error) {
 	return f.list, nil
 }
 
-func (f fakeClusterService) Create(_ context.Context, _ ClusterMutationRequest) (models.ClusterRecord, error) {
+func (f *fakeClusterService) Create(_ context.Context, req ClusterMutationRequest) (models.ClusterRecord, error) {
+	f.lastCreateReq = req
 	return f.created, f.createErr
 }
 
-func (f fakeClusterService) Import(_ context.Context, _ ClusterMutationRequest) (models.ClusterRecord, error) {
+func (f *fakeClusterService) Import(_ context.Context, req ClusterMutationRequest) (models.ClusterRecord, error) {
+	f.lastImportReq = req
 	return f.imported, f.importErr
 }
 
-func (f fakeClusterService) Delete(_ context.Context, _ string) (models.ClusterRecord, error) {
+func (f *fakeClusterService) Delete(_ context.Context, _ string) (models.ClusterRecord, error) {
 	return f.deleted, f.deleteErr
 }
 
@@ -709,9 +741,9 @@ func (f fakeConfigService) SaveSnapshot(_ context.Context, _ string, _ models.Cl
 }
 
 type fakeRuntimeService struct {
-	job        models.JobRecord
-	runErr     error
-	runAction  func(ctx context.Context, slug string, action string, actor string) (models.JobRecord, error)
+	job       models.JobRecord
+	runErr    error
+	runAction func(ctx context.Context, slug string, action string, actor string) (models.JobRecord, error)
 }
 
 func (f fakeRuntimeService) RunAction(ctx context.Context, slug string, action string, actor string) (models.JobRecord, error) {
