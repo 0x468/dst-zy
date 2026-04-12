@@ -451,6 +451,43 @@ func TestRuntimeServiceRestoreWithoutArchiveNameUsesLatestBackup(t *testing.T) {
 	}
 }
 
+func TestRuntimeServiceRestoreRejectsRunningCluster(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	jobsRepo := jobs.NewService(database)
+	record, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "running",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster record to be created, got error: %v", err)
+	}
+
+	service := NewRuntimeService(repo, jobsRepo, "compose")
+	job, err := service.RunAction(context.Background(), record.Slug, "restore", "admin")
+	if err == nil {
+		t.Fatal("expected restore on running cluster to fail")
+	}
+	if !apierror.IsKind(err, apierror.KindInvalid) {
+		t.Fatalf("expected restore on running cluster to return invalid error, got %T %v", err, err)
+	}
+	if job.Status != "failed" {
+		t.Fatalf("expected restore failure job status, got %q", job.Status)
+	}
+}
+
 type fakeComposeRunner struct {
 	startCommand    *exec.Cmd
 	stopCommand     *exec.Cmd

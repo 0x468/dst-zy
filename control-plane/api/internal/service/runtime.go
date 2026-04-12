@@ -82,6 +82,17 @@ func (s RuntimeService) RunAction(ctx context.Context, slug string, action strin
 	}
 
 	if resolvedAction == "restore" {
+		if record.Status != "stopped" {
+			err := apierror.Invalid("cluster must be stopped before restore", nil)
+			if markErr := s.jobs.MarkFinished(job.ID, "failed", "", truncateExcerpt(err.Error())); markErr != nil {
+				return models.JobRecord{}, markErr
+			}
+			failedJob, getErr := s.jobs.Get(job.ID)
+			if getErr != nil {
+				return models.JobRecord{}, getErr
+			}
+			return failedJob, err
+		}
 		if s.backups == nil {
 			return models.JobRecord{}, errors.New("backup restore mode not wired yet")
 		}

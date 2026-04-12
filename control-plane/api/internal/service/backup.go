@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
@@ -16,11 +17,15 @@ import (
 )
 
 type BackupService struct {
-	repo *cluster.Repository
+	repo   *cluster.Repository
+	rename func(oldPath string, newPath string) error
 }
 
 func NewBackupService(repo *cluster.Repository) BackupService {
-	return BackupService{repo: repo}
+	return BackupService{
+		repo:   repo,
+		rename: os.Rename,
+	}
 }
 
 func (s BackupService) List(_ context.Context, slug string) ([]models.BackupRecord, error) {
@@ -90,6 +95,10 @@ func (s BackupService) ResolveArchivePath(_ context.Context, slug string, name s
 }
 
 func (s BackupService) Restore(ctx context.Context, slug string, name string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	record, err := s.repo.GetBySlug(slug)
 	if err != nil {
 		return err
@@ -111,6 +120,9 @@ func (s BackupService) Restore(ctx context.Context, slug string, name string) er
 	if err != nil {
 		return err
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	runtimeDataDir := filepath.Join(record.BaseDir, "runtime", "data")
 	if err := os.MkdirAll(runtimeDataDir, 0o755); err != nil {
@@ -123,7 +135,10 @@ func (s BackupService) Restore(ctx context.Context, slug string, name string) er
 	}
 	defer os.RemoveAll(restoreRoot)
 
-	if err := extractTarGzArchive(archivePath, restoreRoot); err != nil {
+	if err := extractTarGzArchive(ctx, archivePath, restoreRoot); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 
@@ -140,11 +155,29 @@ func (s BackupService) Restore(ctx context.Context, slug string, name string) er
 	}
 
 	targetClusterDir := filepath.Join(runtimeDataDir, record.ClusterName)
-	if err := os.RemoveAll(targetClusterDir); err != nil {
+	rollbackClusterDir := ""
+	if info, err := os.Stat(targetClusterDir); err == nil {
+		if !info.IsDir() {
+			return apierror.Invalid("cluster runtime root is not a directory", nil)
+		}
+		rollbackClusterDir = filepath.Join(runtimeDataDir, ".restore-rollback-"+time.Now().UTC().Format("20060102T150405.000000000Z"))
+		if err := s.rename(targetClusterDir, rollbackClusterDir); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
 		return err
 	}
-	if err := os.Rename(restoredClusterDir, targetClusterDir); err != nil {
+
+	if err := s.rename(restoredClusterDir, targetClusterDir); err != nil {
+		if rollbackClusterDir != "" {
+			_ = s.rename(rollbackClusterDir, targetClusterDir)
+		}
 		return err
+	}
+	if rollbackClusterDir != "" {
+		if err := os.RemoveAll(rollbackClusterDir); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -161,7 +194,7 @@ func validateArchiveName(name string) error {
 	return nil
 }
 
-func extractTarGzArchive(archivePath string, destinationRoot string) (err error) {
+func extractTarGzArchive(ctx context.Context, archivePath string, destinationRoot string) (err error) {
 	archiveFile, err := os.Open(archivePath)
 	if err != nil {
 		return err
@@ -176,6 +209,10 @@ func extractTarGzArchive(archivePath string, destinationRoot string) (err error)
 
 	tarReader := tar.NewReader(gzipReader)
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		header, err := tarReader.Next()
 		if err != nil {
 			if err == io.EOF {
@@ -206,6 +243,9 @@ func extractTarGzArchive(archivePath string, destinationRoot string) (err error)
 			}
 		case mode.IsRegular():
 			if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+				return err
+			}
+			if err := ctx.Err(); err != nil {
 				return err
 			}
 			targetFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode.Perm())
