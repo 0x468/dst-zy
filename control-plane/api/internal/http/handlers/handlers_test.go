@@ -545,6 +545,41 @@ func TestHandlersMapKnownErrorsToStructuredResponses(t *testing.T) {
 	}
 }
 
+func TestRestoreActionRecordsAuditEvenWhenRuntimeFails(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	sessionCookie := issueSessionCookie(t, secret)
+	auditService := &fakeAuditService{}
+	router := NewRouter(Dependencies{
+		SessionSecret: secret,
+		Auth:          fakeAuthService{allow: true},
+		Audit:         auditService,
+		Runtime: fakeRuntimeService{
+			runAction: func(_ context.Context, _ string, action string, actor string) (models.JobRecord, error) {
+				if action != "restore:Cluster_A-20260329T130000Z.tar.gz" {
+					t.Fatalf("expected restore action with backup name, got %q", action)
+				}
+				if actor != "admin" {
+					t.Fatalf("expected restore actor admin, got %q", actor)
+				}
+				return models.JobRecord{}, apierror.NotFound("backup not found", nil)
+			},
+		},
+	})
+
+	restoreReq := httptest.NewRequest(http.MethodPost, "/api/clusters/cluster-a/actions", bytes.NewBufferString(`{"action":"restore","backup_name":"Cluster_A-20260329T130000Z.tar.gz"}`))
+	restoreReq.AddCookie(sessionCookie)
+	restoreReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
+	restoreRec := httptest.NewRecorder()
+	router.ServeHTTP(restoreRec, restoreReq)
+
+	if restoreRec.Code != http.StatusNotFound {
+		t.Fatalf("expected restore failure to return 404, got %d", restoreRec.Code)
+	}
+	if len(auditService.records) != 1 || auditService.records[0].action != "cluster_action_restore" {
+		t.Fatalf("expected failed restore to still record cluster_action_restore audit, got %+v", auditService.records)
+	}
+}
+
 func TestClusterMutationHandlersMapInvalidInputsToBadRequest(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
 	sessionCookie := issueSessionCookie(t, secret)

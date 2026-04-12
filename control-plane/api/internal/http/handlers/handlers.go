@@ -359,13 +359,18 @@ func NewRouter(deps Dependencies) http.Handler {
 		if req.Action == "restore" && strings.TrimSpace(req.BackupName) != "" {
 			actionInput = "restore:" + strings.TrimSpace(req.BackupName)
 		}
+		if req.Action == "restore" {
+			recordClusterAudit(deps.Audit, actor, "cluster_action_restore", 0, r.PathValue("slug"))
+		}
 		job, err := deps.Runtime.RunAction(r.Context(), r.PathValue("slug"), actionInput, actor)
 		if err != nil {
 			writeMappedError(w, err)
 			return
 		}
 
-		recordClusterAudit(deps.Audit, actor, "cluster_action_"+req.Action, job.ClusterID, r.PathValue("slug"))
+		if req.Action != "restore" {
+			recordClusterAudit(deps.Audit, actor, "cluster_action_"+req.Action, job.ClusterID, r.PathValue("slug"))
+		}
 		writeJSON(w, http.StatusAccepted, job)
 	}))))
 

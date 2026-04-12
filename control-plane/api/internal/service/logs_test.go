@@ -98,3 +98,70 @@ func TestLogsServiceReadsMasterAndCavesLogs(t *testing.T) {
 		t.Fatalf("expected jobs log content to include job excerpt, got %q", jobsLog.Content)
 	}
 }
+
+func TestLogsServiceJobsSourceUsesClusterScopedRecentJobs(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	jobsRepo := jobs.NewService(database)
+
+	clusterA, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "running",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster A record to be created, got error: %v", err)
+	}
+	clusterB, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-b",
+		DisplayName: "Cluster B",
+		ClusterName: "Cluster_B",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-b"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-b", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-b", "compose", ".env"),
+		Status:      "running",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster B record to be created, got error: %v", err)
+	}
+
+	jobA, err := jobsRepo.Create(clusterA.ID, "restore", "admin")
+	if err != nil {
+		t.Fatalf("expected cluster A job to be created, got error: %v", err)
+	}
+	if err := jobsRepo.MarkFinished(jobA.ID, "succeeded", "cluster-a-important-job", ""); err != nil {
+		t.Fatalf("expected cluster A job to finish, got error: %v", err)
+	}
+
+	for i := 0; i < 25; i++ {
+		jobB, err := jobsRepo.Create(clusterB.ID, "update", "bot")
+		if err != nil {
+			t.Fatalf("expected cluster B job %d to be created, got error: %v", i, err)
+		}
+		if err := jobsRepo.MarkFinished(jobB.ID, "succeeded", "cluster-b-noise", ""); err != nil {
+			t.Fatalf("expected cluster B job %d to finish, got error: %v", i, err)
+		}
+	}
+
+	service := NewLogsService(repo, jobsRepo)
+	service.jobsLimit = 20
+
+	jobsLog, err := service.Read(context.Background(), clusterA.Slug, "jobs")
+	if err != nil {
+		t.Fatalf("expected jobs log to read, got error: %v", err)
+	}
+	if !strings.Contains(jobsLog.Content, "cluster-a-important-job") {
+		t.Fatalf("expected cluster-scoped jobs log to include cluster A job, got %q", jobsLog.Content)
+	}
+}

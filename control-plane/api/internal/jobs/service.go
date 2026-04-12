@@ -111,12 +111,20 @@ func (s *Service) Get(id int64) (models.JobRecord, error) {
 }
 
 func (s *Service) List(limit int) ([]models.JobRecord, error) {
+	return s.listWhere(limit, "", nil)
+}
+
+func (s *Service) ListByCluster(clusterID int64, limit int) ([]models.JobRecord, error) {
+	return s.listWhere(limit, "WHERE cluster_id = ?", []any{clusterID})
+}
+
+func (s *Service) listWhere(limit int, whereClause string, args []any) ([]models.JobRecord, error) {
 	rows, err := s.db.Query(
 		`SELECT id, cluster_id, job_type, status, requested_by, stdout_excerpt, stderr_excerpt, started_at, finished_at
-		 FROM jobs
+		 FROM jobs `+whereClause+`
 		 ORDER BY id DESC
 		 LIMIT ?`,
-		limit,
+		append(args, limit)...,
 	)
 	if err != nil {
 		return nil, err

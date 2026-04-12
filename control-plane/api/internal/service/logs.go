@@ -12,6 +12,7 @@ import (
 	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
 	"github.com/gwf/dst-docker/control-plane/api/internal/jobs"
+	"github.com/gwf/dst-docker/control-plane/api/internal/models"
 )
 
 type LogEntry struct {
@@ -22,10 +23,14 @@ type LogEntry struct {
 
 type LogsService struct {
 	repo         *cluster.Repository
-	jobs         *jobs.Service
+	jobs         jobLogReader
 	now          func() time.Time
 	maxTailBytes int64
 	jobsLimit    int
+}
+
+type jobLogReader interface {
+	ListByCluster(clusterID int64, limit int) ([]models.JobRecord, error)
 }
 
 func NewLogsService(repo *cluster.Repository, jobs *jobs.Service) LogsService {
@@ -72,17 +77,13 @@ func (s LogsService) Read(_ context.Context, slug string, source string) (LogEnt
 }
 
 func (s LogsService) readJobsLog(clusterID int64) (string, error) {
-	records, err := s.jobs.List(s.jobsLimit)
+	records, err := s.jobs.ListByCluster(clusterID, s.jobsLimit)
 	if err != nil {
 		return "", err
 	}
 
 	lines := make([]string, 0, len(records)*3)
 	for _, record := range records {
-		if record.ClusterID != clusterID {
-			continue
-		}
-
 		lines = append(lines, fmt.Sprintf(
 			"%s #%d %s %s by %s",
 			record.StartedAt.UTC().Format(time.RFC3339),
