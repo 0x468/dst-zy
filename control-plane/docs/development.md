@@ -46,6 +46,7 @@ docker run --rm -v "$PWD":/workspace -w /workspace/control-plane/api golang:1.26
 
 ```bash
 docker run --rm -v "$PWD":/workspace -w /workspace/control-plane/web node:22.22.1-bookworm npm test
+docker run --rm -v "$PWD":/workspace -w /workspace/control-plane/web node:22.22.1-bookworm npm run build
 ```
 
 端到端验证：
@@ -60,6 +61,22 @@ bash control-plane/tests/e2e/smoke-image.sh
 
 - [control-plane/docs/verification.md](verification.md)
 - [control-plane/docs/troubleshooting.md](troubleshooting.md)
+
+如果你只是在改动标准闭环详情页相关前端，推荐先跑一组更小的回归集合：
+
+```bash
+cd control-plane/web
+npm test -- \
+  src/app/App.test.tsx \
+  src/features/clusters/detail/ClusterDetail.test.tsx \
+  src/features/logs/LogsPanel.test.tsx \
+  src/features/backups/BackupPanel.test.tsx \
+  src/features/jobs/JobPanel.test.tsx \
+  src/features/clusters/create/CreateClusterWizard.test.tsx \
+  src/features/clusters/list/ClusterList.test.tsx
+
+npm run build
+```
 
 开发 compose 配置检查：
 

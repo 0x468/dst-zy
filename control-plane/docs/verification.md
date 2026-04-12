@@ -49,12 +49,35 @@ npm test
 - 集群创建/导入/切换
 - 配置保存与高级原文保存
 - 生命周期动作与本地错误展示
+- 详情页标准闭环六区块、日志分源切换、备份刷新与备份恢复护栏
 
 它不证明：
 
 - Go 后端真实返回的接口都能在容器里跑起来
 - `docker compose` 执行链路没有断
 - 单镜像部署路径可用
+
+如果你只想快速回归这次“标准闭环详情页”相关改动，建议补跑：
+
+```bash
+cd control-plane/web
+npm test -- \
+  src/app/App.test.tsx \
+  src/features/clusters/detail/ClusterDetail.test.tsx \
+  src/features/logs/LogsPanel.test.tsx \
+  src/features/backups/BackupPanel.test.tsx \
+  src/features/jobs/JobPanel.test.tsx \
+  src/features/clusters/create/CreateClusterWizard.test.tsx \
+  src/features/clusters/list/ClusterList.test.tsx
+
+npm run build
+```
+
+这组命令主要用来确认：
+
+- 详情页的 Overview 工作区还能完整渲染
+- logs/backups/restore 的前端状态链没有回归
+- Vite 打包路径没有被新增组件或样式破坏
 
 ### 3. create/import 端到端脚本
 
@@ -84,6 +107,8 @@ bash control-plane/tests/e2e/delete-cluster.sh
 
 - 真实部署镜像能正常提供页面
 - `compose` 真执行模式下能成功操作宿主机 Docker
+- 运行中集群不会暴露 restore 入口
+- 日志面板在 `jobs/master/caves` 三类源之间切换时不会出现旧响应覆盖新视图的竞态
 
 ### 4. 单镜像 smoke
 
@@ -126,6 +151,7 @@ docker run --rm \
 
 cd control-plane/web
 npm test
+npm run build
 ```
 
 ### 提交前
@@ -142,6 +168,7 @@ docker run --rm \
 
 cd control-plane/web
 npm test
+npm run build
 
 bash control-plane/tests/e2e/create-cluster.sh
 bash control-plane/tests/e2e/import-cluster.sh
@@ -185,6 +212,8 @@ bash control-plane/tests/e2e/smoke-image.sh
 - 错误提示文案是否改了但测试没更新
 - 会话恢复或状态清理路径是否被影响
 - 本地表单错误是否仍然误走全局 banner
+- 运行中集群是否错误地重新出现 restore 按钮
+- 切换日志源后是否仍短暂显示上一个日志源的旧内容
 
 ## 当前结论边界
 

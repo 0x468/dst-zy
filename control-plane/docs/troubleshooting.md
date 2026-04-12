@@ -171,7 +171,49 @@ X-DST-Control-Plane-CSRF: 1
 
 说明请求里传了当前控制平面不支持的动作值，而不是底层 Docker 执行失败。
 
-### 8. e2e 脚本起不来
+### 8. 页面里看不到 restore 按钮
+
+这不一定是 bug。当前 restore 有明确护栏：
+
+- 只有 `stopped` 集群会显示 restore 入口
+- 运行中集群不会显示“Restore latest backup”，历史备份条目也不会显示 restore 按钮
+
+所以如果你能看到备份列表，但看不到 restore，先确认：
+
+- 当前 cluster status 是否还是 `running`
+- 你是不是刚执行完 `start` / `restart`，页面还停留在运行态
+- 后端返回的状态有没有被你本地的旧页面缓存住
+
+最简单的判断方式是：先执行一次 `stop`，确认状态徽标已经切到 `stopped`，再看 Backups 区是否出现 restore 入口。
+
+### 9. 日志面板没有内容，或者切换后看起来不对
+
+当前日志面板只支持三类源：
+
+- `jobs`
+- `master`
+- `caves`
+
+它的边界是“最近日志片段 + 手动刷新”，所以先区分三种情况：
+
+- 面板显示 `No log output yet.`
+  说明当前源没有可读日志片段，不代表整个集群坏了。
+- 切到别的源后内容先清空，再出现新内容
+  这是当前预期行为，表示前端正在避免旧日志短暂覆盖新视图。
+- 某一个源稳定报错
+  先怀疑对应日志文件不存在、没有权限，或该源当前还没产生输出。
+
+如果你怀疑真的是接口异常，优先直接查：
+
+```bash
+curl -i \
+  -b <cookie-file> \
+  "http://127.0.0.1:8080/api/clusters/<slug>/logs?source=master"
+```
+
+正常情况下应该返回带 `source`、`content`、`updated_at` 的 JSON。
+
+### 10. e2e 脚本起不来
 
 create/import 脚本当前走的是容器内 `go run` 路径。优先看脚本自动打印的容器日志，常见问题包括：
 
@@ -188,7 +230,7 @@ GOPROXY=https://goproxy.cn,direct
 
 如果你在不同网络环境里仍然拉依赖失败，可以先手动确认对应镜像是否能访问代理，或者改用预构建镜像 smoke。
 
-### 9. `smoke-image.sh` 失败
+### 11. `smoke-image.sh` 失败
 
 先定位是哪一步挂了：
 
@@ -203,7 +245,7 @@ GOPROXY=https://goproxy.cn,direct
 
 这条脚本默认不覆盖 create/import 全链路，它只负责验证“真实镜像路径的最小可用性”。
 
-### 10. 想确认最近有没有登录失败或被限流
+### 12. 想确认最近有没有登录失败或被限流
 
 第一阶段现在会把登录成功、登录失败、限流拒绝写进本地 SQLite 审计表，并在控制平面 Overview 区展示最近记录。
 

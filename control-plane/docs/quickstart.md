@@ -121,6 +121,12 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
 
 默认生成的 `cluster_key` 只是占位值，正式使用前应改成你自己的随机值；`cluster_token.txt` 仍需由你向 Klei 申请并放入对应 Cluster 目录。
 
+当前标准闭环 UI 已经把这条创建链路固定成“列表页 -> 向导 -> 详情页”三段：
+
+- 列表页负责选择当前集群和展示运行摘要
+- 创建向导负责生成一个可长期管理的 `Master + Caves` 集群
+- 详情页负责后续的运行控制、配置编辑、日志查看和备份恢复
+
 ## 导入已有集群
 
 如果你已经有自己的存档和配置，推荐按下面的方式导入：
@@ -140,6 +146,28 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
 
 第一阶段控制平面只接受受控根目录内的导入源路径，不接受越界目录。这是故意的安全边界，用来避免任意读取宿主机路径。
 
+## 集群详情页现在能做什么
+
+当前详情页已经按“长期管理”思路收敛成一个固定工作区，Overview 模式下至少包含下面六类信息和操作：
+
+- 状态总览
+  展示当前状态、显示名称、slug、房间摘要和最近更新时间。
+- 运行控制
+  支持 `start`、`stop`、`restart`、`update`、`validate`、`backup`。
+- 基础配置
+  可以直接编辑房间名称和描述，不需要先切到原文模式。
+- 端口与连接
+  会优先显示当前集群真实的宿主机映射端口；如果还没有单独映射值，则回退到配置快照里的默认端口。
+- 日志
+  当前只支持三类基础日志源：`jobs`、`master`、`caves`，以“最近片段 + 手动刷新”为边界。
+- 备份与恢复
+  支持刷新备份列表、下载备份、恢复指定归档。
+
+有两个需要特别知道的护栏：
+
+- 恢复备份只会在 `stopped` 集群上显示；运行中集群不会提供 restore 按钮。
+- 删除集群同样只允许在 `stopped` 状态下执行，并且仍要求输入 slug 做确认。
+
 ## 生命周期操作
 
 第一阶段生命周期操作仍然走每个集群自己的 `docker compose`：
@@ -153,6 +181,12 @@ docker compose -f control-plane/deploy/docker-compose.control-plane.yml up --bui
 
 其中 `backup` 不会调用 `docker compose`，而是直接把当前集群的 `runtime/data/<ClusterName>/` 打成 `.tar.gz` 归档，放到该集群目录下的 `meta/backups/`。这份归档可以直接作为后续迁移、手工保留或额外离线备份的基础材料。
 备份完成后，Overview 页面里的 Backups 区会列出已生成归档，并直接提供下载链接。
+
+`restore` 当前也已经接入同一条详情页工作流，但与其他生命周期动作不同：
+
+- 它不会在运行中集群上暴露入口
+- 支持恢复最新备份，也支持恢复指定归档
+- 执行完成后，详情页会主动刷新 jobs、audit、backups 和 cluster 状态，而不是只在局部静默更新
 
 它们的执行边界是该集群目录下的 compose 文件，而不是直接操作 Docker API 对象。
 
