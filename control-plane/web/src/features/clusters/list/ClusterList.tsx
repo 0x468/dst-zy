@@ -8,10 +8,11 @@ type ClusterListProps = {
   clusters: ClusterSummary[];
   selectedSlug?: string;
   onSelect: (slug: string) => void;
-  onMutate: (input: ClusterMutationInput) => Promise<void> | void;
+  onCreate: (input: ClusterMutationInput) => Promise<void> | void;
+  onImport: (input: ClusterMutationInput) => Promise<void> | void;
 };
 
-export function ClusterList({ clusters, selectedSlug, onSelect, onMutate }: ClusterListProps) {
+export function ClusterList({ clusters, selectedSlug, onSelect, onCreate, onImport }: ClusterListProps) {
   return (
     <>
       <nav className="cluster-nav" aria-label="Cluster navigation">
@@ -44,8 +45,8 @@ export function ClusterList({ clusters, selectedSlug, onSelect, onMutate }: Clus
         <p className="cluster-management__copy">
           Standard closure is the primary path. Use guided steps to create a playable Master/Caves layout.
         </p>
-        <CreateClusterWizard onSubmit={onMutate} />
-        <ImportClusterForm onSubmit={onMutate} />
+        <CreateClusterWizard onSubmit={onCreate} />
+        <ImportClusterForm onSubmit={onImport} />
       </section>
     </>
   );

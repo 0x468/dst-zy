@@ -156,6 +156,14 @@ export function App() {
     }
   }
 
+  async function handleCreateCluster(input: ClusterMutationInput) {
+    await handleMutateCluster({ ...input, mode: "create" });
+  }
+
+  async function handleImportCluster(input: ClusterMutationInput) {
+    await handleMutateCluster({ ...input, mode: "import" });
+  }
+
   async function handleDeleteCluster() {
     if (!selectedSlug) {
       return;
@@ -284,7 +292,8 @@ export function App() {
           selectedSlug={selectedSlug}
           onSignOut={handleSignOut}
           onSelectCluster={setSelectedSlug}
-          onMutateCluster={handleMutateCluster}
+          onCreateCluster={handleCreateCluster}
+          onImportCluster={handleImportCluster}
           detailCluster={selectedCluster}
           snapshot={snapshot}
           jobs={jobs}

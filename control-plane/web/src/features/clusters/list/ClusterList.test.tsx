@@ -13,7 +13,8 @@ describe("ClusterList", () => {
           { id: 2, slug: "beta", displayName: "Beta Cluster", status: "stopped" },
         ]}
         selectedSlug="alpha"
-        onMutate={vi.fn()}
+        onCreate={vi.fn()}
+        onImport={vi.fn()}
         onSelect={vi.fn()}
       />,
     );
@@ -40,7 +41,8 @@ describe("ClusterList", () => {
           { id: 2, slug: "beta", displayName: "Beta Cluster", status: "stopped" },
         ]}
         selectedSlug="alpha"
-        onMutate={vi.fn()}
+        onCreate={vi.fn()}
+        onImport={vi.fn()}
         onSelect={onSelect}
       />,
     );
@@ -52,7 +54,8 @@ describe("ClusterList", () => {
 
   it("keeps wizard as the primary create entry and import as secondary", async () => {
     const user = userEvent.setup();
-    const onMutate = vi.fn();
+    const onCreate = vi.fn();
+    const onImport = vi.fn();
 
     render(
       <ClusterList
@@ -61,7 +64,8 @@ describe("ClusterList", () => {
           { id: 2, slug: "beta", displayName: "Beta Cluster", status: "stopped" },
         ]}
         selectedSlug="alpha"
-        onMutate={onMutate}
+        onCreate={onCreate}
+        onImport={onImport}
         onSelect={vi.fn()}
       />,
     );
@@ -76,12 +80,13 @@ describe("ClusterList", () => {
 
   it("submits import requests from the secondary entry", async () => {
     const user = userEvent.setup();
-    const onMutate = vi.fn();
+    const onImport = vi.fn();
 
     render(
       <ClusterList
         clusters={[]}
-        onMutate={onMutate}
+        onCreate={vi.fn()}
+        onImport={onImport}
         onSelect={vi.fn()}
       />,
     );
@@ -93,7 +98,7 @@ describe("ClusterList", () => {
     await user.type(screen.getByLabelText("Import path"), "/srv/legacy-cluster");
     await user.click(screen.getByRole("button", { name: "Import cluster" }));
 
-    expect(onMutate).toHaveBeenCalledWith({
+    expect(onImport).toHaveBeenCalledWith({
       mode: "import",
       slug: "legacy-cluster",
       displayName: "Legacy Cluster",
@@ -104,12 +109,13 @@ describe("ClusterList", () => {
 
   it("requires an import path when import mode is selected", async () => {
     const user = userEvent.setup();
-    const onMutate = vi.fn();
+    const onImport = vi.fn();
 
     render(
       <ClusterList
         clusters={[]}
-        onMutate={onMutate}
+        onCreate={vi.fn()}
+        onImport={onImport}
         onSelect={vi.fn()}
       />,
     );
@@ -121,17 +127,18 @@ describe("ClusterList", () => {
     await user.click(screen.getByRole("button", { name: "Import cluster" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("Import path is required");
-    expect(onMutate).not.toHaveBeenCalled();
+    expect(onImport).not.toHaveBeenCalled();
   });
 
   it("shows a submission error when mutation fails", async () => {
     const user = userEvent.setup();
-    const onMutate = vi.fn().mockRejectedValue(new Error("request failed"));
+    const onImport = vi.fn().mockRejectedValue(new Error("request failed"));
 
     render(
       <ClusterList
         clusters={[]}
-        onMutate={onMutate}
+        onCreate={vi.fn()}
+        onImport={onImport}
         onSelect={vi.fn()}
       />,
     );

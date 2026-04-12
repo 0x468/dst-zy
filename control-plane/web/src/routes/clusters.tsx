@@ -9,7 +9,8 @@ type ClustersRouteProps = {
   selectedSlug?: string;
   onSignOut: () => Promise<void> | void;
   onSelectCluster: (slug: string) => void;
-  onMutateCluster: (input: ClusterMutationInput) => Promise<void> | void;
+  onCreateCluster: (input: ClusterMutationInput) => Promise<void> | void;
+  onImportCluster: (input: ClusterMutationInput) => Promise<void> | void;
   detailCluster?: ClusterSummary;
   snapshot?: ClusterConfigSnapshot;
   jobs?: JobSummary[];
@@ -26,7 +27,8 @@ export function ClustersRoute({
   selectedSlug,
   onSignOut,
   onSelectCluster,
-  onMutateCluster,
+  onCreateCluster,
+  onImportCluster,
   detailCluster,
   snapshot,
   jobs = [],
@@ -45,7 +47,8 @@ export function ClustersRoute({
             clusters={clusters}
             selectedSlug={selectedSlug}
             onSelect={onSelectCluster}
-            onMutate={onMutateCluster}
+            onCreate={onCreateCluster}
+            onImport={onImportCluster}
           />
         </Panel>
         <Panel tone="subtle">
