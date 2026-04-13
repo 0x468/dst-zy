@@ -32,6 +32,10 @@ export type ClusterConfigSnapshot = {
   shardEnabled?: boolean;
   bindIP?: string;
   masterIP?: string;
+  masterHostPort?: number;
+  cavesHostPort?: number;
+  masterSteamHostPort?: number;
+  cavesSteamHostPort?: number;
   masterPort: number;
   master: ShardSnapshot;
   caves: ShardSnapshot;
@@ -155,6 +159,10 @@ type ClusterConfigSnapshotResponse = {
   shard_enabled?: boolean;
   bind_ip?: string;
   master_ip?: string;
+  master_host_port?: number;
+  caves_host_port?: number;
+  master_steam_host_port?: number;
+  caves_steam_host_port?: number;
   master_port: number;
   master: {
     server_port: number;
@@ -428,6 +436,10 @@ function mapSnapshot(snapshot: ClusterConfigSnapshotResponse): ClusterConfigSnap
     shardEnabled: snapshot.shard_enabled,
     bindIP: snapshot.bind_ip ?? "",
     masterIP: snapshot.master_ip ?? "",
+    masterHostPort: snapshot.master_host_port ?? 0,
+    cavesHostPort: snapshot.caves_host_port ?? 0,
+    masterSteamHostPort: snapshot.master_steam_host_port ?? 0,
+    cavesSteamHostPort: snapshot.caves_steam_host_port ?? 0,
     masterPort: snapshot.master_port,
     master: {
       serverPort: snapshot.master.server_port,
@@ -521,6 +533,10 @@ function encodeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapshotR
     shard_enabled: snapshot.shardEnabled,
     bind_ip: snapshot.bindIP,
     master_ip: snapshot.masterIP,
+    master_host_port: snapshot.masterHostPort,
+    caves_host_port: snapshot.cavesHostPort,
+    master_steam_host_port: snapshot.masterSteamHostPort,
+    caves_steam_host_port: snapshot.cavesSteamHostPort,
     master_port: snapshot.masterPort,
     master: {
       server_port: snapshot.master.serverPort,

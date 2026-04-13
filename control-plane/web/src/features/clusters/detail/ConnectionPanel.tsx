@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Panel } from "../../../components/ui/Panel";
-import type { ClusterConfigSnapshot, ClusterSummary } from "../../../lib/api";
+import type { ClusterConfigSnapshot } from "../../../lib/api";
 
 type ConnectionPanelProps = {
-  cluster: ClusterSummary;
   snapshot: ClusterConfigSnapshot;
   onSave: (snapshot: ClusterConfigSnapshot) => Promise<void> | void;
 };
 
 type PortDraft = {
+  masterHostPort: string;
+  cavesHostPort: string;
+  masterSteamHostPort: string;
+  cavesSteamHostPort: string;
   masterPort: string;
   masterShardPort: string;
   cavesShardPort: string;
@@ -19,7 +22,7 @@ type PortDraft = {
   cavesAuthPort: string;
 };
 
-export function ConnectionPanel({ cluster, snapshot, onSave }: ConnectionPanelProps) {
+export function ConnectionPanel({ snapshot, onSave }: ConnectionPanelProps) {
   const [draft, setDraft] = useState(() => buildDraft(snapshot));
   const draftRef = useRef(draft);
   const [pending, setPending] = useState(false);
@@ -60,27 +63,53 @@ export function ConnectionPanel({ cluster, snapshot, onSave }: ConnectionPanelPr
       >
         {errorMessage ? <p role="alert">{errorMessage}</p> : null}
         <p className="cluster-config-form__copy">
-          Host mapping stays read-only here. Edit shard listen ports and Steam/Auth lanes that live inside cluster files.
+          Adjust both host mapping and shard listen ports from one form so runtime routing and published ports stay aligned.
         </p>
-        <dl className="connection-panel__grid">
-          <div className="connection-panel__item">
-            <dt>Master host port</dt>
-            <dd>{cluster.masterHostPort || snapshot.master.serverPort}</dd>
-          </div>
-          <div className="connection-panel__item">
-            <dt>Caves host port</dt>
-            <dd>{cluster.cavesHostPort || snapshot.caves.serverPort}</dd>
-          </div>
-          <div className="connection-panel__item">
-            <dt>Master Steam host port</dt>
-            <dd>{cluster.masterSteamHostPort || snapshot.master.masterServerPort}</dd>
-          </div>
-          <div className="connection-panel__item">
-            <dt>Caves Steam host port</dt>
-            <dd>{cluster.cavesSteamHostPort || snapshot.caves.masterServerPort}</dd>
-          </div>
-        </dl>
         <div className="cluster-config-form__grid">
+          <div className="cluster-config-form__field">
+            <label htmlFor="master-host-port">Master host port</label>
+            <input
+              id="master-host-port"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={draft.masterHostPort}
+              disabled={pending}
+              onChange={(event) => updateDraftValue(event.target.value, "masterHostPort", updatePort)}
+            />
+          </div>
+          <div className="cluster-config-form__field">
+            <label htmlFor="caves-host-port">Caves host port</label>
+            <input
+              id="caves-host-port"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={draft.cavesHostPort}
+              disabled={pending}
+              onChange={(event) => updateDraftValue(event.target.value, "cavesHostPort", updatePort)}
+            />
+          </div>
+          <div className="cluster-config-form__field">
+            <label htmlFor="master-steam-host-port">Master Steam host port</label>
+            <input
+              id="master-steam-host-port"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={draft.masterSteamHostPort}
+              disabled={pending}
+              onChange={(event) => updateDraftValue(event.target.value, "masterSteamHostPort", updatePort)}
+            />
+          </div>
+          <div className="cluster-config-form__field">
+            <label htmlFor="caves-steam-host-port">Caves Steam host port</label>
+            <input
+              id="caves-steam-host-port"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={draft.cavesSteamHostPort}
+              disabled={pending}
+              onChange={(event) => updateDraftValue(event.target.value, "cavesSteamHostPort", updatePort)}
+            />
+          </div>
           <div className="cluster-config-form__field">
             <label htmlFor="cluster-bus-port">Cluster bus port</label>
             <input
@@ -177,6 +206,10 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function buildDraft(snapshot: ClusterConfigSnapshot): PortDraft {
   return {
+    masterHostPort: String(snapshot.masterHostPort ?? 0),
+    cavesHostPort: String(snapshot.cavesHostPort ?? 0),
+    masterSteamHostPort: String(snapshot.masterSteamHostPort ?? 0),
+    cavesSteamHostPort: String(snapshot.cavesSteamHostPort ?? 0),
     masterPort: String(snapshot.masterPort),
     masterShardPort: String(snapshot.master.serverPort),
     cavesShardPort: String(snapshot.caves.serverPort),
@@ -202,6 +235,10 @@ function updateDraftValue(
 function applyDraft(snapshot: ClusterConfigSnapshot, draft: PortDraft): ClusterConfigSnapshot {
   return {
     ...snapshot,
+    masterHostPort: parsePort(draft.masterHostPort),
+    cavesHostPort: parsePort(draft.cavesHostPort),
+    masterSteamHostPort: parsePort(draft.masterSteamHostPort),
+    cavesSteamHostPort: parsePort(draft.cavesSteamHostPort),
     masterPort: parsePort(draft.masterPort),
     master: {
       ...snapshot.master,

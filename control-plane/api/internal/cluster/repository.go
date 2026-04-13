@@ -174,6 +174,32 @@ func (r *Repository) UpdateStatus(id int64, status string) error {
 	return err
 }
 
+func (r *Repository) UpdateRuntimeMetadata(record models.ClusterRecord) error {
+	record = applyStandardClosureDefaults(record)
+
+	_, err := r.db.Exec(
+		`UPDATE cluster_runtime_metadata
+		 SET update_mode = ?,
+		     server_mods_update_mode = ?,
+		     time_zone = ?,
+		     master_host_port = ?,
+		     caves_host_port = ?,
+		     master_steam_host_port = ?,
+		     caves_steam_host_port = ?
+		 WHERE cluster_id = ?`,
+		record.UpdateMode,
+		record.ServerModsUpdateMode,
+		record.TimeZone,
+		record.MasterHostPort,
+		record.CavesHostPort,
+		record.MasterSteamHostPort,
+		record.CavesSteamHostPort,
+		record.ID,
+	)
+
+	return err
+}
+
 func (r *Repository) Delete(id int64) error {
 	tx, err := r.db.Begin()
 	if err != nil {

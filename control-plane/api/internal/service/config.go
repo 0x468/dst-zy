@@ -9,7 +9,9 @@ import (
 	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
 	"github.com/gwf/dst-docker/control-plane/api/internal/cluster"
 	"github.com/gwf/dst-docker/control-plane/api/internal/files"
+	"github.com/gwf/dst-docker/control-plane/api/internal/http/handlers"
 	"github.com/gwf/dst-docker/control-plane/api/internal/models"
+	"github.com/gwf/dst-docker/control-plane/api/internal/runtime"
 )
 
 type ConfigService struct {
@@ -52,6 +54,10 @@ func (s ConfigService) GetSnapshot(_ context.Context, slug string) (models.Clust
 	if err != nil {
 		return models.ClusterConfigSnapshot{}, err
 	}
+	snapshot.MasterHostPort = record.MasterHostPort
+	snapshot.CavesHostPort = record.CavesHostPort
+	snapshot.MasterSteamHostPort = record.MasterSteamHostPort
+	snapshot.CavesSteamHostPort = record.CavesSteamHostPort
 
 	return snapshot, nil
 }
@@ -77,6 +83,14 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 		return err
 	}
 	if err := writeClusterToken(filepath.Join(clusterDir, "cluster_token.txt"), snapshot.ClusterToken); err != nil {
+		return err
+	}
+	if err := validateManagedPorts(handlers.ClusterMutationRequest{
+		MasterHostPort:     snapshot.MasterHostPort,
+		CavesHostPort:      snapshot.CavesHostPort,
+		SteamHostPort:      snapshot.MasterSteamHostPort,
+		CavesSteamHostPort: snapshot.CavesSteamHostPort,
+	}); err != nil {
 		return err
 	}
 
@@ -117,6 +131,25 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 		return err
 	}
 	if err := files.WriteServerINI(filepath.Join(clusterDir, "Caves", "server.ini"), cavesCfg); err != nil {
+		return err
+	}
+	record.MasterHostPort = snapshot.MasterHostPort
+	record.CavesHostPort = snapshot.CavesHostPort
+	record.MasterSteamHostPort = snapshot.MasterSteamHostPort
+	record.CavesSteamHostPort = snapshot.CavesSteamHostPort
+	if err := os.WriteFile(record.EnvFile, []byte(runtime.GenerateEnvFile(runtime.ComposeTemplateInput{
+		ClusterName:          record.ClusterName,
+		UpdateMode:           record.UpdateMode,
+		ServerModsUpdateMode: record.ServerModsUpdateMode,
+		TimeZone:             record.TimeZone,
+		MasterHostPort:       record.MasterHostPort,
+		CavesHostPort:        record.CavesHostPort,
+		SteamHostPort:        record.MasterSteamHostPort,
+		CavesSteamHostPort:   record.CavesSteamHostPort,
+	})), 0o644); err != nil {
+		return err
+	}
+	if err := s.repo.UpdateRuntimeMetadata(record); err != nil {
 		return err
 	}
 

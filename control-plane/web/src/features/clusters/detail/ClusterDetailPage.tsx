@@ -212,7 +212,7 @@ export function ClusterDetailPage({
           <div className="cluster-detail__ops-grid">
             <LifecycleActions onAction={onAction} />
             <ClusterConfigForm snapshot={snapshot} onSave={onSave} />
-            <ConnectionPanel cluster={cluster} snapshot={snapshot} onSave={onSave} />
+            <ConnectionPanel snapshot={snapshot} onSave={onSave} />
             <PreflightPanel
               title="Readiness"
               eyebrow="Start guard"

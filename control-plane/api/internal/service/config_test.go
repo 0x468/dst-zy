@@ -25,13 +25,18 @@ func TestConfigServiceRoundTripsRawClusterINI(t *testing.T) {
 
 	repo := cluster.NewRepository(database)
 	record, err := repo.Create(models.ClusterRecord{
-		Slug:        "cluster-a",
-		DisplayName: "Cluster A",
-		ClusterName: "Cluster_A",
-		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
-		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
-		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
-		Status:      "stopped",
+		Slug:                "cluster-a",
+		DisplayName:         "Cluster A",
+		ClusterName:         "Cluster_A",
+		BaseDir:             filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile:         filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:             filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:              "stopped",
+		TimeZone:            "Asia/Shanghai",
+		MasterHostPort:      11000,
+		CavesHostPort:       11001,
+		MasterSteamHostPort: 27018,
+		CavesSteamHostPort:  27019,
 	})
 	if err != nil {
 		t.Fatalf("expected cluster record to be created, got error: %v", err)
@@ -43,6 +48,12 @@ func TestConfigServiceRoundTripsRawClusterINI(t *testing.T) {
 	}
 	if err := os.MkdirAll(filepath.Join(clusterDir, "Caves"), 0o755); err != nil {
 		t.Fatalf("expected caves dir to be created, got error: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(record.EnvFile), 0o755); err != nil {
+		t.Fatalf("expected compose dir to be created, got error: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(record.EnvFile), 0o755); err != nil {
+		t.Fatalf("expected compose dir to be created, got error: %v", err)
 	}
 
 	clusterCfg := files.ClusterINIConfig{}
@@ -207,6 +218,9 @@ func TestConfigServiceStructuredSavePersistsHighFrequencyFields(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(clusterDir, "Caves"), 0o755); err != nil {
 		t.Fatalf("expected caves dir to be created, got error: %v", err)
 	}
+	if err := os.MkdirAll(filepath.Dir(record.EnvFile), 0o755); err != nil {
+		t.Fatalf("expected compose dir to be created, got error: %v", err)
+	}
 
 	clusterCfg := files.ClusterINIConfig{}
 	clusterCfg.Gameplay.GameMode = "survival"
@@ -241,20 +255,36 @@ func TestConfigServiceStructuredSavePersistsHighFrequencyFields(t *testing.T) {
 	if err := files.WriteServerINI(filepath.Join(clusterDir, "Caves", "server.ini"), cavesCfg); err != nil {
 		t.Fatalf("expected caves ini to be written, got error: %v", err)
 	}
+	if err := os.WriteFile(record.EnvFile, []byte(strings.TrimSpace(`
+DST_CLUSTER_NAME=Cluster_A
+DST_UPDATE_MODE=install-only
+DST_SERVER_MODS_UPDATE_MODE=runtime
+DST_MASTER_HOST_PORT=11000
+DST_CAVES_HOST_PORT=11001
+DST_STEAM_HOST_PORT=27018
+DST_CAVES_STEAM_HOST_PORT=27019
+TZ=Asia/Shanghai
+`)+"\n"), 0o644); err != nil {
+		t.Fatalf("expected env file to be written, got error: %v", err)
+	}
 
 	service := NewConfigService(repo)
 	err = service.SaveSnapshot(context.Background(), record.Slug, models.ClusterConfigSnapshot{
-		ClusterName:        "Cluster_A_Prime",
-		ClusterDescription: "Updated cluster",
-		GameMode:           "endless",
-		MaxPlayers:         12,
-		ClusterIntention:   "social",
-		ClusterToken:       "updated-token",
-		ShardEnabled:       false,
-		BindIP:             "192.168.1.10",
-		MasterIP:           "10.0.0.5",
-		ClusterKey:         "updated-secret-key",
-		MasterPort:         10999,
+		ClusterName:         "Cluster_A_Prime",
+		ClusterDescription:  "Updated cluster",
+		GameMode:            "endless",
+		MaxPlayers:          12,
+		ClusterIntention:    "social",
+		ClusterToken:        "updated-token",
+		ShardEnabled:        false,
+		BindIP:              "192.168.1.10",
+		MasterIP:            "10.0.0.5",
+		ClusterKey:          "updated-secret-key",
+		MasterHostPort:      12000,
+		CavesHostPort:       12001,
+		MasterSteamHostPort: 28018,
+		CavesSteamHostPort:  28019,
+		MasterPort:          10999,
 		Master: models.ShardConfigSnapshot{
 			ServerPort:         12000,
 			MasterServerPort:   28018,
@@ -337,5 +367,33 @@ func TestConfigServiceStructuredSavePersistsHighFrequencyFields(t *testing.T) {
 	}
 	if writtenCavesCfg.Steam.AuthenticationPort != 9869 {
 		t.Fatalf("expected caves authentication_port to persist, got %d", writtenCavesCfg.Steam.AuthenticationPort)
+	}
+
+	writtenEnv, err := os.ReadFile(record.EnvFile)
+	if err != nil {
+		t.Fatalf("expected env file to be readable, got error: %v", err)
+	}
+	if !strings.Contains(string(writtenEnv), "DST_MASTER_HOST_PORT=12000") {
+		t.Fatalf("expected env to persist master host port, got %q", string(writtenEnv))
+	}
+	if !strings.Contains(string(writtenEnv), "DST_CAVES_HOST_PORT=12001") {
+		t.Fatalf("expected env to persist caves host port, got %q", string(writtenEnv))
+	}
+	if !strings.Contains(string(writtenEnv), "DST_STEAM_HOST_PORT=28018") {
+		t.Fatalf("expected env to persist master steam host port, got %q", string(writtenEnv))
+	}
+	if !strings.Contains(string(writtenEnv), "DST_CAVES_STEAM_HOST_PORT=28019") {
+		t.Fatalf("expected env to persist caves steam host port, got %q", string(writtenEnv))
+	}
+
+	updatedRecord, err := repo.GetBySlug(record.Slug)
+	if err != nil {
+		t.Fatalf("expected updated record to load, got error: %v", err)
+	}
+	if updatedRecord.MasterHostPort != 12000 || updatedRecord.CavesHostPort != 12001 {
+		t.Fatalf("expected runtime metadata host ports to persist, got master=%d caves=%d", updatedRecord.MasterHostPort, updatedRecord.CavesHostPort)
+	}
+	if updatedRecord.MasterSteamHostPort != 28018 || updatedRecord.CavesSteamHostPort != 28019 {
+		t.Fatalf("expected runtime metadata steam host ports to persist, got master=%d caves=%d", updatedRecord.MasterSteamHostPort, updatedRecord.CavesSteamHostPort)
 	}
 }

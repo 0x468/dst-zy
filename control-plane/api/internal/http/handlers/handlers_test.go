@@ -335,6 +335,10 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 		"pvp":false,
 		"cluster_intention":"social",
 		"cluster_key":"updated-secret-key",
+		"master_host_port":12000,
+		"caves_host_port":12001,
+		"master_steam_host_port":28018,
+		"caves_steam_host_port":28019,
 		"master_port":10889,
 		"master":{"server_port":11000,"master_server_port":27018,"authentication_port":8768},
 		"caves":{"server_port":11001,"master_server_port":27019,"authentication_port":8769}
@@ -369,6 +373,12 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	}
 	if configService.savedSnapshot.ClusterKey != "updated-secret-key" {
 		t.Fatalf("expected save config to update cluster key, got %q", configService.savedSnapshot.ClusterKey)
+	}
+	if configService.savedSnapshot.MasterHostPort != 12000 || configService.savedSnapshot.CavesHostPort != 12001 {
+		t.Fatalf("expected save config to update host ports, got master=%d caves=%d", configService.savedSnapshot.MasterHostPort, configService.savedSnapshot.CavesHostPort)
+	}
+	if configService.savedSnapshot.MasterSteamHostPort != 28018 || configService.savedSnapshot.CavesSteamHostPort != 28019 {
+		t.Fatalf("expected save config to update steam host ports, got master=%d caves=%d", configService.savedSnapshot.MasterSteamHostPort, configService.savedSnapshot.CavesSteamHostPort)
 	}
 	if configService.savedSnapshot.PVP {
 		t.Fatalf("expected explicit pvp=false to be preserved, got %t", configService.savedSnapshot.PVP)

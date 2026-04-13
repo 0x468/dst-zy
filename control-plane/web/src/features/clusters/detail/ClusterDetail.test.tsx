@@ -166,6 +166,10 @@ describe("ClusterDetailPage", () => {
           status: "running",
           note: "Primary world",
           clusterName: "Cluster_A",
+          masterHostPort: 11000,
+          cavesHostPort: 11001,
+          masterSteamHostPort: 27018,
+          cavesSteamHostPort: 27019,
         }}
         snapshot={{
           clusterName: "Cluster_A",
@@ -176,6 +180,10 @@ describe("ClusterDetailPage", () => {
           pvp: true,
           pauseWhenEmpty: true,
           clusterKey: "secret-key",
+          masterHostPort: 11000,
+          cavesHostPort: 11001,
+          masterSteamHostPort: 27018,
+          cavesSteamHostPort: 27019,
           masterPort: 10889,
           master: {
             serverPort: 11000,
@@ -661,6 +669,10 @@ describe("ClusterDetailPage", () => {
     );
 
     const clusterBusPortInput = screen.getByLabelText("Cluster bus port");
+    const masterHostPortInput = screen.getByLabelText("Master host port");
+    const cavesHostPortInput = screen.getByLabelText("Caves host port");
+    const masterSteamHostPortInput = screen.getByLabelText("Master Steam host port");
+    const cavesSteamHostPortInput = screen.getByLabelText("Caves Steam host port");
     const masterShardPortInput = screen.getByLabelText("Master shard port");
     const cavesShardPortInput = screen.getByLabelText("Caves shard port");
     const masterSteamPortInput = screen.getByLabelText("Master Steam port");
@@ -670,6 +682,14 @@ describe("ClusterDetailPage", () => {
 
     await user.clear(clusterBusPortInput);
     await user.type(clusterBusPortInput, "10999");
+    await user.clear(masterHostPortInput);
+    await user.type(masterHostPortInput, "12000");
+    await user.clear(cavesHostPortInput);
+    await user.type(cavesHostPortInput, "12001");
+    await user.clear(masterSteamHostPortInput);
+    await user.type(masterSteamHostPortInput, "28018");
+    await user.clear(cavesSteamHostPortInput);
+    await user.type(cavesSteamHostPortInput, "28019");
     await user.clear(masterShardPortInput);
     await user.type(masterShardPortInput, "12000");
     await user.clear(cavesShardPortInput);
@@ -686,6 +706,10 @@ describe("ClusterDetailPage", () => {
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
+        masterHostPort: 12000,
+        cavesHostPort: 12001,
+        masterSteamHostPort: 28018,
+        cavesSteamHostPort: 28019,
         masterPort: 10999,
         master: expect.objectContaining({
           serverPort: 12000,

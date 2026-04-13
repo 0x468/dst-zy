@@ -20,21 +20,25 @@ type RawConfigFiles struct {
 }
 
 type ClusterConfigSnapshot struct {
-	ClusterName        string              `json:"cluster_name"`
-	ClusterDescription string              `json:"cluster_description"`
-	ClusterPassword    string              `json:"cluster_password"`
-	ClusterToken       string              `json:"cluster_token"`
-	GameMode           string              `json:"game_mode"`
-	MaxPlayers         int                 `json:"max_players"`
-	PVP                bool                `json:"pvp"`
-	PauseWhenEmpty     bool                `json:"pause_when_empty"`
-	ClusterIntention   string              `json:"cluster_intention"`
-	ClusterKey         string              `json:"cluster_key"`
-	ShardEnabled       bool                `json:"shard_enabled"`
-	BindIP             string              `json:"bind_ip"`
-	MasterIP           string              `json:"master_ip"`
-	MasterPort         int                 `json:"master_port"`
-	Master             ShardConfigSnapshot `json:"master"`
-	Caves              ShardConfigSnapshot `json:"caves"`
-	RawFiles           *RawConfigFiles     `json:"raw_files,omitempty"`
+	ClusterName         string              `json:"cluster_name"`
+	ClusterDescription  string              `json:"cluster_description"`
+	ClusterPassword     string              `json:"cluster_password"`
+	ClusterToken        string              `json:"cluster_token"`
+	GameMode            string              `json:"game_mode"`
+	MaxPlayers          int                 `json:"max_players"`
+	PVP                 bool                `json:"pvp"`
+	PauseWhenEmpty      bool                `json:"pause_when_empty"`
+	ClusterIntention    string              `json:"cluster_intention"`
+	ClusterKey          string              `json:"cluster_key"`
+	ShardEnabled        bool                `json:"shard_enabled"`
+	BindIP              string              `json:"bind_ip"`
+	MasterIP            string              `json:"master_ip"`
+	MasterHostPort      int                 `json:"master_host_port"`
+	CavesHostPort       int                 `json:"caves_host_port"`
+	MasterSteamHostPort int                 `json:"master_steam_host_port"`
+	CavesSteamHostPort  int                 `json:"caves_steam_host_port"`
+	MasterPort          int                 `json:"master_port"`
+	Master              ShardConfigSnapshot `json:"master"`
+	Caves               ShardConfigSnapshot `json:"caves"`
+	RawFiles            *RawConfigFiles     `json:"raw_files,omitempty"`
 }
