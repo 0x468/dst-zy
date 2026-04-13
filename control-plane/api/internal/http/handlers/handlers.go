@@ -128,6 +128,8 @@ type saveRawConfigFilesRequest struct {
 }
 
 type saveClusterConfigRequest struct {
+	DisplayName          *string                    `json:"display_name"`
+	Note                 *string                    `json:"note"`
 	ClusterName          *string                    `json:"cluster_name"`
 	ClusterDescription   *string                    `json:"cluster_description"`
 	ClusterPassword      *string                    `json:"cluster_password"`
@@ -571,6 +573,12 @@ func mergeClusterConfigSnapshot(snapshot models.ClusterConfigSnapshot, req saveC
 	merged := snapshot
 	merged.RawFiles = nil
 
+	if req.DisplayName != nil {
+		merged.DisplayName = *req.DisplayName
+	}
+	if req.Note != nil {
+		merged.Note = *req.Note
+	}
 	if req.ClusterName != nil {
 		merged.ClusterName = *req.ClusterName
 	}

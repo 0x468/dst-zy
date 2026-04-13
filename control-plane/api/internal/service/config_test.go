@@ -270,6 +270,8 @@ TZ=Asia/Shanghai
 
 	service := NewConfigService(repo)
 	err = service.SaveSnapshot(context.Background(), record.Slug, models.ClusterConfigSnapshot{
+		DisplayName:          "Cluster A Prime",
+		Note:                 "Primary world updated",
 		ClusterName:          "Cluster_A_Prime",
 		ClusterDescription:   "Updated cluster",
 		GameMode:             "endless",
@@ -401,6 +403,9 @@ TZ=Asia/Shanghai
 	updatedRecord, err := repo.GetBySlug(record.Slug)
 	if err != nil {
 		t.Fatalf("expected updated record to load, got error: %v", err)
+	}
+	if updatedRecord.DisplayName != "Cluster A Prime" || updatedRecord.Note != "Primary world updated" {
+		t.Fatalf("expected cluster record metadata to persist, got display=%q note=%q", updatedRecord.DisplayName, updatedRecord.Note)
 	}
 	if updatedRecord.MasterHostPort != 12000 || updatedRecord.CavesHostPort != 12001 {
 		t.Fatalf("expected runtime metadata host ports to persist, got master=%d caves=%d", updatedRecord.MasterHostPort, updatedRecord.CavesHostPort)

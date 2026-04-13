@@ -251,8 +251,13 @@ export function CreateClusterWizard({ onSubmit }: CreateClusterWizardProps) {
               <input value={state.slug} disabled={pending} onChange={(event) => update("slug", event.target.value)} />
             </label>
             <label className="cluster-wizard__field">
-              <span>Display name</span>
-              <input value={state.displayName} disabled={pending} onChange={(event) => update("displayName", event.target.value)} />
+              <span>New cluster display name</span>
+              <input
+                aria-label="New cluster display name"
+                value={state.displayName}
+                disabled={pending}
+                onChange={(event) => update("displayName", event.target.value)}
+              />
             </label>
             <label className="cluster-wizard__field">
               <span>Cluster name</span>

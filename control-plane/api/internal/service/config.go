@@ -50,6 +50,8 @@ func (s ConfigService) GetSnapshot(_ context.Context, slug string) (models.Clust
 	}
 
 	snapshot := files.BuildSnapshot(clusterCfg, masterCfg, cavesCfg, string(rawClusterINI))
+	snapshot.DisplayName = record.DisplayName
+	snapshot.Note = record.Note
 	snapshot.ClusterToken, err = readClusterToken(filepath.Join(record.BaseDir, "runtime", "data", record.ClusterName, "cluster_token.txt"))
 	if err != nil {
 		return models.ClusterConfigSnapshot{}, err
@@ -143,6 +145,8 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 	record.TimeZone = normalizeTimeZone(snapshot.TimeZone)
 	record.UpdateMode = normalizeUpdateMode(snapshot.UpdateMode)
 	record.ServerModsUpdateMode = normalizeServerModsUpdateMode(snapshot.ServerModsUpdateMode)
+	record.DisplayName = strings.TrimSpace(snapshot.DisplayName)
+	record.Note = strings.TrimSpace(snapshot.Note)
 	if err := os.WriteFile(record.EnvFile, []byte(runtime.GenerateEnvFile(runtime.ComposeTemplateInput{
 		ClusterName:          record.ClusterName,
 		UpdateMode:           record.UpdateMode,
@@ -153,6 +157,9 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 		SteamHostPort:        record.MasterSteamHostPort,
 		CavesSteamHostPort:   record.CavesSteamHostPort,
 	})), 0o644); err != nil {
+		return err
+	}
+	if err := s.repo.UpdatePresentation(record); err != nil {
 		return err
 	}
 	if err := s.repo.UpdateRuntimeMetadata(record); err != nil {

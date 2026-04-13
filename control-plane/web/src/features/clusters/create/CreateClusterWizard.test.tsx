@@ -44,7 +44,7 @@ describe("CreateClusterWizard", () => {
     render(<CreateClusterWizard onSubmit={onSubmit} />);
 
     await user.type(screen.getByLabelText("Slug"), "cluster-b");
-    await user.type(screen.getByLabelText("Display name"), "Cluster B");
+    await user.type(screen.getByLabelText("New cluster display name"), "Cluster B");
     await user.type(screen.getByLabelText("Cluster name"), "Cluster_B");
     await user.type(screen.getByLabelText("Description"), "Cluster B Desc");
     await user.selectOptions(screen.getByLabelText("Game mode"), "endless");
@@ -158,7 +158,7 @@ describe("CreateClusterWizard", () => {
     render(<CreateClusterWizard onSubmit={vi.fn()} />);
 
     await user.type(screen.getByLabelText("Slug"), "cluster-b");
-    await user.type(screen.getByLabelText("Display name"), "Cluster B");
+    await user.type(screen.getByLabelText("New cluster display name"), "Cluster B");
     await user.type(screen.getByLabelText("Cluster name"), "Cluster_B");
     await user.click(screen.getByRole("button", { name: "Next: Network" }));
     await user.click(screen.getByRole("button", { name: "Next: Authentication" }));
@@ -180,7 +180,7 @@ describe("CreateClusterWizard", () => {
     render(<CreateClusterWizard onSubmit={vi.fn()} />);
 
     await user.type(screen.getByLabelText("Slug"), "cluster-b");
-    await user.type(screen.getByLabelText("Display name"), "Cluster B");
+    await user.type(screen.getByLabelText("New cluster display name"), "Cluster B");
     await user.type(screen.getByLabelText("Cluster name"), "Cluster_B");
     await user.clear(screen.getByLabelText("Max players"));
     await user.type(screen.getByLabelText("Max players"), "0");

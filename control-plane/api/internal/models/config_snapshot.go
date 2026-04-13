@@ -20,6 +20,8 @@ type RawConfigFiles struct {
 }
 
 type ClusterConfigSnapshot struct {
+	DisplayName          string              `json:"display_name"`
+	Note                 string              `json:"note"`
 	ClusterName          string              `json:"cluster_name"`
 	ClusterDescription   string              `json:"cluster_description"`
 	ClusterPassword      string              `json:"cluster_password"`

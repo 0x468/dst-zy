@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Panel } from "../../../components/ui/Panel";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
@@ -21,6 +21,7 @@ import { ClusterConfigForm } from "../forms/ClusterConfigForm";
 import { JobPanel } from "../../jobs/JobPanel";
 import { AuditPanel } from "../../jobs/AuditPanel";
 import { ConnectionPanel } from "./ConnectionPanel";
+import { ClusterMetadataPanel } from "./ClusterMetadataPanel";
 import { RuntimeProfilePanel } from "./RuntimeProfilePanel";
 import { LogsPanel } from "../../logs/LogsPanel";
 import { PreflightPanel } from "../../preflight/PreflightPanel";
@@ -90,7 +91,7 @@ export function ClusterDetailPage({
     },
   ];
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let cancelled = false;
 
     async function loadLogs() {
@@ -121,7 +122,7 @@ export function ClusterDetailPage({
     };
   }, [cluster.slug, selectedLogSource]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let cancelled = false;
 
     async function loadPreflight() {
@@ -212,6 +213,7 @@ export function ClusterDetailPage({
           </Panel>
           <div className="cluster-detail__ops-grid">
             <LifecycleActions onAction={onAction} />
+            <ClusterMetadataPanel snapshot={snapshot} onSave={onSave} />
             <ClusterConfigForm snapshot={snapshot} onSave={onSave} />
             <ConnectionPanel snapshot={snapshot} onSave={onSave} />
             <RuntimeProfilePanel snapshot={snapshot} onSave={onSave} />

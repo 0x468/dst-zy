@@ -330,7 +330,7 @@ describe("App", () => {
     await screen.findByRole("heading", { name: "Clusters" });
 
     await user.type(screen.getByLabelText("Slug"), "cluster-b");
-    await user.type(screen.getByLabelText("Display name"), "Cluster B");
+    await user.type(screen.getByLabelText("New cluster display name"), "Cluster B");
     await user.type(screen.getByLabelText("Cluster name"), "Cluster_B");
     await user.click(screen.getByRole("button", { name: "Next: Network" }));
     await user.click(screen.getByRole("button", { name: "Next: Authentication" }));
@@ -475,7 +475,7 @@ describe("App", () => {
     await screen.findByRole("heading", { name: "Clusters" });
 
     await user.type(screen.getByLabelText("Slug"), "../bad");
-    await user.type(screen.getByLabelText("Display name"), "Bad Cluster");
+    await user.type(screen.getByLabelText("New cluster display name"), "Bad Cluster");
     await user.type(screen.getByLabelText("Cluster name"), "Bad_Cluster");
     await user.click(screen.getByRole("button", { name: "Next: Network" }));
     await user.click(screen.getByRole("button", { name: "Next: Authentication" }));
@@ -1240,6 +1240,92 @@ describe("App", () => {
     await waitFor(() => {
       expect(vi.mocked(getClusterPreflight)).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("updates cluster header metadata after saving config", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        display_name: "Cluster A",
+        note: "Primary world",
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        cluster_password: "",
+        cluster_token: "",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse({
+        display_name: "Cluster A Prime",
+        note: "Primary world updated",
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        cluster_password: "",
+        cluster_token: "",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    await user.clear(screen.getByLabelText("Display name"));
+    await user.type(screen.getByLabelText("Display name"), "Cluster A Prime");
+    await user.clear(screen.getByLabelText("Operator note"));
+    await user.type(screen.getByLabelText("Operator note"), "Primary world updated");
+    await user.click(screen.getByRole("button", { name: "Save metadata" }));
+
+    expect(await screen.findByRole("heading", { name: "Cluster A Prime" })).toBeInTheDocument();
+    expect(screen.getByText("Primary world updated")).toBeInTheDocument();
   });
 
   it("reruns preflight after a lifecycle action", async () => {

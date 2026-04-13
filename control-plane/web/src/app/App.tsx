@@ -206,6 +206,15 @@ export function App() {
       ]);
       setSnapshot(nextConfigSnapshot);
       setAudit(nextAudit);
+      setClusters((current) => current.map((cluster) => (
+        cluster.slug === selectedSlug
+          ? {
+              ...cluster,
+              displayName: nextConfigSnapshot.displayName?.trim() || cluster.displayName,
+              note: nextConfigSnapshot.note?.trim() ?? "",
+            }
+          : cluster
+      )));
       setPreflightRefreshKey((current) => current + 1);
     } catch (error) {
       if (isUnauthorizedError(error)) {

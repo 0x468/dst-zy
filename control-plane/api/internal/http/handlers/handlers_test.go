@@ -327,6 +327,8 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	}
 
 	savePayload := []byte(`{
+		"display_name":"Cluster A Prime",
+		"note":"Primary world updated",
 		"cluster_name":"Cluster_A",
 		"cluster_description":"Updated description",
 		"cluster_token":"updated-token",
@@ -361,6 +363,9 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	}
 	if configService.savedSnapshot.ClusterDescription != "Updated description" {
 		t.Fatalf("expected save config to update cluster description, got %q", configService.savedSnapshot.ClusterDescription)
+	}
+	if configService.savedSnapshot.DisplayName != "Cluster A Prime" || configService.savedSnapshot.Note != "Primary world updated" {
+		t.Fatalf("expected save config to update metadata fields, got display=%q note=%q", configService.savedSnapshot.DisplayName, configService.savedSnapshot.Note)
 	}
 	if configService.savedSnapshot.GameMode != "endless" || configService.savedSnapshot.MaxPlayers != 12 {
 		t.Fatalf("expected save config to update gameplay fields, got game_mode=%q max_players=%d", configService.savedSnapshot.GameMode, configService.savedSnapshot.MaxPlayers)

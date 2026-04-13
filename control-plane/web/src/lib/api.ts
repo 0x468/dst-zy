@@ -19,6 +19,8 @@ export type ShardSnapshot = {
 };
 
 export type ClusterConfigSnapshot = {
+  displayName?: string;
+  note?: string;
   clusterName: string;
   clusterDescription: string;
   clusterPassword?: string;
@@ -149,6 +151,8 @@ type ClusterSummaryResponse = {
 };
 
 type ClusterConfigSnapshotResponse = {
+  display_name?: string;
+  note?: string;
   cluster_name: string;
   cluster_description: string;
   cluster_password?: string;
@@ -429,6 +433,8 @@ function mapCluster(cluster: ClusterSummaryResponse): ClusterSummary {
 
 function mapSnapshot(snapshot: ClusterConfigSnapshotResponse): ClusterConfigSnapshot {
   return {
+    displayName: snapshot.display_name ?? "",
+    note: snapshot.note ?? "",
     clusterName: snapshot.cluster_name,
     clusterDescription: snapshot.cluster_description,
     clusterPassword: snapshot.cluster_password ?? "",
@@ -529,6 +535,8 @@ function encodeClusterMutation(input: ClusterMutationInput) {
 
 function encodeSnapshot(snapshot: ClusterConfigSnapshot): ClusterConfigSnapshotResponse {
   return {
+    display_name: snapshot.displayName,
+    note: snapshot.note,
     cluster_name: snapshot.clusterName,
     cluster_description: snapshot.clusterDescription,
     cluster_password: snapshot.clusterPassword,

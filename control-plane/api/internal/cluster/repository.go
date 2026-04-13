@@ -174,6 +174,22 @@ func (r *Repository) UpdateStatus(id int64, status string) error {
 	return err
 }
 
+func (r *Repository) UpdatePresentation(record models.ClusterRecord) error {
+	_, err := r.db.Exec(
+		`UPDATE cluster_records
+		 SET display_name = ?,
+		     note = ?,
+		     updated_at = ?
+		 WHERE id = ?`,
+		record.DisplayName,
+		record.Note,
+		time.Now().UTC().Format(time.RFC3339Nano),
+		record.ID,
+	)
+
+	return err
+}
+
 func (r *Repository) UpdateRuntimeMetadata(record models.ClusterRecord) error {
 	record = applyStandardClosureDefaults(record)
 
