@@ -45,6 +45,12 @@ describe("App", () => {
       if (typeof input === "string" && input.includes("/backups")) {
         return Promise.resolve(jsonResponse([]));
       }
+      if (typeof input === "string" && input === "/api/clusters/discovery") {
+        return Promise.resolve(jsonResponse([]));
+      }
+      if (typeof input === "string" && input.startsWith("/api/audit?slug=")) {
+        return Promise.resolve(jsonResponse([]));
+      }
 
       return Promise.reject(new Error(`unmocked fetch: ${String(input)}`));
     });
@@ -126,6 +132,160 @@ describe("App", () => {
     expect(within(clusterManagementSection).getByRole("button", { name: "Import cluster" })).toBeInTheDocument();
     expect(within(clusterManagementSection).getByLabelText("Import path")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", expect.any(Object));
+  });
+
+  it("shows the cluster library in the workspace and adopts discovered managed roots", async () => {
+    const user = userEvent.setup();
+    let clusterListCalls = 0;
+    let discoveryCalls = 0;
+
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url === "/api/session") {
+        return Promise.resolve(jsonResponse({ authenticated: true, username: "admin" }));
+      }
+      if (url === "/api/clusters") {
+        clusterListCalls += 1;
+        if (clusterListCalls === 1) {
+          return Promise.resolve(jsonResponse([
+            {
+              id: 1,
+              slug: "cluster-a",
+              display_name: "Cluster A",
+              status: "running",
+              note: "Primary world",
+              cluster_name: "Cluster_A",
+              updated_at: "2026-03-29T14:00:00Z",
+            },
+          ]));
+        }
+
+        return Promise.resolve(jsonResponse([
+          {
+            id: 1,
+            slug: "cluster-a",
+            display_name: "Cluster A",
+            status: "running",
+            note: "Primary world",
+            cluster_name: "Cluster_A",
+            updated_at: "2026-03-29T14:00:00Z",
+          },
+          {
+            id: 8,
+            slug: "orphan-a",
+            display_name: "Legacy Cluster",
+            status: "stopped",
+            note: "Recovered managed root",
+            cluster_name: "Legacy_Cluster",
+            updated_at: "2026-03-29T15:15:00Z",
+          },
+        ]));
+      }
+      if (url === "/api/clusters/discovery") {
+        discoveryCalls += 1;
+        if (discoveryCalls === 1) {
+          return Promise.resolve(jsonResponse([
+            {
+              id: 0,
+              slug: "orphan-a",
+              display_name: "Legacy Cluster",
+              status: "discovered",
+              base_dir: "/srv/control-plane/clusters/orphan-a",
+              cluster_name: "Legacy_Cluster",
+            },
+          ]));
+        }
+
+        return Promise.resolve(jsonResponse([]));
+      }
+      if (url === "/api/clusters/cluster-a/config") {
+        return Promise.resolve(jsonResponse({
+          cluster_name: "Cluster_A",
+          cluster_description: "A co-op world",
+          game_mode: "survival",
+          cluster_key: "secret-key",
+          master_port: 10889,
+          master: {
+            server_port: 11000,
+            master_server_port: 27018,
+            authentication_port: 8768,
+          },
+          caves: {
+            server_port: 11001,
+            master_server_port: 27019,
+            authentication_port: 8769,
+          },
+          raw_files: {
+            cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+          },
+        }));
+      }
+      if (url === "/api/clusters/orphan-a/config") {
+        return Promise.resolve(jsonResponse({
+          cluster_name: "Legacy_Cluster",
+          cluster_description: "Recovered cluster",
+          game_mode: "survival",
+          cluster_key: "legacy-key",
+          master_port: 10889,
+          master: {
+            server_port: 11010,
+            master_server_port: 27028,
+            authentication_port: 8770,
+          },
+          caves: {
+            server_port: 11011,
+            master_server_port: 27029,
+            authentication_port: 8771,
+          },
+          raw_files: {
+            cluster_ini: "[NETWORK]\ncluster_name = Legacy_Cluster\n",
+          },
+        }));
+      }
+      if (url === "/api/jobs") {
+        return Promise.resolve(jsonResponse([]));
+      }
+      if (url === "/api/audit?slug=cluster-a&limit=20" || url === "/api/audit?slug=orphan-a&limit=20") {
+        return Promise.resolve(jsonResponse([]));
+      }
+      if (url === "/api/clusters/discovery/orphan-a/adopt") {
+        return Promise.resolve(jsonResponse({
+          id: 8,
+          slug: "orphan-a",
+          display_name: "Legacy Cluster",
+          status: "stopped",
+          note: "Recovered managed root",
+          cluster_name: "Legacy_Cluster",
+        }, 201));
+      }
+      if (url.includes("/backups")) {
+        return Promise.resolve(jsonResponse([]));
+      }
+
+      return Promise.reject(new Error(`unmocked fetch: ${url}`));
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Cluster A" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Open workspace" }));
+
+    expect(await screen.findByRole("heading", { name: "Managed cluster library" })).toBeInTheDocument();
+    expect(screen.getByText("Legacy Cluster")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Discovered managed roots" })).toBeInTheDocument();
+    expect(screen.getByText("/srv/control-plane/clusters/orphan-a")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Register orphan-a" }));
+
+    expect(await screen.findByRole("heading", { name: "Legacy Cluster" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/clusters/discovery/orphan-a/adopt", expect.objectContaining({
+      method: "POST",
+      headers: expect.objectContaining({
+        "X-DST-Control-Plane-CSRF": "1",
+      }),
+    }));
   });
 
   it("shows an error when session restore fails unexpectedly", async () => {
@@ -273,6 +433,7 @@ describe("App", () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
       .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({
         id: 7,
@@ -466,6 +627,7 @@ describe("App", () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
       .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ error: "invalid cluster slug" }, 400));
 

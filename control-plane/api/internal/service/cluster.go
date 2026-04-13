@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gwf/dst-docker/control-plane/api/internal/apierror"
@@ -28,6 +31,51 @@ func NewClusterService(repo *cluster.Repository, guard files.Guard, image string
 
 func (s ClusterService) List(_ context.Context) ([]models.ClusterRecord, error) {
 	return s.repo.List()
+}
+
+func (s ClusterService) Discover(_ context.Context) ([]models.ClusterRecord, error) {
+	managed, err := s.repo.List()
+	if err != nil {
+		return nil, err
+	}
+
+	managedBySlug := make(map[string]struct{}, len(managed))
+	for _, record := range managed {
+		managedBySlug[record.Slug] = struct{}{}
+	}
+
+	entries, err := os.ReadDir(s.guard.ManagedClustersDir())
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []models.ClusterRecord{}, nil
+		}
+		return nil, err
+	}
+
+	discovered := make([]models.ClusterRecord, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		slug := entry.Name()
+		if _, ok := managedBySlug[slug]; ok {
+			continue
+		}
+
+		record, ok, err := s.inspectDiscoveredCluster(slug)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			discovered = append(discovered, record)
+		}
+	}
+
+	sort.Slice(discovered, func(i int, j int) bool {
+		return discovered[i].Slug < discovered[j].Slug
+	})
+
+	return discovered, nil
 }
 
 func (s ClusterService) Create(_ context.Context, req handlers.ClusterMutationRequest) (models.ClusterRecord, error) {
@@ -121,6 +169,39 @@ func (s ClusterService) Import(_ context.Context, req handlers.ClusterMutationRe
 		MasterSteamHostPort:  req.SteamHostPort,
 		CavesSteamHostPort:   req.CavesSteamHostPort,
 	})
+}
+
+func (s ClusterService) Adopt(_ context.Context, slug string) (models.ClusterRecord, error) {
+	if _, err := s.repo.GetBySlug(slug); err == nil {
+		return models.ClusterRecord{}, apierror.Invalid("cluster already managed", nil)
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return models.ClusterRecord{}, err
+	}
+
+	record, ok, err := s.inspectDiscoveredCluster(slug)
+	if err != nil {
+		return models.ClusterRecord{}, err
+	}
+	if !ok {
+		return models.ClusterRecord{}, apierror.NotFound("discovered cluster not found", nil)
+	}
+
+	record.Status = "stopped"
+	record.Note = "Recovered managed root"
+
+	profile, err := readRuntimeProfile(record.EnvFile)
+	if err != nil {
+		return models.ClusterRecord{}, err
+	}
+	record.UpdateMode = profile.updateMode
+	record.ServerModsUpdateMode = profile.serverModsUpdateMode
+	record.TimeZone = profile.timeZone
+	record.MasterHostPort = profile.masterHostPort
+	record.CavesHostPort = profile.cavesHostPort
+	record.MasterSteamHostPort = profile.masterSteamHostPort
+	record.CavesSteamHostPort = profile.cavesSteamHostPort
+
+	return s.repo.Create(record)
 }
 
 func (s ClusterService) Delete(_ context.Context, slug string) (models.ClusterRecord, error) {
@@ -326,6 +407,57 @@ func normalizeTimeZone(value string) string {
 	return trimmed
 }
 
+func (s ClusterService) inspectDiscoveredCluster(slug string) (models.ClusterRecord, bool, error) {
+	clusterDir, err := s.guard.ClusterDir(slug)
+	if err != nil {
+		return models.ClusterRecord{}, false, mapClusterMutationError(err)
+	}
+
+	info, err := os.Stat(clusterDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return models.ClusterRecord{}, false, nil
+		}
+		return models.ClusterRecord{}, false, err
+	}
+	if !info.IsDir() {
+		return models.ClusterRecord{}, false, nil
+	}
+
+	clusterName, err := discoverClusterName(filepath.Join(clusterDir, "runtime", "data"))
+	if err != nil {
+		return models.ClusterRecord{}, false, err
+	}
+	if clusterName == "" {
+		return models.ClusterRecord{}, false, nil
+	}
+
+	composePath := filepath.Join(clusterDir, "compose", "docker-compose.yml")
+	envPath := filepath.Join(clusterDir, "compose", ".env")
+	if !fileExists(composePath) || !fileExists(envPath) {
+		return models.ClusterRecord{}, false, nil
+	}
+
+	displayName := strings.ReplaceAll(clusterName, "_", " ")
+	clusterINIPath := filepath.Join(clusterDir, "runtime", "data", clusterName, "cluster.ini")
+	if fileExists(clusterINIPath) {
+		clusterCfg, err := files.ParseClusterINI(clusterINIPath)
+		if err == nil && strings.TrimSpace(clusterCfg.Network.ClusterName) != "" {
+			displayName = strings.ReplaceAll(strings.TrimSpace(clusterCfg.Network.ClusterName), "_", " ")
+		}
+	}
+
+	return models.ClusterRecord{
+		Slug:        slug,
+		DisplayName: displayName,
+		ClusterName: clusterName,
+		BaseDir:     clusterDir,
+		ComposeFile: composePath,
+		EnvFile:     envPath,
+		Status:      "discovered",
+	}, true, nil
+}
+
 func copyClusterDir(src string, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -387,4 +519,103 @@ func mapClusterMutationError(err error) error {
 	default:
 		return err
 	}
+}
+
+type runtimeProfile struct {
+	updateMode           string
+	serverModsUpdateMode string
+	timeZone             string
+	masterHostPort       int
+	cavesHostPort        int
+	masterSteamHostPort  int
+	cavesSteamHostPort   int
+}
+
+func discoverClusterName(dataDir string) (string, error) {
+	entries, err := os.ReadDir(dataDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		clusterINIPath := filepath.Join(dataDir, entry.Name(), "cluster.ini")
+		if fileExists(clusterINIPath) {
+			names = append(names, entry.Name())
+		}
+	}
+
+	if len(names) == 0 {
+		return "", nil
+	}
+
+	sort.Strings(names)
+	return names[0], nil
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func readRuntimeProfile(envPath string) (runtimeProfile, error) {
+	profile := runtimeProfile{
+		updateMode:           models.StandardClosureDefaultUpdateMode,
+		serverModsUpdateMode: models.StandardClosureDefaultServerModsUpdateMode,
+		timeZone:             models.StandardClosureDefaultTimeZone,
+		masterHostPort:       models.StandardClosureDefaultMasterHostPort,
+		cavesHostPort:        models.StandardClosureDefaultCavesHostPort,
+		masterSteamHostPort:  models.StandardClosureDefaultMasterSteamHostPort,
+		cavesSteamHostPort:   models.StandardClosureDefaultCavesSteamHostPort,
+	}
+
+	content, err := os.ReadFile(envPath)
+	if err != nil {
+		return runtimeProfile{}, err
+	}
+
+	values := map[string]string{}
+	for _, line := range strings.Split(string(content), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		key, value, ok := strings.Cut(trimmed, "=")
+		if !ok {
+			continue
+		}
+		values[strings.TrimSpace(key)] = strings.TrimSpace(value)
+	}
+
+	if value := strings.TrimSpace(values["DST_UPDATE_MODE"]); value != "" {
+		profile.updateMode = value
+	}
+	if value := strings.TrimSpace(values["DST_SERVER_MODS_UPDATE_MODE"]); value != "" {
+		profile.serverModsUpdateMode = value
+	}
+	if value := normalizeTimeZone(values["TZ"]); value != "" {
+		profile.timeZone = value
+	}
+	profile.masterHostPort = envInt(values["DST_MASTER_HOST_PORT"], profile.masterHostPort)
+	profile.cavesHostPort = envInt(values["DST_CAVES_HOST_PORT"], profile.cavesHostPort)
+	profile.masterSteamHostPort = envInt(values["DST_STEAM_HOST_PORT"], profile.masterSteamHostPort)
+	profile.cavesSteamHostPort = envInt(values["DST_CAVES_STEAM_HOST_PORT"], profile.cavesSteamHostPort)
+
+	return profile, nil
+}
+
+func envInt(raw string, fallback int) int {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || value < 1 || value > 65535 {
+		return fallback
+	}
+	return value
 }

@@ -1,4 +1,12 @@
-import type { AuditSummary, BackupSummary, ClusterConfigSnapshot, ClusterMutationInput, ClusterSummary, JobSummary } from "../lib/api";
+import type {
+  AuditSummary,
+  BackupSummary,
+  ClusterConfigSnapshot,
+  ClusterMutationInput,
+  ClusterSummary,
+  DiscoveredClusterSummary,
+  JobSummary,
+} from "../lib/api";
 import { Panel } from "../components/ui/Panel";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { ClusterDetailPage } from "../features/clusters/detail/ClusterDetailPage";
@@ -7,12 +15,14 @@ import { ClusterWorkspaceHome } from "../features/clusters/workspace/ClusterWork
 
 type ClustersRouteProps = {
   clusters: ClusterSummary[];
+  discoveredClusters: DiscoveredClusterSummary[];
   selectedSlug?: string;
   onSignOut: () => Promise<void> | void;
   onSelectCluster: (slug: string) => void;
   onOpenWorkspace: () => void;
   onCreateCluster: (input: ClusterMutationInput) => Promise<void> | void;
   onImportCluster: (input: ClusterMutationInput) => Promise<void> | void;
+  onAdoptDiscoveredCluster: (slug: string) => Promise<void> | void;
   detailCluster?: ClusterSummary;
   snapshot?: ClusterConfigSnapshot;
   jobs?: JobSummary[];
@@ -28,12 +38,14 @@ type ClustersRouteProps = {
 
 export function ClustersRoute({
   clusters,
+  discoveredClusters,
   selectedSlug,
   onSignOut,
   onSelectCluster,
   onOpenWorkspace,
   onCreateCluster,
   onImportCluster,
+  onAdoptDiscoveredCluster,
   detailCluster,
   snapshot,
   jobs = [],
@@ -85,7 +97,14 @@ export function ClustersRoute({
             />
           </Panel>
         ) : (
-          <ClusterWorkspaceHome onCreate={onCreateCluster} onImport={onImportCluster} />
+          <ClusterWorkspaceHome
+            clusters={clusters}
+            discoveredClusters={discoveredClusters}
+            onOpenCluster={onSelectCluster}
+            onCreate={onCreateCluster}
+            onImport={onImportCluster}
+            onAdopt={onAdoptDiscoveredCluster}
+          />
         )}
       </main>
     </section>

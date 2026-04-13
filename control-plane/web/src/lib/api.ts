@@ -12,6 +12,14 @@ export type ClusterSummary = {
   updatedAt?: string;
 };
 
+export type DiscoveredClusterSummary = {
+  slug: string;
+  displayName: string;
+  clusterName: string;
+  baseDir: string;
+  status: string;
+};
+
 export type ShardSnapshot = {
   serverPort: number;
   masterServerPort: number;
@@ -148,6 +156,14 @@ type ClusterSummaryResponse = {
   master_steam_host_port?: number;
   caves_steam_host_port?: number;
   updated_at?: string;
+};
+
+type DiscoveredClusterSummaryResponse = {
+  slug: string;
+  display_name: string;
+  cluster_name?: string;
+  base_dir?: string;
+  status: string;
 };
 
 type ClusterConfigSnapshotResponse = {
@@ -298,6 +314,11 @@ export async function getClusterConfig(slug: string): Promise<ClusterConfigSnaps
   return mapSnapshot(await response.json() as ClusterConfigSnapshotResponse);
 }
 
+export async function listDiscoveredClusters(): Promise<DiscoveredClusterSummary[]> {
+  const response = await request("/api/clusters/discovery");
+  return mapDiscoveredClusters(await response.json() as DiscoveredClusterSummaryResponse[]);
+}
+
 export async function saveClusterConfig(slug: string, snapshot: ClusterConfigSnapshot): Promise<void> {
   await request(`/api/clusters/${slug}/config`, {
     method: "PUT",
@@ -365,6 +386,14 @@ export async function mutateCluster(input: ClusterMutationInput): Promise<Cluste
   return mapCluster(await response.json() as ClusterSummaryResponse);
 }
 
+export async function adoptDiscoveredCluster(slug: string): Promise<ClusterSummary> {
+  const response = await request(`/api/clusters/discovery/${slug}/adopt`, {
+    method: "POST",
+  });
+
+  return mapCluster(await response.json() as ClusterSummaryResponse);
+}
+
 export async function deleteCluster(slug: string): Promise<void> {
   await request(`/api/clusters/${slug}`, {
     method: "DELETE",
@@ -413,6 +442,16 @@ async function readErrorMessage(response: Response) {
 
 function mapClusters(clusters: ClusterSummaryResponse[]): ClusterSummary[] {
   return clusters.map(mapCluster);
+}
+
+function mapDiscoveredClusters(clusters: DiscoveredClusterSummaryResponse[]): DiscoveredClusterSummary[] {
+  return clusters.map((cluster) => ({
+    slug: cluster.slug,
+    displayName: cluster.display_name,
+    clusterName: cluster.cluster_name ?? "",
+    baseDir: cluster.base_dir ?? "",
+    status: cluster.status,
+  }));
 }
 
 function mapCluster(cluster: ClusterSummaryResponse): ClusterSummary {

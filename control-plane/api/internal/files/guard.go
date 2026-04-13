@@ -52,3 +52,7 @@ func (g Guard) EnsureWithinRoot(candidate string) error {
 
 	return nil
 }
+
+func (g Guard) ManagedClustersDir() string {
+	return filepath.Join(g.root, "clusters")
+}

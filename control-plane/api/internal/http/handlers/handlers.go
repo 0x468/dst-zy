@@ -52,8 +52,10 @@ type AuditService interface {
 
 type ClusterService interface {
 	List(ctx context.Context) ([]models.ClusterRecord, error)
+	Discover(ctx context.Context) ([]models.ClusterRecord, error)
 	Create(ctx context.Context, req ClusterMutationRequest) (models.ClusterRecord, error)
 	Import(ctx context.Context, req ClusterMutationRequest) (models.ClusterRecord, error)
+	Adopt(ctx context.Context, slug string) (models.ClusterRecord, error)
 	Delete(ctx context.Context, slug string) (models.ClusterRecord, error)
 }
 
@@ -268,6 +270,15 @@ func NewRouter(deps Dependencies) http.Handler {
 		writeJSON(w, http.StatusOK, clusters)
 	})))
 
+	mux.Handle("GET /api/clusters/discovery", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		clusters, err := deps.Clusters.Discover(r.Context())
+		if err != nil {
+			writeMappedError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, clusters)
+	})))
+
 	mux.Handle("POST /api/clusters", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req ClusterMutationRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -300,6 +311,17 @@ func NewRouter(deps Dependencies) http.Handler {
 			recordClusterAudit(deps.Audit, sessionActor(r, deps.SessionSecret), "cluster_import", record.ID, req.Slug)
 		}
 
+		writeJSON(w, http.StatusCreated, record)
+	}))))
+
+	mux.Handle("POST /api/clusters/discovery/{slug}/adopt", protected(withCSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		record, err := deps.Clusters.Adopt(r.Context(), r.PathValue("slug"))
+		if err != nil {
+			writeMappedError(w, err)
+			return
+		}
+
+		recordClusterAudit(deps.Audit, sessionActor(r, deps.SessionSecret), "cluster_adopt", record.ID, record.Slug)
 		writeJSON(w, http.StatusCreated, record)
 	}))))
 

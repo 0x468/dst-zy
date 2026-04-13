@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 
 import {
+  adoptDiscoveredCluster,
   deleteCluster,
   getClusterConfig,
   getSession,
+  listDiscoveredClusters,
   listAudit,
   listBackups,
   listClusters,
@@ -17,6 +19,7 @@ import {
   type AuditSummary,
   type BackupSummary,
   type ClusterConfigSnapshot,
+  type DiscoveredClusterSummary,
   type ClusterMutationInput,
   type ClusterSummary,
   type JobSummary,
@@ -27,6 +30,7 @@ import { LoginRoute } from "../routes/login";
 export function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [clusters, setClusters] = useState<ClusterSummary[]>([]);
+  const [discoveredClusters, setDiscoveredClusters] = useState<DiscoveredClusterSummary[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string>();
   const [snapshot, setSnapshot] = useState<ClusterConfigSnapshot>();
   const [jobs, setJobs] = useState<JobSummary[]>([]);
@@ -79,6 +83,7 @@ export function App() {
       clearAuthenticatedState(
         setAuthenticated,
         setClusters,
+        setDiscoveredClusters,
         setSelectedSlug,
         setSnapshot,
         setJobs,
@@ -115,6 +120,7 @@ export function App() {
     } finally {
       setAuthenticated(false);
       setClusters([]);
+      setDiscoveredClusters([]);
       setSelectedSlug(undefined);
       setSnapshot(undefined);
       setJobs([]);
@@ -141,6 +147,11 @@ export function App() {
       ? preferredSlug
       : nextClusters[0].slug;
     setSelectedSlug(nextSelectedSlug);
+  }
+
+  async function refreshDiscoveredClusters() {
+    const nextDiscoveredClusters = await listDiscoveredClusters();
+    setDiscoveredClusters(nextDiscoveredClusters);
   }
 
   async function handleMutateCluster(input: ClusterMutationInput) {
@@ -291,6 +302,21 @@ export function App() {
     }
   }
 
+  async function handleAdoptDiscoveredCluster(slug: string) {
+    try {
+      const adoptedCluster = await adoptDiscoveredCluster(slug);
+      setErrorMessage(undefined);
+      await refreshClusters(adoptedCluster.slug);
+      await refreshDiscoveredClusters();
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        handleAppError(error, "Failed to register managed root");
+        return;
+      }
+      throw error;
+    }
+  }
+
   useEffect(() => {
     if (!authenticated || !selectedSlug || !selectedCluster) {
       return;
@@ -330,18 +356,48 @@ export function App() {
     };
   }, [authenticated, selectedCluster, selectedSlug]);
 
+  useEffect(() => {
+    if (!authenticated || selectedSlug) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadDiscoveredClusters() {
+      try {
+        const nextDiscoveredClusters = await listDiscoveredClusters();
+        if (cancelled) {
+          return;
+        }
+        setDiscoveredClusters(nextDiscoveredClusters);
+      } catch (error) {
+        if (!cancelled) {
+          handleAppError(error, "Failed to load discovered managed roots");
+        }
+      }
+    }
+
+    void loadDiscoveredClusters();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated, selectedSlug]);
+
   return (
     <div className="app-root">
       {errorMessage ? <p role="alert" className="app-error">{errorMessage}</p> : null}
       {authenticated ? (
         <ClustersRoute
           clusters={clusters}
+          discoveredClusters={discoveredClusters}
           selectedSlug={selectedSlug}
           onSignOut={handleSignOut}
           onSelectCluster={setSelectedSlug}
           onOpenWorkspace={() => setSelectedSlug(undefined)}
           onCreateCluster={handleCreateCluster}
           onImportCluster={handleImportCluster}
+          onAdoptDiscoveredCluster={handleAdoptDiscoveredCluster}
           detailCluster={selectedCluster}
           snapshot={snapshot}
           jobs={jobs}
@@ -376,6 +432,7 @@ function isUnauthorizedError(error: unknown) {
 function clearAuthenticatedState(
   setAuthenticated: (value: boolean) => void,
   setClusters: (value: ClusterSummary[]) => void,
+  setDiscoveredClusters: (value: DiscoveredClusterSummary[]) => void,
   setSelectedSlug: (value: string | undefined) => void,
   setSnapshot: (value: ClusterConfigSnapshot | undefined) => void,
   setJobs: (value: JobSummary[]) => void,
@@ -386,6 +443,7 @@ function clearAuthenticatedState(
 ) {
   setAuthenticated(false);
   setClusters([]);
+  setDiscoveredClusters([]);
   setSelectedSlug(undefined);
   setSnapshot(undefined);
   setJobs([]);

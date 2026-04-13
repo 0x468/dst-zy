@@ -604,3 +604,146 @@ func TestClusterServiceDeleteRemovesClusterDirectoryAndRecord(t *testing.T) {
 		t.Fatal("expected cluster record to be removed")
 	}
 }
+
+func TestClusterServiceDiscoverReturnsUnmanagedManagedRoots(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	guard, err := files.NewGuard(rootDir)
+	if err != nil {
+		t.Fatalf("expected guard to initialize, got error: %v", err)
+	}
+
+	if _, err := repo.Create(models.ClusterRecord{
+		Slug:        "cluster-a",
+		DisplayName: "Cluster A",
+		ClusterName: "Cluster_A",
+		BaseDir:     filepath.Join(rootDir, "clusters", "cluster-a"),
+		ComposeFile: filepath.Join(rootDir, "clusters", "cluster-a", "compose", "docker-compose.yml"),
+		EnvFile:     filepath.Join(rootDir, "clusters", "cluster-a", "compose", ".env"),
+		Status:      "stopped",
+	}); err != nil {
+		t.Fatalf("expected managed cluster record to be created, got error: %v", err)
+	}
+
+	writeDiscoveredManagedRoot(t, rootDir, "orphan-a", "Legacy_Cluster")
+	if err := os.MkdirAll(filepath.Join(rootDir, "clusters", "broken-root", "runtime", "data"), 0o755); err != nil {
+		t.Fatalf("expected incomplete managed root to be created, got error: %v", err)
+	}
+
+	service := NewClusterService(repo, guard, "dst-control-plane:test")
+	discovered, err := service.Discover(context.Background())
+	if err != nil {
+		t.Fatalf("expected discovery to succeed, got error: %v", err)
+	}
+
+	if len(discovered) != 1 {
+		t.Fatalf("expected one unmanaged managed root, got %+v", discovered)
+	}
+	if discovered[0].Slug != "orphan-a" || discovered[0].ClusterName != "Legacy_Cluster" {
+		t.Fatalf("expected orphan-a discovery details, got %+v", discovered[0])
+	}
+	if discovered[0].DisplayName != "Legacy Cluster" {
+		t.Fatalf("expected discovery display name to be humanized, got %q", discovered[0].DisplayName)
+	}
+	if discovered[0].Status != "discovered" {
+		t.Fatalf("expected discovery status discovered, got %q", discovered[0].Status)
+	}
+}
+
+func TestClusterServiceAdoptRegistersDiscoveredManagedRoot(t *testing.T) {
+	rootDir := t.TempDir()
+
+	database, err := db.Open(filepath.Join(rootDir, "app.db"))
+	if err != nil {
+		t.Fatalf("expected database to open, got error: %v", err)
+	}
+	defer database.Close()
+
+	repo := cluster.NewRepository(database)
+	guard, err := files.NewGuard(rootDir)
+	if err != nil {
+		t.Fatalf("expected guard to initialize, got error: %v", err)
+	}
+
+	writeDiscoveredManagedRoot(t, rootDir, "orphan-a", "Legacy_Cluster")
+
+	service := NewClusterService(repo, guard, "dst-control-plane:test")
+	record, err := service.Adopt(context.Background(), "orphan-a")
+	if err != nil {
+		t.Fatalf("expected adopt to succeed, got error: %v", err)
+	}
+
+	if record.Slug != "orphan-a" || record.DisplayName != "Legacy Cluster" {
+		t.Fatalf("expected adopted record identity to be preserved, got %+v", record)
+	}
+	if record.TimeZone != "UTC" {
+		t.Fatalf("expected adopt to restore timezone from env, got %q", record.TimeZone)
+	}
+	if record.MasterHostPort != 12000 || record.CavesHostPort != 12001 {
+		t.Fatalf("expected adopt to restore game ports from env, got master=%d caves=%d", record.MasterHostPort, record.CavesHostPort)
+	}
+	if record.MasterSteamHostPort != 28018 || record.CavesSteamHostPort != 28019 {
+		t.Fatalf("expected adopt to restore steam ports from env, got master=%d caves=%d", record.MasterSteamHostPort, record.CavesSteamHostPort)
+	}
+	if record.UpdateMode != "validate" || record.ServerModsUpdateMode != "prewarm" {
+		t.Fatalf("expected adopt to restore runtime profile from env, got update=%q mods=%q", record.UpdateMode, record.ServerModsUpdateMode)
+	}
+
+	saved, err := repo.GetBySlug("orphan-a")
+	if err != nil {
+		t.Fatalf("expected adopted record to persist, got error: %v", err)
+	}
+	if saved.Note != "Recovered managed root" {
+		t.Fatalf("expected adopted record note to describe recovery, got %q", saved.Note)
+	}
+}
+
+func writeDiscoveredManagedRoot(t *testing.T, rootDir string, slug string, clusterName string) {
+	t.Helper()
+
+	clusterDir := filepath.Join(rootDir, "clusters", slug)
+	clusterDataDir := filepath.Join(clusterDir, "runtime", "data", clusterName)
+	if err := os.MkdirAll(filepath.Join(clusterDataDir, "Master"), 0o755); err != nil {
+		t.Fatalf("expected master shard directory to be created, got error: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(clusterDataDir, "Caves"), 0o755); err != nil {
+		t.Fatalf("expected caves shard directory to be created, got error: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(clusterDir, "compose"), 0o755); err != nil {
+		t.Fatalf("expected compose directory to be created, got error: %v", err)
+	}
+
+	clusterCfg := files.ClusterINIConfig{}
+	clusterCfg.Network.ClusterName = clusterName
+	clusterCfg.Network.ClusterDescription = "Recovered cluster"
+	clusterCfg.Gameplay.GameMode = "survival"
+	clusterCfg.Shard.ClusterKey = "legacy-key"
+	if err := files.WriteClusterINI(filepath.Join(clusterDataDir, "cluster.ini"), clusterCfg); err != nil {
+		t.Fatalf("expected cluster.ini to be written, got error: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(clusterDir, "compose", "docker-compose.yml"), []byte("services:\n  dst:\n    image: dst-docker:v1\n"), 0o644); err != nil {
+		t.Fatalf("expected compose file to be written, got error: %v", err)
+	}
+	envFile := strings.Join([]string{
+		"DST_CLUSTER_NAME=" + clusterName,
+		"DST_UPDATE_MODE=validate",
+		"DST_SERVER_MODS_UPDATE_MODE=prewarm",
+		"DST_MASTER_HOST_PORT=12000",
+		"DST_CAVES_HOST_PORT=12001",
+		"DST_STEAM_HOST_PORT=28018",
+		"DST_CAVES_STEAM_HOST_PORT=28019",
+		"TZ=UTC",
+		"",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(clusterDir, "compose", ".env"), []byte(envFile), 0o644); err != nil {
+		t.Fatalf("expected env file to be written, got error: %v", err)
+	}
+}

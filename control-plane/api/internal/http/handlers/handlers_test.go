@@ -229,6 +229,65 @@ func TestClusterHandlers(t *testing.T) {
 	}
 }
 
+func TestClusterDiscoveryHandlers(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	auditService := &fakeAuditService{}
+	clusterService := &fakeClusterService{
+		discovered: []models.ClusterRecord{
+			{
+				Slug:        "orphan-a",
+				DisplayName: "Legacy Cluster",
+				ClusterName: "Legacy_Cluster",
+				BaseDir:     "/srv/control-plane/clusters/orphan-a",
+				Status:      "discovered",
+			},
+		},
+		adopted: models.ClusterRecord{
+			ID:          8,
+			Slug:        "orphan-a",
+			DisplayName: "Legacy Cluster",
+			ClusterName: "Legacy_Cluster",
+			Status:      "stopped",
+		},
+	}
+	router := NewRouter(Dependencies{
+		SessionSecret: secret,
+		Auth:          fakeAuthService{allow: true},
+		Audit:         auditService,
+		Clusters:      clusterService,
+	})
+
+	sessionCookie := issueSessionCookie(t, secret)
+
+	discoveryReq := httptest.NewRequest(http.MethodGet, "/api/clusters/discovery", nil)
+	discoveryReq.AddCookie(sessionCookie)
+	discoveryRec := httptest.NewRecorder()
+	router.ServeHTTP(discoveryRec, discoveryReq)
+
+	if discoveryRec.Code != http.StatusOK {
+		t.Fatalf("expected cluster discovery list to return 200, got %d", discoveryRec.Code)
+	}
+	if !bytes.Contains(discoveryRec.Body.Bytes(), []byte(`"slug":"orphan-a"`)) || !bytes.Contains(discoveryRec.Body.Bytes(), []byte(`"base_dir":"/srv/control-plane/clusters/orphan-a"`)) {
+		t.Fatalf("expected discovery response to include orphaned managed root details, got %q", discoveryRec.Body.String())
+	}
+
+	adoptReq := httptest.NewRequest(http.MethodPost, "/api/clusters/discovery/orphan-a/adopt", nil)
+	adoptReq.AddCookie(sessionCookie)
+	adoptReq.Header.Set("X-DST-Control-Plane-CSRF", "1")
+	adoptRec := httptest.NewRecorder()
+	router.ServeHTTP(adoptRec, adoptReq)
+
+	if adoptRec.Code != http.StatusCreated {
+		t.Fatalf("expected adopt cluster to return 201, got %d", adoptRec.Code)
+	}
+	if clusterService.lastAdoptSlug != "orphan-a" {
+		t.Fatalf("expected adopt handler to forward slug, got %q", clusterService.lastAdoptSlug)
+	}
+	if len(auditService.records) != 1 || auditService.records[0].action != "cluster_adopt" {
+		t.Fatalf("expected adopt cluster to record cluster_adopt audit, got %+v", auditService.records)
+	}
+}
+
 func TestConfigAndJobsHandlers(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
 	auditService := &fakeAuditService{
@@ -912,13 +971,17 @@ func (f *fakeAuditService) List(limit int) ([]models.AuditRecord, error) {
 
 type fakeClusterService struct {
 	list          []models.ClusterRecord
+	discovered    []models.ClusterRecord
 	created       models.ClusterRecord
 	imported      models.ClusterRecord
+	adopted       models.ClusterRecord
 	deleted       models.ClusterRecord
 	lastCreateReq ClusterMutationRequest
 	lastImportReq ClusterMutationRequest
+	lastAdoptSlug string
 	createErr     error
 	importErr     error
+	adoptErr      error
 	deleteErr     error
 }
 
@@ -938,6 +1001,15 @@ func (f *fakeClusterService) Import(_ context.Context, req ClusterMutationReques
 
 func (f *fakeClusterService) Delete(_ context.Context, _ string) (models.ClusterRecord, error) {
 	return f.deleted, f.deleteErr
+}
+
+func (f *fakeClusterService) Discover(_ context.Context) ([]models.ClusterRecord, error) {
+	return f.discovered, nil
+}
+
+func (f *fakeClusterService) Adopt(_ context.Context, slug string) (models.ClusterRecord, error) {
+	f.lastAdoptSlug = slug
+	return f.adopted, f.adoptErr
 }
 
 type fakeConfigService struct {
