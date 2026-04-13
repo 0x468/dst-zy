@@ -443,6 +443,88 @@ describe("ClusterDetailPage", () => {
     expect(screen.getByRole("button", { name: "Backup" })).toBeInTheDocument();
   });
 
+  it("reloads readiness when the refresh key changes", async () => {
+    let preflightCalls = 0;
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      if (typeof input === "string" && input.includes("/logs")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          source: "jobs",
+          content: "",
+          updated_at: "2026-03-29T14:00:00Z",
+        }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }));
+      }
+
+      if (typeof input === "string" && input.includes("/preflight")) {
+        preflightCalls += 1;
+        const blocked = preflightCalls === 1;
+        return Promise.resolve(new Response(JSON.stringify({
+          status: blocked ? "blocked" : "ready",
+          fatal_count: blocked ? 1 : 0,
+          warning_count: 0,
+          checks: blocked ? [
+            {
+              code: "token_missing",
+              severity: "fatal",
+              summary: "cluster_token.txt is missing",
+              detail: "Token file was not found.",
+              hint: "Add the token before starting the cluster.",
+            },
+          ] : [],
+        }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }));
+      }
+
+      return Promise.reject(new Error(`unmocked fetch: ${String(input)}`));
+    });
+
+    const props = {
+      cluster: {
+        id: 1,
+        slug: "cluster-a",
+        displayName: "Cluster A",
+        status: "running",
+        note: "Primary world",
+        clusterName: "Cluster_A",
+      },
+      snapshot: {
+        clusterName: "Cluster_A",
+        clusterDescription: "A co-op world",
+        gameMode: "survival",
+        clusterKey: "secret-key",
+        masterPort: 10889,
+        master: {
+          serverPort: 11000,
+          masterServerPort: 27018,
+          authenticationPort: 8768,
+        },
+        caves: {
+          serverPort: 11001,
+          masterServerPort: 27019,
+          authenticationPort: 8769,
+        },
+      },
+      onSave: vi.fn(),
+    } satisfies Parameters<typeof ClusterDetailPage>[0];
+
+    const { rerender } = render(<ClusterDetailPage {...props} preflightRefreshKey={0} />);
+
+    expect(await screen.findByText("cluster_token.txt is missing")).toBeInTheDocument();
+
+    rerender(<ClusterDetailPage {...props} preflightRefreshKey={1} />);
+
+    expect(await screen.findByText("No blocking or warning checks were reported.")).toBeInTheDocument();
+    expect(preflightCalls).toBe(2);
+  });
+
   it("allows editing form values and saving", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();

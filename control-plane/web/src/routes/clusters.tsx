@@ -16,6 +16,7 @@ type ClustersRouteProps = {
   jobs?: JobSummary[];
   audit?: AuditSummary[];
   backups?: BackupSummary[];
+  preflightRefreshKey?: number;
   onSaveConfig: (snapshot: ClusterConfigSnapshot) => Promise<void> | void;
   onAction: (action: string) => Promise<void> | void;
   onRestoreBackup: (backupName: string) => Promise<void> | void;
@@ -35,6 +36,7 @@ export function ClustersRoute({
   jobs = [],
   audit = [],
   backups = [],
+  preflightRefreshKey = 0,
   onSaveConfig,
   onAction,
   onRestoreBackup,
@@ -69,6 +71,7 @@ export function ClustersRoute({
               key={detailCluster.slug}
               cluster={detailCluster}
               snapshot={snapshot}
+              preflightRefreshKey={preflightRefreshKey}
               jobs={jobs.filter((job) => job.clusterId === detailCluster.id)}
               audit={audit}
               backups={backups}

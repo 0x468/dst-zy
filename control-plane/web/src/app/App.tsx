@@ -32,6 +32,7 @@ export function App() {
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [audit, setAudit] = useState<AuditSummary[]>([]);
   const [backups, setBackups] = useState<BackupSummary[]>([]);
+  const [preflightRefreshKey, setPreflightRefreshKey] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string>();
 
   const selectedCluster = clusters.find((cluster) => cluster.slug === selectedSlug);
@@ -70,6 +71,7 @@ export function App() {
     setSnapshot(undefined);
     setAudit([]);
     setBackups([]);
+    setPreflightRefreshKey(0);
   }, [selectedSlug]);
 
   function handleAppError(error: unknown, fallback: string) {
@@ -204,6 +206,7 @@ export function App() {
       ]);
       setSnapshot(nextConfigSnapshot);
       setAudit(nextAudit);
+      setPreflightRefreshKey((current) => current + 1);
     } catch (error) {
       if (isUnauthorizedError(error)) {
         handleAppError(error, "Failed to save config");
@@ -332,6 +335,7 @@ export function App() {
           jobs={jobs}
           audit={audit}
           backups={backups}
+          preflightRefreshKey={preflightRefreshKey}
           onSaveConfig={handleSaveConfig}
           onAction={handleAction}
           onRestoreBackup={handleRestoreBackup}

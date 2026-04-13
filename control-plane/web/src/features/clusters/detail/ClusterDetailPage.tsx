@@ -28,6 +28,7 @@ type ClusterDetailPageProps = {
   cluster: ClusterSummary;
   snapshot: ClusterConfigSnapshot;
   onSave: (snapshot: ClusterConfigSnapshot) => void;
+  preflightRefreshKey?: number;
   jobs?: JobSummary[];
   audit?: AuditSummary[];
   backups?: BackupSummary[];
@@ -41,6 +42,7 @@ export function ClusterDetailPage({
   cluster,
   snapshot,
   onSave,
+  preflightRefreshKey = 0,
   jobs = [],
   audit = [],
   backups = [],
@@ -147,7 +149,7 @@ export function ClusterDetailPage({
     return () => {
       cancelled = true;
     };
-  }, [cluster.slug]);
+  }, [cluster.slug, preflightRefreshKey]);
 
   return (
     <section className="cluster-detail">

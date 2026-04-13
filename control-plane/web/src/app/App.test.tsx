@@ -26,6 +26,7 @@ vi.mock("../lib/api", async () => {
   };
 });
 
+import { getClusterPreflight } from "../lib/api";
 import { App } from "./App";
 
 describe("App", () => {
@@ -33,6 +34,13 @@ describe("App", () => {
 
   beforeEach(() => {
     fetchMock.mockReset();
+    vi.mocked(getClusterPreflight).mockReset();
+    vi.mocked(getClusterPreflight).mockResolvedValue({
+      status: "ready",
+      fatalCount: 0,
+      warningCount: 0,
+      checks: [],
+    });
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       if (typeof input === "string" && input.includes("/backups")) {
         return Promise.resolve(jsonResponse([]));
@@ -1093,6 +1101,90 @@ describe("App", () => {
 
     expect(await screen.findByText("Saved config")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/audit?slug=cluster-a&limit=20", expect.any(Object));
+  });
+
+  it("reruns preflight after saving config", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        cluster_password: "",
+        cluster_token: "",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "Updated description",
+        cluster_password: "",
+        cluster_token: "token-a",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    expect(vi.mocked(getClusterPreflight)).toHaveBeenCalledTimes(1);
+
+    await user.clear(screen.getByLabelText("Cluster description"));
+    await user.type(screen.getByLabelText("Cluster description"), "Updated description");
+    await user.type(screen.getByLabelText("Cluster token"), "token-a");
+    await user.click(screen.getByRole("button", { name: "Save config" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(getClusterPreflight)).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("clears stale cluster details while the next cluster config is loading", async () => {
