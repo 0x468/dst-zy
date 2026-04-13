@@ -58,6 +58,9 @@ func (s ConfigService) GetSnapshot(_ context.Context, slug string) (models.Clust
 	snapshot.CavesHostPort = record.CavesHostPort
 	snapshot.MasterSteamHostPort = record.MasterSteamHostPort
 	snapshot.CavesSteamHostPort = record.CavesSteamHostPort
+	snapshot.TimeZone = record.TimeZone
+	snapshot.UpdateMode = record.UpdateMode
+	snapshot.ServerModsUpdateMode = record.ServerModsUpdateMode
 
 	return snapshot, nil
 }
@@ -137,6 +140,9 @@ func (s ConfigService) SaveSnapshot(_ context.Context, slug string, snapshot mod
 	record.CavesHostPort = snapshot.CavesHostPort
 	record.MasterSteamHostPort = snapshot.MasterSteamHostPort
 	record.CavesSteamHostPort = snapshot.CavesSteamHostPort
+	record.TimeZone = normalizeTimeZone(snapshot.TimeZone)
+	record.UpdateMode = normalizeUpdateMode(snapshot.UpdateMode)
+	record.ServerModsUpdateMode = normalizeServerModsUpdateMode(snapshot.ServerModsUpdateMode)
 	if err := os.WriteFile(record.EnvFile, []byte(runtime.GenerateEnvFile(runtime.ComposeTemplateInput{
 		ClusterName:          record.ClusterName,
 		UpdateMode:           record.UpdateMode,
@@ -170,4 +176,22 @@ func readClusterToken(path string) (string, error) {
 
 func writeClusterToken(path string, token string) error {
 	return os.WriteFile(path, []byte(strings.TrimSpace(token)+"\n"), 0o600)
+}
+
+func normalizeUpdateMode(value string) string {
+	switch strings.TrimSpace(value) {
+	case "update", "validate", "never":
+		return strings.TrimSpace(value)
+	default:
+		return models.StandardClosureDefaultUpdateMode
+	}
+}
+
+func normalizeServerModsUpdateMode(value string) string {
+	switch strings.TrimSpace(value) {
+	case "prewarm", "skip":
+		return strings.TrimSpace(value)
+	default:
+		return models.StandardClosureDefaultServerModsUpdateMode
+	}
 }

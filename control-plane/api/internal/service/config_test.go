@@ -270,21 +270,24 @@ TZ=Asia/Shanghai
 
 	service := NewConfigService(repo)
 	err = service.SaveSnapshot(context.Background(), record.Slug, models.ClusterConfigSnapshot{
-		ClusterName:         "Cluster_A_Prime",
-		ClusterDescription:  "Updated cluster",
-		GameMode:            "endless",
-		MaxPlayers:          12,
-		ClusterIntention:    "social",
-		ClusterToken:        "updated-token",
-		ShardEnabled:        false,
-		BindIP:              "192.168.1.10",
-		MasterIP:            "10.0.0.5",
-		ClusterKey:          "updated-secret-key",
-		MasterHostPort:      12000,
-		CavesHostPort:       12001,
-		MasterSteamHostPort: 28018,
-		CavesSteamHostPort:  28019,
-		MasterPort:          10999,
+		ClusterName:          "Cluster_A_Prime",
+		ClusterDescription:   "Updated cluster",
+		GameMode:             "endless",
+		MaxPlayers:           12,
+		ClusterIntention:     "social",
+		ClusterToken:         "updated-token",
+		ShardEnabled:         false,
+		BindIP:               "192.168.1.10",
+		MasterIP:             "10.0.0.5",
+		ClusterKey:           "updated-secret-key",
+		TimeZone:             "UTC",
+		UpdateMode:           "validate",
+		ServerModsUpdateMode: "prewarm",
+		MasterHostPort:       12000,
+		CavesHostPort:        12001,
+		MasterSteamHostPort:  28018,
+		CavesSteamHostPort:   28019,
+		MasterPort:           10999,
 		Master: models.ShardConfigSnapshot{
 			ServerPort:         12000,
 			MasterServerPort:   28018,
@@ -385,6 +388,15 @@ TZ=Asia/Shanghai
 	if !strings.Contains(string(writtenEnv), "DST_CAVES_STEAM_HOST_PORT=28019") {
 		t.Fatalf("expected env to persist caves steam host port, got %q", string(writtenEnv))
 	}
+	if !strings.Contains(string(writtenEnv), "DST_UPDATE_MODE=validate") {
+		t.Fatalf("expected env to persist update mode, got %q", string(writtenEnv))
+	}
+	if !strings.Contains(string(writtenEnv), "DST_SERVER_MODS_UPDATE_MODE=prewarm") {
+		t.Fatalf("expected env to persist server mods update mode, got %q", string(writtenEnv))
+	}
+	if !strings.Contains(string(writtenEnv), "TZ=UTC") {
+		t.Fatalf("expected env to persist timezone, got %q", string(writtenEnv))
+	}
 
 	updatedRecord, err := repo.GetBySlug(record.Slug)
 	if err != nil {
@@ -395,5 +407,8 @@ TZ=Asia/Shanghai
 	}
 	if updatedRecord.MasterSteamHostPort != 28018 || updatedRecord.CavesSteamHostPort != 28019 {
 		t.Fatalf("expected runtime metadata steam host ports to persist, got master=%d caves=%d", updatedRecord.MasterSteamHostPort, updatedRecord.CavesSteamHostPort)
+	}
+	if updatedRecord.UpdateMode != "validate" || updatedRecord.ServerModsUpdateMode != "prewarm" || updatedRecord.TimeZone != "UTC" {
+		t.Fatalf("expected runtime metadata profile to persist, got update=%q server_mods=%q tz=%q", updatedRecord.UpdateMode, updatedRecord.ServerModsUpdateMode, updatedRecord.TimeZone)
 	}
 }

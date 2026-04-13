@@ -128,27 +128,30 @@ type saveRawConfigFilesRequest struct {
 }
 
 type saveClusterConfigRequest struct {
-	ClusterName         *string                    `json:"cluster_name"`
-	ClusterDescription  *string                    `json:"cluster_description"`
-	ClusterPassword     *string                    `json:"cluster_password"`
-	ClusterToken        *string                    `json:"cluster_token"`
-	GameMode            *string                    `json:"game_mode"`
-	ClusterKey          *string                    `json:"cluster_key"`
-	MaxPlayers          *int                       `json:"max_players"`
-	ClusterIntention    *string                    `json:"cluster_intention"`
-	PVP                 *bool                      `json:"pvp"`
-	PauseWhenEmpty      *bool                      `json:"pause_when_empty"`
-	ShardEnabled        *bool                      `json:"shard_enabled"`
-	BindIP              *string                    `json:"bind_ip"`
-	MasterIP            *string                    `json:"master_ip"`
-	MasterHostPort      *int                       `json:"master_host_port"`
-	CavesHostPort       *int                       `json:"caves_host_port"`
-	MasterSteamHostPort *int                       `json:"master_steam_host_port"`
-	CavesSteamHostPort  *int                       `json:"caves_steam_host_port"`
-	MasterPort          *int                       `json:"master_port"`
-	Master              *saveShardConfigRequest    `json:"master"`
-	Caves               *saveShardConfigRequest    `json:"caves"`
-	RawFiles            *saveRawConfigFilesRequest `json:"raw_files"`
+	ClusterName          *string                    `json:"cluster_name"`
+	ClusterDescription   *string                    `json:"cluster_description"`
+	ClusterPassword      *string                    `json:"cluster_password"`
+	ClusterToken         *string                    `json:"cluster_token"`
+	GameMode             *string                    `json:"game_mode"`
+	ClusterKey           *string                    `json:"cluster_key"`
+	MaxPlayers           *int                       `json:"max_players"`
+	ClusterIntention     *string                    `json:"cluster_intention"`
+	PVP                  *bool                      `json:"pvp"`
+	PauseWhenEmpty       *bool                      `json:"pause_when_empty"`
+	ShardEnabled         *bool                      `json:"shard_enabled"`
+	BindIP               *string                    `json:"bind_ip"`
+	MasterIP             *string                    `json:"master_ip"`
+	TimeZone             *string                    `json:"time_zone"`
+	UpdateMode           *string                    `json:"update_mode"`
+	ServerModsUpdateMode *string                    `json:"server_mods_update_mode"`
+	MasterHostPort       *int                       `json:"master_host_port"`
+	CavesHostPort        *int                       `json:"caves_host_port"`
+	MasterSteamHostPort  *int                       `json:"master_steam_host_port"`
+	CavesSteamHostPort   *int                       `json:"caves_steam_host_port"`
+	MasterPort           *int                       `json:"master_port"`
+	Master               *saveShardConfigRequest    `json:"master"`
+	Caves                *saveShardConfigRequest    `json:"caves"`
+	RawFiles             *saveRawConfigFilesRequest `json:"raw_files"`
 }
 
 type LogEntry struct {
@@ -606,6 +609,15 @@ func mergeClusterConfigSnapshot(snapshot models.ClusterConfigSnapshot, req saveC
 	}
 	if req.MasterIP != nil {
 		merged.MasterIP = *req.MasterIP
+	}
+	if req.TimeZone != nil {
+		merged.TimeZone = *req.TimeZone
+	}
+	if req.UpdateMode != nil {
+		merged.UpdateMode = *req.UpdateMode
+	}
+	if req.ServerModsUpdateMode != nil {
+		merged.ServerModsUpdateMode = *req.ServerModsUpdateMode
 	}
 	if req.MasterHostPort != nil {
 		merged.MasterHostPort = *req.MasterHostPort

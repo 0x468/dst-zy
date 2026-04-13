@@ -21,6 +21,7 @@ import { ClusterConfigForm } from "../forms/ClusterConfigForm";
 import { JobPanel } from "../../jobs/JobPanel";
 import { AuditPanel } from "../../jobs/AuditPanel";
 import { ConnectionPanel } from "./ConnectionPanel";
+import { RuntimeProfilePanel } from "./RuntimeProfilePanel";
 import { LogsPanel } from "../../logs/LogsPanel";
 import { PreflightPanel } from "../../preflight/PreflightPanel";
 
@@ -213,6 +214,7 @@ export function ClusterDetailPage({
             <LifecycleActions onAction={onAction} />
             <ClusterConfigForm snapshot={snapshot} onSave={onSave} />
             <ConnectionPanel snapshot={snapshot} onSave={onSave} />
+            <RuntimeProfilePanel snapshot={snapshot} onSave={onSave} />
             <PreflightPanel
               title="Readiness"
               eyebrow="Start guard"

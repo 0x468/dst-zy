@@ -97,6 +97,7 @@ describe("ClusterDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Base configuration" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ports and connection" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Runtime profile" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Readiness" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Logs" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Backups" })).toBeInTheDocument();
@@ -723,6 +724,65 @@ describe("ClusterDetailPage", () => {
         }),
       }),
     );
+  });
+
+  it("allows editing runtime profile metadata and saving", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+
+    render(
+      <ClusterDetailPage
+        cluster={{
+          id: 1,
+          slug: "cluster-a",
+          displayName: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          clusterName: "Cluster_A",
+        }}
+        snapshot={{
+          clusterName: "Cluster_A",
+          clusterDescription: "A co-op world",
+          clusterPassword: "friends-only",
+          clusterToken: "token-a",
+          gameMode: "survival",
+          pvp: true,
+          pauseWhenEmpty: true,
+          clusterKey: "secret-key",
+          timeZone: "Asia/Shanghai",
+          updateMode: "install-only",
+          serverModsUpdateMode: "runtime",
+          masterHostPort: 11000,
+          cavesHostPort: 11001,
+          masterSteamHostPort: 27018,
+          cavesSteamHostPort: 27019,
+          masterPort: 10889,
+          master: {
+            serverPort: 11000,
+            masterServerPort: 27018,
+            authenticationPort: 8768,
+          },
+          caves: {
+            serverPort: 11001,
+            masterServerPort: 27019,
+            authenticationPort: 8769,
+          },
+        }}
+        onSave={onSave}
+      />,
+    );
+
+    await user.clear(screen.getByLabelText("Time zone"));
+    await user.type(screen.getByLabelText("Time zone"), "UTC");
+    await user.selectOptions(screen.getByLabelText("Update mode"), "validate");
+    await user.selectOptions(screen.getByLabelText("Server mods update mode"), "prewarm");
+    await user.click(screen.getByRole("button", { name: "Save runtime profile" }));
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      timeZone: "UTC",
+      updateMode: "validate",
+      serverModsUpdateMode: "prewarm",
+    }));
   });
 
   it("disables the config save button while saving", async () => {

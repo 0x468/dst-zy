@@ -335,6 +335,9 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 		"pvp":false,
 		"cluster_intention":"social",
 		"cluster_key":"updated-secret-key",
+		"time_zone":"UTC",
+		"update_mode":"validate",
+		"server_mods_update_mode":"prewarm",
 		"master_host_port":12000,
 		"caves_host_port":12001,
 		"master_steam_host_port":28018,
@@ -373,6 +376,9 @@ func TestConfigAndJobsHandlers(t *testing.T) {
 	}
 	if configService.savedSnapshot.ClusterKey != "updated-secret-key" {
 		t.Fatalf("expected save config to update cluster key, got %q", configService.savedSnapshot.ClusterKey)
+	}
+	if configService.savedSnapshot.TimeZone != "UTC" || configService.savedSnapshot.UpdateMode != "validate" || configService.savedSnapshot.ServerModsUpdateMode != "prewarm" {
+		t.Fatalf("expected save config to update runtime profile, got time_zone=%q update=%q server_mods=%q", configService.savedSnapshot.TimeZone, configService.savedSnapshot.UpdateMode, configService.savedSnapshot.ServerModsUpdateMode)
 	}
 	if configService.savedSnapshot.MasterHostPort != 12000 || configService.savedSnapshot.CavesHostPort != 12001 {
 		t.Fatalf("expected save config to update host ports, got master=%d caves=%d", configService.savedSnapshot.MasterHostPort, configService.savedSnapshot.CavesHostPort)
