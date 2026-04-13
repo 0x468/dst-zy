@@ -803,6 +803,57 @@ describe("App", () => {
           note: "Primary world",
           cluster_name: "Cluster_A",
         },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        cluster_password: "",
+        cluster_token: "token-a",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 31,
+          cluster_id: 1,
+          job_type: "restore",
+          status: "succeeded",
+          stdout_excerpt: "restored backup Cluster_A-20260329T140000Z.tar.gz",
+          stderr_excerpt: "",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          actor: "admin",
+          action: "cluster_action_restore",
+          target_type: "cluster",
+          target_id: 0,
+          id: 91,
+          summary: "slug=cluster-a",
+          created_at: "2026-03-29T14:05:00Z",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          name: "Cluster_A-20260329T140000Z.tar.gz",
+          size_bytes: 4096,
+          created_at: "2026-03-29T14:00:00Z",
+          cluster_slug: "cluster-a",
+        },
       ]));
 
     render(<App />);
@@ -812,9 +863,13 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
     await screen.findByRole("heading", { name: "Cluster A" });
+    expect(vi.mocked(getClusterPreflight)).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole("button", { name: "Restore latest backup" }));
 
     expect(await screen.findByText("restore")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(vi.mocked(getClusterPreflight)).toHaveBeenCalledTimes(2);
+    });
     expect(fetchMock).toHaveBeenCalledWith("/api/clusters/cluster-a/actions", expect.objectContaining({
       method: "POST",
       body: JSON.stringify({
@@ -1181,6 +1236,106 @@ describe("App", () => {
     await user.type(screen.getByLabelText("Cluster description"), "Updated description");
     await user.type(screen.getByLabelText("Cluster token"), "token-a");
     await user.click(screen.getByRole("button", { name: "Save config" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(getClusterPreflight)).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("reruns preflight after a lifecycle action", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" }))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "running",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        cluster_password: "",
+        cluster_token: "token-a",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({
+        id: 21,
+        cluster_id: 1,
+        job_type: "stop",
+        status: "succeeded",
+        stdout_excerpt: "compose stop ok",
+        stderr_excerpt: "",
+      }, 202))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 1,
+          slug: "cluster-a",
+          display_name: "Cluster A",
+          status: "stopped",
+          note: "Primary world",
+          cluster_name: "Cluster_A",
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        cluster_name: "Cluster_A",
+        cluster_description: "A co-op world",
+        cluster_password: "",
+        cluster_token: "token-a",
+        game_mode: "survival",
+        cluster_key: "secret-key",
+        master_port: 10889,
+        master: {
+          server_port: 11000,
+          master_server_port: 27018,
+          authentication_port: 8768,
+        },
+        caves: {
+          server_port: 11001,
+          master_server_port: 27019,
+          authentication_port: 8769,
+        },
+        raw_files: {
+          cluster_ini: "[NETWORK]\ncluster_name = Cluster_A\n",
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("heading", { name: "Cluster A" });
+    expect(vi.mocked(getClusterPreflight)).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("button", { name: "Stop" }));
 
     await waitFor(() => {
       expect(vi.mocked(getClusterPreflight)).toHaveBeenCalledTimes(2);

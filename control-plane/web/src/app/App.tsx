@@ -227,6 +227,7 @@ export function App() {
       const nextJobs = await listJobs();
       setJobs(nextJobs);
       await refreshClusters(selectedSlug);
+      setPreflightRefreshKey((current) => current + 1);
     } catch (error) {
       if (isUnauthorizedError(error)) {
         handleAppError(error, `Failed to run ${action}`);
@@ -271,6 +272,7 @@ export function App() {
       setAudit(nextAudit);
       setBackups(nextBackups);
       await refreshClusters(selectedSlug);
+      setPreflightRefreshKey((current) => current + 1);
     } catch (error) {
       if (isUnauthorizedError(error)) {
         handleAppError(error, "Failed to restore backup");
