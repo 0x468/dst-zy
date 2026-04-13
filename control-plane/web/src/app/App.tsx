@@ -339,6 +339,7 @@ export function App() {
           selectedSlug={selectedSlug}
           onSignOut={handleSignOut}
           onSelectCluster={setSelectedSlug}
+          onOpenWorkspace={() => setSelectedSlug(undefined)}
           onCreateCluster={handleCreateCluster}
           onImportCluster={handleImportCluster}
           detailCluster={selectedCluster}

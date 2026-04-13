@@ -10,8 +10,9 @@ body {
   font-family: var(--font-body);
   color: var(--color-text);
   background:
-    radial-gradient(circle at 0 0, rgb(15 118 110 / 10%), transparent 44%),
-    linear-gradient(180deg, #f8fafc 0%, var(--color-bg) 70%);
+    radial-gradient(circle at top left, rgb(15 118 110 / 12%), transparent 28%),
+    radial-gradient(circle at top right, rgb(15 23 42 / 8%), transparent 24%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, var(--color-bg) 100%);
 }
 
 h1,
@@ -46,6 +47,18 @@ textarea {
 button {
   cursor: pointer;
   background: var(--color-surface);
+  color: var(--color-text);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--color-brand) 34%, #fff);
+  box-shadow: 0 14px 28px -22px rgb(15 23 42 / 55%);
 }
 
 button:disabled,

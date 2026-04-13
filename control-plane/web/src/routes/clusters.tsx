@@ -3,12 +3,14 @@ import { Panel } from "../components/ui/Panel";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { ClusterDetailPage } from "../features/clusters/detail/ClusterDetailPage";
 import { ClusterList } from "../features/clusters/list/ClusterList";
+import { ClusterWorkspaceHome } from "../features/clusters/workspace/ClusterWorkspaceHome";
 
 type ClustersRouteProps = {
   clusters: ClusterSummary[];
   selectedSlug?: string;
   onSignOut: () => Promise<void> | void;
   onSelectCluster: (slug: string) => void;
+  onOpenWorkspace: () => void;
   onCreateCluster: (input: ClusterMutationInput) => Promise<void> | void;
   onImportCluster: (input: ClusterMutationInput) => Promise<void> | void;
   detailCluster?: ClusterSummary;
@@ -29,6 +31,7 @@ export function ClustersRoute({
   selectedSlug,
   onSignOut,
   onSelectCluster,
+  onOpenWorkspace,
   onCreateCluster,
   onImportCluster,
   detailCluster,
@@ -52,8 +55,7 @@ export function ClustersRoute({
             jobs={jobs}
             selectedSlug={selectedSlug}
             onSelect={onSelectCluster}
-            onCreate={onCreateCluster}
-            onImport={onImportCluster}
+            onOpenWorkspace={onOpenWorkspace}
           />
         </Panel>
         <Panel tone="subtle">
@@ -83,9 +85,7 @@ export function ClustersRoute({
             />
           </Panel>
         ) : (
-          <Panel title="Select a cluster">
-            <p>Pick a cluster from the navigation to inspect details and run actions.</p>
-          </Panel>
+          <ClusterWorkspaceHome onCreate={onCreateCluster} onImport={onImportCluster} />
         )}
       </main>
     </section>

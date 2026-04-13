@@ -112,10 +112,12 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Clusters" })).toBeInTheDocument();
     const navigation = await screen.findByRole("navigation", { name: "Cluster navigation" });
     expect(within(navigation).queryByRole("heading", { name: "Create cluster" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Create cluster" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Create cluster" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open workspace" })).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Cluster A" })).toBeInTheDocument();
-    const clusterManagementSection = screen.getByRole("heading", { name: "Create cluster" }).closest("section");
+    await user.click(screen.getByRole("button", { name: "Open workspace" }));
+    const clusterManagementSection = await screen.findByRole("heading", { name: "Create cluster" }).then((heading) => heading.closest("section"));
     if (!clusterManagementSection) {
       throw new Error("expected cluster management section");
     }
@@ -328,6 +330,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
     await screen.findByRole("heading", { name: "Clusters" });
+    await user.click(screen.getByRole("button", { name: "Open workspace" }));
 
     await user.type(screen.getByLabelText("Slug"), "cluster-b");
     await user.type(screen.getByLabelText("New cluster display name"), "Cluster B");
@@ -473,6 +476,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
     await screen.findByRole("heading", { name: "Clusters" });
+    await user.click(screen.getByRole("button", { name: "Open workspace" }));
 
     await user.type(screen.getByLabelText("Slug"), "../bad");
     await user.type(screen.getByLabelText("New cluster display name"), "Bad Cluster");
